@@ -49,7 +49,7 @@
 <p>PowerAPI is completely written in <a href="http://www.scala-lang.org" title="Scala language">Scala</a> (v. 2.9.1+), using the <a href="http://akka.io" title="Akka library">Akka library</a> (v 2.0.1+). Configuration part is managed by the <a href="https://github.com/typesafehub/config" title="Typesafe Config">Typesafe Config</a> (integrated version from the <a href="http://akka.io" title="Akka library">Akka library</a>).
 PowerAPI project is fully managed by <a href="http://maven.apache.org" title="Maven">Maven</a> (v. 3).</p>
 
-<h3>How to acquire it</h3>
+<h3>How to install it</h3>
 
 <p>There are two ways to acquire PowerAPI: With or without Maven repositories. In other words, directly from Maven repositories (to get stable or snapshot versions), or from our Git repository (to get the source code).</p>
 
@@ -157,9 +157,13 @@ As information is given by operating system, there is one <code>Sensor</code> im
 <p>Set of <code>Formula</code>, responsible of the computation of the energy spent by a process on a particular hardware resource (e.g CPU, memory, disk, network), following information provided by its associated <code>Sensor</code>.
 A <code>Formula</code> may depend on the type of the monitored hardware resource. Thus, for the same hardware resource, several <code>Formula</code> implementations could exist.</p>
 
-<h3>Listeners</h3>
+<h3>Processors</h3>
 
-<p>Set of <code>Listener</code>, which listen <code>Formula</code> events sending by the common event bus. A <code>Listener</code> define the actions to do when receiving results from the energy computation (e.g displaying information or producing and submitting information to the common event bus).</p>
+<p>Set of <code>Processor</code>, which listen to <code>Formula</code> events sending by the common event bus in order to process them before their display by <code>Reporters</code>. Thus <code>Processor</code> can be, for example, an aggregating process unit, aggregating messages sent by <code>Formula</code> module to be more meaningful during the display by a given <code>Reporter</code>.</p>
+
+<h3>Reporters</h3>
+
+<p>Set of <code>Reporter</code>, which listen to <code>Processor</code> events in order to display them to the final user. Thus, a <code>Reporter</code> is <em>just</em> a graphical representation of the PowerAPI request to the final user, which can be displayed for example into a console, a file or a graph.</p>
 
 <h3>Library</h3>
 
@@ -183,21 +187,24 @@ Thus, we need to use the <em>procfs</em> CPU <code>Sensor</code> implementation 
 </pre></div>
 
 <ol>
-<li>Ask to PowerAPI to provide the CPU energy spent by the 123 process, every 500 milliseconds, using a <em>console Listener</em>:</li>
+<li>Ask to PowerAPI to provide the CPU energy spent by the 123 process, every 500 milliseconds, using a <em>console Reporter</em> and aggregating results by timestamp produced every 500 milliseconds:</li>
 </ol><div class="highlight"><pre><span class="nc">PowerAPI</span><span class="o">.</span><span class="n">startMonitoring</span><span class="o">(</span>
-    <span class="nc">Process</span><span class="o">(</span><span class="mi">123</span><span class="o">),</span>
-    <span class="mi">500</span> <span class="n">milliseconds</span><span class="o">,</span>
-    <span class="n">classOf</span><span class="o">[</span><span class="kt">fr.inria.powerapi.listener.cpu.console.CpuListener</span><span class="o">]</span>
+    <span class="n">process</span> <span class="k">=</span> <span class="nc">Process</span><span class="o">(</span><span class="mi">123</span><span class="o">),</span>
+    <span class="n">duration</span> <span class="k">=</span> <span class="mi">500</span> <span class="n">milliseconds</span><span class="o">,</span>
+    <span class="n">processor</span> <span class="k">=</span> <span class="n">classOf</span><span class="o">[</span><span class="kt">fr.inria.powerapi.processor.TimestampAggregator</span><span class="o">],</span>
+    <span class="n">listener</span> <span class="k">=</span> <span class="n">classOf</span><span class="o">[</span><span class="kt">fr.inria.powerapi.reporter.ConsoleReporter</span><span class="o">],</span>
 <span class="o">)</span>
 </pre></div>
 
+<p>Note that we use <code>listener</code> as parameter instead of <code>reporter</code> for legacy reasons.</p>
+
 <h3>Based on the first request, how can I display CPU energy information into a chart too?</h3>
 
-<p>Based on the previous code, we simply have to add a new <code>Listener</code> which will be able to display CPU energy information into a chart.
-PowerAPI integrates a <code>Listener</code> using the <a href="http://www.jfree.org/jfreechart" title="JFreeChart">JFreeChart</a> Java graph library. So let's add it to the PowerAPI system:</p>
+<p>Based on the previous code, we simply have to add a new <code>Reporter</code> which will be able to display CPU energy information into a chart.
+PowerAPI integrates a <code>Reporter</code> using the <a href="http://www.jfree.org/jfreechart" title="JFreeChart">JFreeChart</a> Java graph library. So let's add it to the PowerAPI system:</p>
 
 <div class="highlight"><pre><span class="nc">PowerAPI</span><span class="o">.</span><span class="n">startMonitoring</span><span class="o">(</span>
-    <span class="n">listener</span> <span class="k">=</span> <span class="n">classOf</span><span class="o">[</span><span class="kt">fr.inria.powerapi.listener.cpu.jfreechart.CpuListener</span><span class="o">]</span>
+    <span class="n">listener</span> <span class="k">=</span> <span class="n">classOf</span><span class="o">[</span><span class="kt">fr.inria.powerapi.reporter.JFreeChartReporter</span><span class="o">]</span>
 <span class="o">)</span>
 </pre></div>
 
