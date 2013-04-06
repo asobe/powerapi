@@ -1,6 +1,6 @@
 # PowerAPI
 
-PowerAPI is a Scala-based library for monitoring energy at the process-level. It is based on a modular and asynchronous event-driven architecture using the [Akka library](http://akka.io "Akka library").
+PowerAPI is a [Scala-based library](http://www.scala-lang.org "Scala programming language") for monitoring energy at the process-level. It is based on a modular and asynchronous event-driven architecture using the [Akka library](http://akka.io "Akka actor library").
 
 PowerAPI differs from existing energy process-level monitoring tool in its software orientation, with a fully customizable and modular solution that let the user to precisely define what he/she wants to monitor.
 
@@ -18,11 +18,11 @@ PowerAPI offers an API which can be used to define request about energy spent by
 PowerAPI is fully written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.9.1+), using the [Akka library](http://akka.io "Akka library") (v 2.0.1+). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
 PowerAPI project is fully managed by [Maven](http://maven.apache.org "Maven") (v. 3).
 
-### How to acquire it
+### How to install it
 
-There are two ways to acquire PowerAPI: with or without Maven repositories. In other words, directly from Maven repositories (to download stable or snapshot versions), or from our Git repository (to download the source code).
+There are two ways to install PowerAPI: with or without Maven repositories. In other words, directly from [Maven](http://maven.apache.org) repositories (to download stable or snapshot versions), or from our [Git](http://git-scm.com) repository (to download the source code).
 
-#### Maven repositories
+#### Maven repositories (binaries)
 
 **Stable versions** are available from the [Maven central repository](http://search.maven.org "Maven central repository"). Thus, you just have to put on your `pom.xml` file your desired modules.
 
@@ -40,7 +40,7 @@ There are two ways to acquire PowerAPI: with or without Maven repositories. In o
 
 After that, you just have to put on your `pom.xml` file your desired modules.
 
-#### Git repository
+#### Git repository (source)
 
 Without Maven repositories, you have to deal with our Git repository as explain bellow:
 
@@ -59,7 +59,7 @@ mvn install
 
 **By default, all modules are selected to be installed. Be careful to correctly selecting yours, depending on your environment and the use case you want to do** (see `pom.xml` file at the root directory for more details).
 
-### How to make it compatible with the Eclipse IDE
+### How to integrate it in the Eclipse IDE
 
 For Eclipse IDE users, make sure you have installed both:
 * the Eclipse [Scala IDE](http://scala-ide.org "Scala IDE") plugin, depending on your Eclipse version ;
@@ -78,9 +78,9 @@ mvn test
 
 ### How to configure it
 
-As said above, configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config"). Thus, be aware to properly configure each module from its `.conf` file(s).
+As said above, configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config"). Thus, Take care to properly configure each module from its `.conf` file(s).
 
-Let us take an example for the `fr.inria.powerapi.formula.formula-cpu-dvfs` module, which implements the PowerAPI CPU `Formula` using the [CMOS CPU power formula](http://en.wikipedia.org/wiki/CMOS "CPU power formula"), `P = c * f * V * V`, where `c` constant, `f` a frequency and `V` its associated voltage.
+Let us take an example for the `fr.inria.powerapi.formula.formula-cpu-dvfs` module, which implements the PowerAPI CPU `Formula` using the [CMOS CPU power formula](http://en.wikipedia.org/wiki/CMOS "CMOS CPU power formula"), `P = c * f * V * V`, where `c` constant, `f` a frequency and `V` its associated voltage.
 
 To compute this formula, `fr.inria.powerapi.formula.formula-cpu-dvfs` module has to know:
 * the CPU [Thermal Design Power](http://en.wikipedia.org/wiki/Thermal_design_power "Thermal Design Power") value;
@@ -175,7 +175,7 @@ Note that we use `listener` as parameter instead of `reporter` for legacy reason
 ### How can I display CPU energy consumption as a chart?
 
 Based on the previous code, we simply have to add a new `Reporter` which will be able to display CPU energy consumption as a chart.
-PowerAPI integrates a `Reporter` using the [JFreeChart](http://www.jfree.org/jfreechart "JFreeChart") Java graph library. So let's add it to the PowerAPI system:
+PowerAPI integrates a `Reporter` using the [JFreeChart](http://www.jfree.org/jfreechart "JFreeChart library") Java graph library. So let's add it to the PowerAPI system:
 
 ```scala
 PowerAPI.startMonitoring(
@@ -183,11 +183,9 @@ PowerAPI.startMonitoring(
 )
 ```
 
-That's all!
-
 <h2 id="future-works">Future works</h2>
 
-We are working on new _energy modules_ (`Sensor` + `Formula`) development. If you are interested in joining, feel free to contact us via our [GitHub](https://github.com/rouvoy/powerapi "GitHub") webpage or mail us at powerapi-user-list@googlegroups.com!
+We are working on new _energy modules_ (`Sensor` + `Formula`) development. If you are interested in joining, feel free to contact us via our [GitHub](https://github.com/rouvoy/powerapi "GitHub") webpage or email us at powerapi@inria.fr!
 
 <h2 id="license">License</h2>
 
