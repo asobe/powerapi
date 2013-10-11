@@ -18,8 +18,10 @@
 		<module>listener-aggregator</module>
 		<module>listener-cpu-console</module>
 		<module>listener-cpu-file</module>
+		<module>listener-cpu-file-nt</module>
 		<module>listener-cpu-jfreechart</module>
 		<module>listener-disk-file</module>
+		<module>listener-disk-file-nt</module>
 		<module>listener-disk-console</module>
 		<module>listener-cpudisk-console</module>
 		<module>listener-cpudisk-jfreechart</module>

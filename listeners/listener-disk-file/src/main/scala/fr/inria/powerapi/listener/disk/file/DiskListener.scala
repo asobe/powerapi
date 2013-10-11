@@ -29,7 +29,8 @@ import scalax.io.Resource
 /**
  * DiskListener's configuration.
  *
- * @author Adel Noureddine
+ * @author abourdon
+ * @contributor Adel Noureddine
  */
 trait Configuration extends fr.inria.powerapi.core.Configuration {
   /**
@@ -53,6 +54,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * contained into a configuration file.
  *
  * @author abourdon
+ * @contributor Adel Noureddine
  */
 class DiskListener extends Listener with Configuration {
   lazy val output = {
