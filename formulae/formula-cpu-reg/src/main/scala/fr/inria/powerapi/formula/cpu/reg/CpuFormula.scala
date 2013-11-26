@@ -25,9 +25,6 @@ import scala.collection.mutable
 
 import com.typesafe.config.Config
 
-import breeze.linalg._
-import breeze.numerics._
-
 import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.formula.cpu.api.CpuFormulaMessage
@@ -56,7 +53,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
 
   def compute(now: CpuSensorMessage) = {
-    val CPUpower = polyval(coeffs, now.activityPercent.percent)
+    val CPUpower = breeze.numerics.polyval(coeffs, now.activityPercent.percent)
 
     if (now.activityPercent.percent == 0)
       Energy.fromPower(0)

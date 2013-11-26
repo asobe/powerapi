@@ -54,7 +54,6 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor {
         // Then, we simply read these files thanks to a FileInputStream in getting those local path
         Resource.fromInputStream(new FileInputStream(new URL(globalStatPath).getPath)).lines().toIndexedSeq(0) match {
           case GlobalStatFormat(times) => {
-          println("times="+times)
             var cpuTimes = times.split(' ')
             var cpuTime = cpuTimes.foldLeft(0: Long) {
               (acc, x) => (acc + x.toLong)
