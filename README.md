@@ -47,7 +47,7 @@ Without Maven repositories, you have to deal with our Git repository as explain 
 To acquire PowerAPI, simply clone it via your Git client:
 
 ```bash
-git clone git://github.com/mcolmant/powerapi-akka.git
+git clone git://github.com/mcolmant/powerapi.git
 ```
 
 As PowerAPI is a [Maven](http://maven.apache.org "Maven") managed project, you have to launch the `install` command at the root directory (here, `powerapi_akka_directory`) in order to compile and install it to your local machine:
