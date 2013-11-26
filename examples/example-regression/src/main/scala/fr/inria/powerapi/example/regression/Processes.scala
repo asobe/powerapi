@@ -18,7 +18,7 @@
  *
  * Contact: powerapi-user-list@googlegroups.com.
  */
-package fr.inria.powerapi.example.sandbox
+package fr.inria.powerapi.example.regression
 
 import java.util.Timer
 import java.util.TimerTask

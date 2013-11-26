@@ -18,7 +18,7 @@
  *
  * Contact: powerapi-user-list@googlegroups.com.
  */
-package fr.inria.powerapi.example.sandbox
+package fr.inria.powerapi.example.regression
 
 import fr.inria.powerapi.library.PowerAPI
 

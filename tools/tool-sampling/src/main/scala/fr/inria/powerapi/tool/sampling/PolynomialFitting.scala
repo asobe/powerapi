@@ -76,8 +76,6 @@ class PolynomialFitting(var threshold: Double) {
 		curCPUActivity += (1.0/nbStep).toDouble
 		sumPower = 0.0
 		
-		println("powerIdle="+powerIdle)
-		
 		// compute the average energy consumption at each stress step
 		for (i <- nbMessage until data.size-1) {
 		  sumPower += data(i)
