@@ -20,8 +20,7 @@
  */
 package fr.inria.powerapi.tool.sampling
 
-import java.nio.file.Files
-import java.nio.file.Paths
+import java.io.File
 
 import scala.concurrent.duration.DurationInt
 import scalax.io.Resource
@@ -85,9 +84,9 @@ object Sampling {
     var curCPUActivity    = 0.0
     var step   = 1
     val nbStep = nbCore*(100/stressActivityStep).toInt
-    val filePath = Paths.get("powerapi-sampling");
+    val samplingFile = new File("powerapi-sampling")
     
-    while (Files.notExists(filePath)) {
+    while (!samplingFile.isFile()) {
       Thread.sleep((1.second).toMillis)
     }
     
