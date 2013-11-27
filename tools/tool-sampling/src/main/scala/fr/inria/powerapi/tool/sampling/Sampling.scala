@@ -48,7 +48,7 @@ class FileReporter extends Reporter {
   }
 
   def process(processedMessage: ProcessedMessage) {
-    Resource.fromFile("powerapi-sampling").append(Line(processedMessage).toString)
+    Resource.fromFile("powerapi-sampling.dat").append(Line(processedMessage).toString)
   }
 }
 
@@ -60,17 +60,25 @@ class FileReporter extends Reporter {
 object Sampling {
   //Data sampling configuration part
   lazy val conf = ConfigFactory.load
-  
   lazy val nbCore = conf.getInt("powerapi.cpu.core")
-  
   //Number of message returned by PowerSpy required for the computation of the power average
   lazy val nbMessage = conf.getInt("powerapi.tool.sampling.message.count")
-  
   //The increase of the stress activity at each step
   lazy val stressActivityStep = conf.getInt("powerapi.tool.sampling.stress.activity-step")
 
   def start() {
-    Runtime.getRuntime.exec(Array("rm", "powerapi-sampling"))
+    // File created and handled by the application
+    val samplingFile = new File("powerapi-sampling.dat")
+    var stressPID = ""
+    var curStressActivity = 100.0
+    var curCPUActivity    = 0.0
+    var step   = 1
+    val nbStep = nbCore*(100/stressActivityStep).toInt
+
+    if(samplingFile.isFile()) {
+      samplingFile.delete()
+    }
+
     val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
     PowerAPI.startMonitoring(
       process = Process(currentPid),
@@ -78,13 +86,6 @@ object Sampling {
       processor = classOf[TimestampAggregator],
       listener = classOf[FileReporter]
     )
-    
-    var stressPID = ""
-    var curStressActivity = 100.0
-    var curCPUActivity    = 0.0
-    var step   = 1
-    val nbStep = nbCore*(100/stressActivityStep).toInt
-    val samplingFile = new File("powerapi-sampling")
     
     while (!samplingFile.isFile()) {
       Thread.sleep((1.second).toMillis)

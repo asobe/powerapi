@@ -45,115 +45,116 @@ class PolynomialFitting(var threshold: Double) {
   //The increase of the stress activity at each step
   lazy val stressActivityStep = conf.getInt("powerapi.tool.sampling.stress.activity-step")
 
-	// threshold must be between -1 and 1, but we use the abs value
-	if(threshold < 0) {
-		// default value
-		threshold = abs(threshold)
-	}
+  // threshold must be between -1 and 1, but we use the abs value
+  if(threshold < 0) {
+      // default value
+      threshold = abs(threshold)
+  }
 
-	if(threshold > 1) {
-		threshold = 1
-	}
+  if(threshold > 1) {
+      threshold = 1
+  }
 
 
-	/**
-	 * Read data sampling file performed by PowerSpy monitoring
-	 */
-	def readMatrixFromFile(filepath: String): DenseMatrix[Double] = {
-		val data = scala.io.Source.fromFile(filepath).getLines.toArray.map(_.toDouble)
-		val nbStep = nbCore*(100/stressActivityStep).toInt
-		val res = new Array[Double](nbStep*2)
-		var j = 0
-		var curCPUActivity = 0.0
-		var sumPower = 0.0
-		
-		
-		// compute the energy consumption when the CPU is idle
-		for (i <- 0 to nbMessage) {
-		  sumPower += data(i)
-		}
-		val powerIdle = sumPower/nbMessage
-		curCPUActivity += (1.0/nbStep).toDouble
-		sumPower = 0.0
-		
-		// compute the average energy consumption at each stress step
-		for (i <- nbMessage until data.size-1) {
-		  sumPower += data(i)
-		  if ((i+1)%nbMessage == 0) {
-		    res(j) = curCPUActivity
-		    curCPUActivity += (1.0/nbStep).toDouble
-		    res(j+1) = (sumPower/nbMessage)-powerIdle
-		    if (res(j+1) < 0.0) res(j+1) = 0.0
-		    sumPower = 0.0
-		    j += 2
-		  }
-		}
-		
-		// 2 is the number of lines, fixed because of x/y (two dimensions)
-		// We use matrix transpose to get a (nbLines x 2) matrix for computations
-		new DenseMatrix(2, res).t
-	}
+  /**
+   * Read data sampling file performed by PowerSpy monitoring
+   */
+  def readMatrixFromFile(filepath: String): DenseMatrix[Double] = {
+    val data = scala.io.Source.fromFile(filepath).getLines.toArray.map(_.toDouble)
+    val nbStep = nbCore*(100/stressActivityStep).toInt
+    val res = new Array[Double](nbStep*2)
+    var j = 0
+    var curCPUActivity = 0.0
+    var sumPower = 0.0
+    
+    
+    // compute the energy consumption when the CPU is idle
+    for (i <- 0 to nbMessage) {
+      sumPower += data(i)
+    }
 
-	/**
-	 * Least Squares method (see http://kobus.ca/seminars/ugrad/NM5_curve_s02.pdf)
-	 */
-	def leastSquares(matrix: DenseMatrix[Double]): Array[Double] = {
-		var degree: Int = 0
-		var corrCoeff: Double = 0
-		var coeffs = Array.empty[Double]
+    val powerIdle = sumPower/nbMessage
+    curCPUActivity += (1.0/nbStep).toDouble
+    sumPower = 0.0
+    
+    // compute the average energy consumption at each stress step
+    for (i <- nbMessage until data.size-1) {
+      sumPower += data(i)
+      if ((i+1)%nbMessage == 0) {
+        res(j) = curCPUActivity
+        curCPUActivity += (1.0/nbStep).toDouble
+        res(j+1) = (sumPower/nbMessage)-powerIdle
+        if (res(j+1) < 0.0) res(j+1) = 0.0
+        sumPower = 0.0
+        j += 2
+      }
+    }
+    
+    // 2 is the number of lines, fixed because of x/y (two dimensions)
+    // We use matrix transpose to get a (nbLines x 2) matrix for computations
+    new DenseMatrix(2, res).t
+  }
 
-		do {
-			degree += 1
-			var xis = matrix(::, 0)
-			var yis = matrix(::, 1)
+    /**
+     * Least Squares method (see http://kobus.ca/seminars/ugrad/NM5_curve_s02.pdf)
+     */
+    def leastSquares(matrix: DenseMatrix[Double]): Array[Double] = {
+      var degree: Int = 0
+      var corrCoeff: Double = 0
+      var coeffs = Array.empty[Double]
 
-			// Compute the xi^j sum (1 to degree + degree)
-	    	//It allows to not compute the same xi^j many times in the matrix construction
-	    	var sumXis = scala.collection.mutable.Map.empty[Int, Double]
-	    	for(j <- 1 to (degree + degree)) {
-	    		if(!sumXis.contains(j)) {
-	    			sumXis(j) = xis.map(xi => math.pow(xi, j)).sum
-	    		}
-	    	}
+      do {
+        degree += 1
+        var xis = matrix(::, 0)
+        var yis = matrix(::, 1)
 
-	    	// First item, n represents the number of examples
-	    	// It represents the line which contains all values
-		    var maxLine = scala.collection.mutable.ListBuffer[Double](xis.size)
-	    	for(j <- 0 to (degree + degree - 1)) {
-		        maxLine += sumXis(j + 1)
-		    }
+        // Compute the xi^j sum (1 to degree + degree)
+        //It allows to not compute the same xi^j many times in the matrix construction
+        var sumXis = scala.collection.mutable.Map.empty[Int, Double]
+        for(j <- 1 to (degree + degree)) {
+            if(!sumXis.contains(j)) {
+                sumXis(j) = xis.map(xi => math.pow(xi, j)).sum
+            }
+        }
 
-		    // Just take the right values into max_line list (interval playing)
-		    var A = new scala.collection.mutable.ListBuffer[Double]
-		    for(j <- 0 to degree) {
-		    	A ++= maxLine.slice(j, degree + j + 1)
-		    }
+        // First item, n represents the number of examples
+        // It represents the line which contains all values
+        var maxLine = scala.collection.mutable.ListBuffer[Double](xis.size)
+        for(j <- 0 to (degree + degree - 1)) {
+            maxLine += sumXis(j + 1)
+        }
 
-		    // B list definition
-		    var B = scala.collection.mutable.ListBuffer[Double](yis.sum)
-		    for(j <- 1 to degree) {
-		       B += (xis.map(xi => math.pow(xi, j)) :* yis).sum
-			}
+        // Just take the right values into max_line list (interval playing)
+        var A = new scala.collection.mutable.ListBuffer[Double]
+        for(j <- 0 to degree) {
+            A ++= maxLine.slice(j, degree + j + 1)
+        }
 
-			// Matrix definition, to do matrix computations with linealg
-		    var matA = new DenseMatrix(degree + 1, A.toArray)
-		    var matB = new DenseVector(B.toArray)
-		    // \ is a shortcut for A^-1 * B
-		    coeffs = (matA \ matB).toArray
-	    	var fxi = new DenseVector((for(x <- xis.toArray) yield polyval(coeffs, x)))
-	    	
-	    	// Correlation coefficient (see http://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient)
-	    	var yiMean = mean(yis)
-	    	var yiStdDev = stddev(yis)
-	    	var fxiMean = mean(fxi)
-	    	var fxiStdDev = stddev(fxi)
+        // B list definition
+        var B = scala.collection.mutable.ListBuffer[Double](yis.sum)
+        for(j <- 1 to degree) {
+           B += (xis.map(xi => math.pow(xi, j)) :* yis).sum
+        }
 
-	    	corrCoeff = math.abs(((yis :- yiMean) dot (fxi :- fxiMean)) / ((yis.size - 1) * yiStdDev * fxiStdDev))
+        // Matrix definition, to do matrix computations with linealg
+        var matA = new DenseMatrix(degree + 1, A.toArray)
+        var matB = new DenseVector(B.toArray)
+        // \ is a shortcut for A^-1 * B
+        coeffs = (matA \ matB).toArray
+        var fxi = new DenseVector((for(x <- xis.toArray) yield polyval(coeffs, x)))
+        
+        // Correlation coefficient (see http://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient)
+        var yiMean = mean(yis)
+        var yiStdDev = stddev(yis)
+        var fxiMean = mean(fxi)
+        var fxiStdDev = stddev(fxi)
 
-	    } while(corrCoeff < threshold)
+        corrCoeff = math.abs(((yis :- yiMean) dot (fxi :- fxiMean)) / ((yis.size - 1) * yiStdDev * fxiStdDev))
 
-		coeffs
-	}
+        } while(corrCoeff < threshold)
+
+        coeffs
+    }
 }
 
 object PolynomialFitting {
@@ -162,19 +163,19 @@ object PolynomialFitting {
     Resource.fromFile("formula-cpu.conf")
   }
 
-	def compute() {
-		val polyObj = new PolynomialFitting(0.996)
-		val matrix = polyObj.readMatrixFromFile("powerapi-sampling")
-		val coeffs = polyObj.leastSquares(matrix)
-		
-		output.append("powerapi {" + scalax.io.Line.Terminators.NewLine.sep)
-		output.append("  formula {" + scalax.io.Line.Terminators.NewLine.sep)
-		output.append("    coeffs = [" + scalax.io.Line.Terminators.NewLine.sep)
-		for(coeff <- coeffs) {
-			output.append("      { value = "+coeff+" }" + scalax.io.Line.Terminators.NewLine.sep)
-		}
-		output.append("    ]" + scalax.io.Line.Terminators.NewLine.sep)
-		output.append("  }" + scalax.io.Line.Terminators.NewLine.sep)
-		output.append("}" + scalax.io.Line.Terminators.NewLine.sep)
-	}
+  def compute() {
+    val polyObj = new PolynomialFitting(0.996)
+    val matrix = polyObj.readMatrixFromFile("powerapi-sampling.dat")
+    val coeffs = polyObj.leastSquares(matrix)
+    
+    output.write("powerapi {" + scalax.io.Line.Terminators.NewLine.sep)
+    output.append("  formula {" + scalax.io.Line.Terminators.NewLine.sep)
+    output.append("    coeffs = [" + scalax.io.Line.Terminators.NewLine.sep)
+    for(coeff <- coeffs) {
+        output.append("      { value = "+coeff+" }" + scalax.io.Line.Terminators.NewLine.sep)
+    }
+    output.append("    ]" + scalax.io.Line.Terminators.NewLine.sep)
+    output.append("  }" + scalax.io.Line.Terminators.NewLine.sep)
+    output.append("}" + scalax.io.Line.Terminators.NewLine.sep)
+  }
 }
