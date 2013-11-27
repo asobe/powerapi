@@ -78,7 +78,7 @@ class PolynomialFitting(var threshold: Double) {
       curCPUActivity += (1.0 / nbStep).toDouble
     }
     
-    new DenseMatrix(nbLines, res).t
+    new DenseMatrix(nbLines, res)
   }
 
     /**
