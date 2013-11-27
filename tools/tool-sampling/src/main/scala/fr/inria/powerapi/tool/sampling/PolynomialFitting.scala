@@ -64,7 +64,7 @@ class PolynomialFitting(var threshold: Double) {
     // +1 because of the 0.0 usage percentage
     val nbLines = nbStep + 1
     // To be sure to have the number of messages required
-    val data = scala.io.Source.fromFile(filepath).getLines.toArray.map(_.toDouble).slice(0, nbLines * 20)
+    val data = scala.io.Source.fromFile(filepath).getLines.toArray.map(_.toDouble).slice(0, nbLines * nbMessage)
     val res = new Array[Double](nbLines * 2)
     var j = 0
     var curCPUActivity = 0.0
@@ -74,7 +74,7 @@ class PolynomialFitting(var threshold: Double) {
     for(i <- 0 to nbStep) {
       var tmpData = data.slice(i * nbMessage, (i * nbMessage) + nbMessage)
       res(i) = curCPUActivity
-      res(i + nbStep) = tmpData.sum / tmpData.length
+      res(i + nbLines) = tmpData.sum / tmpData.length
       curCPUActivity += (1.0 / nbStep).toDouble
     }
     
