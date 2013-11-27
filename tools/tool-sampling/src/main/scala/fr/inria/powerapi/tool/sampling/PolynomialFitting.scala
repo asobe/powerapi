@@ -160,7 +160,13 @@ class PolynomialFitting(var threshold: Double) {
 object PolynomialFitting {
 
   lazy val output = {
-    Resource.fromFile("formula-cpu.conf")
+    val formulaFile = new java.io.File("formula-cpu.conf")
+
+    if(formulaFile.exists()) {
+      formulaFile.delete()
+    }
+
+    Resource.fromFile(formulaFile)
   }
 
   def compute() {
@@ -168,7 +174,7 @@ object PolynomialFitting {
     val matrix = polyObj.readMatrixFromFile("powerapi-sampling.dat")
     val coeffs = polyObj.leastSquares(matrix)
     
-    output.write("powerapi {" + scalax.io.Line.Terminators.NewLine.sep)
+    output.append("powerapi {" + scalax.io.Line.Terminators.NewLine.sep)
     output.append("  formula {" + scalax.io.Line.Terminators.NewLine.sep)
     output.append("    coeffs = [" + scalax.io.Line.Terminators.NewLine.sep)
     for(coeff <- coeffs) {
