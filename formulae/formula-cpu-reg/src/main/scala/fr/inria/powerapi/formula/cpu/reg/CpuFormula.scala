@@ -52,12 +52,9 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * the received CpuSensorMessage.
  */
 class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
-  // We consider that the cpu consume 10 percent of the idle power
-  val cpuFactor = 0.90
 
   def compute(now: CpuSensorMessage) = {
-    // We consider that the cpu consume 10 percent of the idle power
-    lazy val idlePower = coeffs(0) * cpuFactor
+    lazy val idlePower = coeffs(0)
     val CPUpower = polyval(coeffs, now.activityPercent.percent) - idlePower
 
     if (now.activityPercent.percent == 0) {

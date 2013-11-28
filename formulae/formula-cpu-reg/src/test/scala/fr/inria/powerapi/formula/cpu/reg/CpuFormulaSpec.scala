@@ -55,7 +55,7 @@ class CpuFormulaSpec extends FlatSpec with ShouldMatchersForJUnit {
 
   "A CpuFormula" should "be able to compute the CPU energy of a given process" in {
     val cpuFormula = TestActorRef(new CpuFormula())
-    val idlePower = 57.81840293168312 * 0.90
+    val idlePower = 57.81840293168312
     val CPUpower = (57.81840293168312
                     + (67.73392996071307 * 0.5)
                     - (21.682349356121154 * math.pow(0.5, 2))) - idlePower
