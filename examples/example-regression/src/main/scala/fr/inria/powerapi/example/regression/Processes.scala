@@ -28,13 +28,13 @@ import scalax.io.Resource
 
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.library.PowerAPI
-import fr.inria.powerapi.processor.aggregator.device.DeviceAggregator
+import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 import fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter
 
 /**
  * Set of different use cases of energy monitoring.
  *
- * @author abourdon
+ * @author lhuertas
  */
 object Processes {
 
@@ -43,14 +43,14 @@ object Processes {
     PowerAPI.startMonitoring(
       process = Process(currentPid),
       duration = 1.second,
-      processor = classOf[DeviceAggregator],
+      processor = classOf[TimestampAggregator],
       listener = classOf[JFreeChartReporter]
     )
     Thread.sleep((1.minute).toMillis)
     PowerAPI.stopMonitoring(
       process = Process(currentPid),
       duration = 1.second,
-      processor = classOf[DeviceAggregator],
+      processor = classOf[TimestampAggregator],
       listener = classOf[JFreeChartReporter]
     )
   }
@@ -83,7 +83,7 @@ object Processes {
     }
 
     PowerAPI.startMonitoring(
-      processor = classOf[DeviceAggregator],
+      processor = classOf[TimestampAggregator],
       listener  = classOf[JFreeChartReporter]
     )
     val timer = new Timer
@@ -98,7 +98,7 @@ object Processes {
 
     timer.cancel
     PowerAPI.stopMonitoring(
-      processor = classOf[DeviceAggregator],
+      processor = classOf[TimestampAggregator],
       listener  = classOf[JFreeChartReporter]
     )
   }

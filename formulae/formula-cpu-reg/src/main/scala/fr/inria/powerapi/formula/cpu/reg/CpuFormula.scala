@@ -49,6 +49,8 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * Implements a CpuFormula in making the ratio between CPU power (obtained by
  * the polynomial curve fitting) and the process CPU usage obtained from
  * the received CpuSensorMessage.
+ *
+ * @author lhuertas
  */
 class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
 

@@ -157,6 +157,7 @@
 					</execution>
 				</executions>
 				<configuration>
+				  <checkMultipleScalaVersions>false</checkMultipleScalaVersions>
 					<scalaVersion>${scala.library}</scalaVersion>
 					<args>
 						<arg>-deprecation</arg>
