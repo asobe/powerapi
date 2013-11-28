@@ -25,8 +25,8 @@ import com.typesafe.config.ConfigFactory
 
 import scalax.io.Resource
 
-import breeze.linalg._
-import breeze.numerics._
+import breeze.linalg.{DenseMatrix, DenseVector, mean, stddev}
+import breeze.numerics.polyval
 
 
 /**
@@ -48,7 +48,7 @@ class PolynomialFitting(var threshold: Double) {
   // threshold must be between -1 and 1, but we use the abs value
   if(threshold < 0) {
       // default value
-      threshold = abs(threshold)
+      threshold = math.abs(threshold)
   }
 
   if(threshold > 1) {
@@ -60,39 +60,25 @@ class PolynomialFitting(var threshold: Double) {
    * Read data sampling file performed by PowerSpy monitoring
    */
   def readMatrixFromFile(filepath: String): DenseMatrix[Double] = {
-    val data = scala.io.Source.fromFile(filepath).getLines.toArray.map(_.toDouble)
-    val nbStep = nbCore*(100/stressActivityStep).toInt
-    val res = new Array[Double](nbStep*2)
+    val nbStep = nbCore * (100 / stressActivityStep).toInt
+    // +1 because of the 0.0 usage percentage
+    val nbLines = nbStep + 1
+    // To be sure to have the number of messages required
+    val data = scala.io.Source.fromFile(filepath).getLines.toArray.map(_.toDouble).slice(0, nbLines * nbMessage)
+    val res = new Array[Double](nbLines * 2)
     var j = 0
     var curCPUActivity = 0.0
     var sumPower = 0.0
     
-    
-    // compute the energy consumption when the CPU is idle
-    for (i <- 0 to nbMessage) {
-      sumPower += data(i)
-    }
-
-    val powerIdle = sumPower/nbMessage
-    curCPUActivity += (1.0/nbStep).toDouble
-    sumPower = 0.0
-    
     // compute the average energy consumption at each stress step
-    for (i <- nbMessage until data.size-1) {
-      sumPower += data(i)
-      if ((i+1)%nbMessage == 0) {
-        res(j) = curCPUActivity
-        curCPUActivity += (1.0/nbStep).toDouble
-        res(j+1) = (sumPower/nbMessage)-powerIdle
-        if (res(j+1) < 0.0) res(j+1) = 0.0
-        sumPower = 0.0
-        j += 2
-      }
+    for(i <- 0 to nbStep) {
+      var tmpData = data.slice(i * nbMessage, (i * nbMessage) + nbMessage)
+      res(i) = curCPUActivity
+      res(i + nbLines) = tmpData.sum / tmpData.length
+      curCPUActivity += (1.0 / nbStep).toDouble
     }
     
-    // 2 is the number of lines, fixed because of x/y (two dimensions)
-    // We use matrix transpose to get a (nbLines x 2) matrix for computations
-    new DenseMatrix(2, res).t
+    new DenseMatrix(nbLines, res)
   }
 
     /**
@@ -170,7 +156,7 @@ object PolynomialFitting {
   }
 
   def compute() {
-    val polyObj = new PolynomialFitting(0.996)
+    val polyObj = new PolynomialFitting(0.997)
     val matrix = polyObj.readMatrixFromFile("powerapi-sampling.dat")
     val coeffs = polyObj.leastSquares(matrix)
     

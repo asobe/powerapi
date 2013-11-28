@@ -22,6 +22,7 @@ package fr.inria.powerapi.formula.cpu.reg
 
 import scala.collection.JavaConversions
 import scala.collection.mutable
+import breeze.numerics.polyval
 
 import com.typesafe.config.Config
 
@@ -55,12 +56,14 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
 
   def compute(now: CpuSensorMessage) = {
-    val CPUpower = breeze.numerics.polyval(coeffs, now.activityPercent.percent)
+    lazy val idlePower = coeffs(0)
+    val CPUpower = polyval(coeffs, now.activityPercent.percent) - idlePower
 
-    if (now.activityPercent.percent == 0)
+    if (now.activityPercent.percent == 0) {
       Energy.fromPower(0)
-    else
-      Energy.fromPower(((now.processPercent.percent * CPUpower).doubleValue()) / now.activityPercent.percent)
+    }
+    
+    else Energy.fromPower(((now.processPercent.percent * CPUpower).doubleValue()) / now.activityPercent.percent)
   }
 
   def process(cpuSensorMessage: CpuSensorMessage) {
