@@ -156,7 +156,7 @@ object PolynomialFitting {
   }
 
   def compute() {
-    val polyObj = new PolynomialFitting(0.997)
+    val polyObj = new PolynomialFitting(0.996)
     val matrix = polyObj.readMatrixFromFile("powerapi-sampling.dat")
     val coeffs = polyObj.leastSquares(matrix)
     
