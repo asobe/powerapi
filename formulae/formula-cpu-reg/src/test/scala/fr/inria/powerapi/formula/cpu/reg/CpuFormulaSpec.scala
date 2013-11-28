@@ -50,15 +50,15 @@ class CpuFormulaSpec extends FlatSpec with ShouldMatchersForJUnit {
   "A CpuFormula" should "be configured with a given coeffs" in {
     val cpuFormula = TestActorRef(new CpuFormula())
 
-    cpuFormula.underlyingActor.coeffs should equal(Array(-6.7, 133.2, -147.1, 55.2))
+    cpuFormula.underlyingActor.coeffs should equal(Array(57.81840293168312, 67.73392996071307, -21.682349356121154))
   }
 
   "A CpuFormula" should "be able to compute the CPU energy of a given process" in {
     val cpuFormula = TestActorRef(new CpuFormula())
-    val CPUpower = (-6.7
-                    + (133.2 * 0.5)
-                    - (147.1 * math.pow(0.5, 2))
-                    + (55.2 * math.pow(0.5, 3)))
+    val idlePower = 57.81840293168312 * 0.90
+    val CPUpower = (57.81840293168312
+                    + (67.73392996071307 * 0.5)
+                    - (21.682349356121154 * math.pow(0.5, 2))) - idlePower
 
     cpuFormula.underlyingActor.compute(
       CpuSensorMessage(
