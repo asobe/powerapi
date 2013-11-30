@@ -20,10 +20,10 @@
  */
 package fr.inria.powerapi.tool.sampling
 
-import java.io.File
-
 import scala.concurrent.duration.DurationInt
 import scalax.io.Resource
+import scalax.file.Path
+import java.io.File
 
 import com.typesafe.config.ConfigFactory
 
@@ -48,7 +48,7 @@ class FileReporter extends Reporter {
   }
 
   def process(processedMessage: ProcessedMessage) {
-    Resource.fromFile("powerapi-sampling.dat").append(Line(processedMessage).toString)
+    Resource.fromFile("powerapi_sampling.dat").append(Line(processedMessage).toString)
   }
 }
 
@@ -68,16 +68,14 @@ object Sampling {
 
   def start() {
     // File created and handled by the application
-    val samplingFile = new File("powerapi-sampling.dat")
+    val samplingFile = new File("powerapi_sampling.dat")
     var stressPID = ""
     var curStressActivity = 100.0
     var curCPUActivity    = 0.0
     var step   = 1
     val nbStep = nbCore*(100/stressActivityStep).toInt
 
-    if(samplingFile.isFile()) {
-      samplingFile.delete()
-    }
+    Path.fromString("powerapi_sampling.dat").deleteIfExists()
 
     val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
     PowerAPI.startMonitoring(

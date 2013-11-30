@@ -24,6 +24,7 @@ package fr.inria.powerapi.tool.sampling
 import com.typesafe.config.ConfigFactory
 
 import scalax.io.Resource
+import scalax.file.Path
 
 import breeze.linalg.{DenseMatrix, DenseVector, mean, stddev}
 import breeze.numerics.polyval
@@ -72,7 +73,7 @@ class PolynomialFitting(var threshold: Double) {
     
     // compute the average energy consumption at each stress step
     for(i <- 0 to nbStep) {
-      var tmpData = data.slice(i * nbMessage, (i * nbMessage) + nbMessage)
+      var tmpData = data.slice(i * nbMessage, (i + 1) * nbMessage)
       res(i) = curCPUActivity
       res(i + nbLines) = tmpData.sum / tmpData.length
       curCPUActivity += (1.0 / nbStep).toDouble
@@ -146,18 +147,13 @@ class PolynomialFitting(var threshold: Double) {
 object PolynomialFitting {
 
   lazy val output = {
-    val formulaFile = new java.io.File("formula-cpu.conf")
-
-    if(formulaFile.exists()) {
-      formulaFile.delete()
-    }
-
-    Resource.fromFile(formulaFile)
+    Path.fromString("formula_cpu.conf").deleteIfExists()
+    Resource.fromFile("formula_cpu.conf")
   }
 
   def compute() {
     val polyObj = new PolynomialFitting(0.996)
-    val matrix = polyObj.readMatrixFromFile("powerapi-sampling.dat")
+    val matrix = polyObj.readMatrixFromFile("powerapi_sampling.dat")
     val coeffs = polyObj.leastSquares(matrix)
     
     output.append("powerapi {" + scalax.io.Line.Terminators.NewLine.sep)
