@@ -60,7 +60,8 @@ class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Confi
     val CPUpower = polyval(coeffs, now.activityPercent.percent) - idlePower
 
     // CPUPower can be negative because of the estimation, but not correct
-    if (CPUpower < 0) {
+    // Also, the division by 0 it's not allowed
+    if (CPUpower < 0 || now.activityPercent.percent == 0) {
       Energy.fromPower(0)
     }
     
