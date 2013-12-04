@@ -19,6 +19,7 @@
 		<module>example-cpumonitor-windows</module>
 		<module>example-monitor-linux</module>
 		<module>example-monitor-windows</module>
+		<module>example-regression</module>
 		<module>example-sandbox</module>
 		<module>adam-demo</module>
 	</modules>
