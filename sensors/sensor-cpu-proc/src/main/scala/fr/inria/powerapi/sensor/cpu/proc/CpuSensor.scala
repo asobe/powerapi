@@ -113,13 +113,23 @@ def process(subscription: TickSubscription) = {
   lazy val activityPercent = new ActivityPercent
 class ProcessPercent {
     lazy val GlobalStatFormat = """cpu\s+([\d\s]+)""".r
+
     def globalElapsedTime: Long = {
       try {
         // FIXME: Due to Java JDK bug #7132461, there is no way to apply buffer to procfs files and thus, directly open stream from the given URL.
         // Then, we simply read these files thanks to a FileInputStream in getting those local path
         Resource.fromInputStream(new FileInputStream(new URL(globalStatPath).getPath)).lines().toIndexedSeq(0) match {
-          case GlobalStatFormat(times) => times.split(' ').foldLeft(0: Long) {
-            (acc, x) => (acc + x.toLong)
+          case GlobalStatFormat(times) => {
+            var globalTime = 0l
+            val splittedTimes = times.split(' ')
+
+            // We consider all the fields, except guest and guest_nice columns because there are already add into utime
+            // see http://lxr.free-electrons.com/source/kernel/sched/cputime.c#L354 (around line 165)
+            for(i <- 0 until 8) {
+              globalTime += splittedTimes(i).toLong
+            }
+
+            globalTime
           }
           case _ => {
             if (log.isWarningEnabled) log.warning("unable to parse line from file \"" + globalStatPath)

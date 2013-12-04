@@ -41,7 +41,10 @@ class JFreeChartReporter extends Reporter {
   }
 
   def process(processedMessage: ProcessedMessage) {
-    Chart.process(Map(processedMessage.device -> processedMessage.energy.power), processedMessage.tick.timestamp)
+    if (processedMessage.tick.subscription.process.pid == -1)
+      Chart.process(Map(processedMessage.device -> processedMessage.energy.power), processedMessage.tick.timestamp)
+    else
+      Chart.process(Map(processedMessage.tick.subscription.process.toString -> processedMessage.energy.power), processedMessage.tick.timestamp)
   }
 
 }
