@@ -54,11 +54,17 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor {
         // Then, we simply read these files thanks to a FileInputStream in getting those local path
         Resource.fromInputStream(new FileInputStream(new URL(globalStatPath).getPath)).lines().toIndexedSeq(0) match {
           case GlobalStatFormat(times) => {
-            var cpuTimes = times.split(' ')
-            var cpuTime = cpuTimes.foldLeft(0: Long) {
-              (acc, x) => (acc + x.toLong)
+            var activityTime = 0l
+            val splittedTimes = times.split(' ')
+
+            // We consider all the fields, except guest and guest_nice columns because there are already add into utime
+            // see http://lxr.free-electrons.com/source/kernel/sched/cputime.c#L354 (around line 165)
+            // For the activity elapsed time, we remove the idle part
+            for(i <- 0 until 8 if i != 3) {
+              activityTime += splittedTimes(i).toLong
             }
-            cpuTime - cpuTimes(3).toLong
+
+            activityTime
           }
           case _ => {
             if (log.isWarningEnabled) log.warning("unable to parse line from file \"" + globalStatPath)
