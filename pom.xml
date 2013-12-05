@@ -62,7 +62,7 @@
 		<module>processors</module>
 		<module>listeners</module>
 		<module>reporters</module>
-		<module>examples</module>
+		<!--<module>examples</module>-->
 		<module>tools</module>
 	</modules>
 
@@ -157,7 +157,7 @@
 					</execution>
 				</executions>
 				<configuration>
-				 	<checkMultipleScalaVersions>false</checkMultipleScalaVersions>
+				  	<checkMultipleScalaVersions>false</checkMultipleScalaVersions>
 					<scalaVersion>${scala.library}</scalaVersion>
 					<args>
 						<arg>-deprecation</arg>
