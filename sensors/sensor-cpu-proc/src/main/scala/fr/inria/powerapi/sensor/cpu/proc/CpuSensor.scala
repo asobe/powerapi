@@ -30,6 +30,7 @@ import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.sensor.cpu.api.CpuSensorMessage
 import fr.inria.powerapi.sensor.cpu.api.ProcessPercent
+import fr.inria.powerapi.sensor.cpu.api.ActivityPercent
 import scalax.io.Resource
 
 /**
@@ -61,12 +62,57 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * @author mcolmant
  */
 class CpuSensor extends fr.inria.powerapi.sensor.cpu.api.CpuSensor with Configuration {
+class ActivityPercent {
+    lazy val GlobalStatFormat = """cpu\s+([\d\s]+)""".r
+    def activityElapsedTime: Long = {
+      try {
+        // FIXME: Due to Java JDK bug #7132461, there is no way to apply buffer to procfs files and thus, directly open stream from the given URL.
+        // Then, we simply read these files thanks to a FileInputStream in getting those local path
+        Resource.fromInputStream(new FileInputStream(new URL(globalStatPath).getPath)).lines().toIndexedSeq(0) match {
+          case GlobalStatFormat(times) => {
+          println("times="+times)
+            var cpuTimes = times.split(' ')
+            var cpuTime = cpuTimes.foldLeft(0: Long) {
+              (acc, x) => (acc + x.toLong)
+            }
+            cpuTime - cpuTimes(3).toLong
+          }
+          case _ => {
+            if (log.isWarningEnabled) log.warning("unable to parse line from file \"" + globalStatPath)
+            0l
+          }
+        }
+      } catch {
+        case ioe: IOException =>
+          if (log.isWarningEnabled) log.warning("i/o exception: " + ioe.getMessage)
+          0l
+      }
+    }
 
-  /**
-   * Delegate class collecting time information contained into both globalStatPath and processStatPath files
-   * and providing the process CPU percent usage.
-   */
-  class ProcessPercent {
+    // [TickSubscription, (globalElapsedTime, activityElapsedTime)]
+    lazy val cache = collection.mutable.Map[TickSubscription, (Long, Long)]()
+    def refrechCache(subscription: TickSubscription, now: (Long, Long)) {
+      cache += (subscription -> now)
+    }
+
+def process(subscription: TickSubscription) = {
+      val now = (processPercent.globalElapsedTime, activityElapsedTime)
+      val old = cache.getOrElse(subscription, now)
+      refrechCache(subscription, now)
+
+      val globalDiff = now._1 - old._1
+      val activityDiff = now._2 - old._2
+      if (globalDiff == 0 || activityDiff == 0) {
+        ActivityPercent(0)
+      } else {
+         ActivityPercent(activityDiff.doubleValue() / globalDiff)
+      }
+
+    }
+  }
+
+  lazy val activityPercent = new ActivityPercent
+class ProcessPercent {
     lazy val GlobalStatFormat = """cpu\s+([\d\s]+)""".r
 
     lazy val splittedTimes: Array[Long] = {
@@ -132,10 +178,16 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.api.CpuSensor with Configur
 
   lazy val processPercent = new ProcessPercent
 
-  def process(tick: Tick) {
+  override def process(tick: Tick) {
     publish(
       CpuSensorMessage(
+        activityPercent = activityPercent.process(tick.subscription),
         processPercent = processPercent.process(tick.subscription),
-        tick = tick))
+        tick = tick
+      )
+    )
   }
 }
+
+
+
