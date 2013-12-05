@@ -69,7 +69,7 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.api.CpuSensor with Configur
 class ProcessPercent {
     lazy val GlobalStatFormat = """cpu\s+([\d\s]+)""".r
 
-    lazy val splittedTimes: Array[Long] = {
+    def splittedTimes: Array[Long] = {
       try {
         // FIXME: Due to Java JDK bug #7132461, there is no way to apply buffer to procfs files and thus, directly open stream from the given URL.
         // Then, we simply read these files thanks to a FileInputStream in getting those local path
@@ -87,10 +87,10 @@ class ProcessPercent {
       }
     }
 
-    lazy val globalElapsedTime: Long = {
+    def globalElapsedTime(times: Array[Long]): Long = {
       // We consider all the fields, except guest and guest_nice columns because there are already add into utime
       // see http://lxr.free-electrons.com/source/kernel/sched/cputime.c#L354 (around line 165)
-      splittedTimes.slice(0, 8).foldLeft(0: Long) {
+      times.slice(0, 8).foldLeft(0: Long) {
         (acc, x) => (acc + x)
       }
     }
@@ -116,7 +116,7 @@ class ProcessPercent {
     }
 
     def process(subscription: TickSubscription) = {
-      val now = (processElapsedTime(subscription.process), globalElapsedTime)
+      val now = (processElapsedTime(subscription.process), globalElapsedTime(splittedTimes))
       val old = cache.getOrElse(subscription, now)
       refrechCache(subscription, now)
 

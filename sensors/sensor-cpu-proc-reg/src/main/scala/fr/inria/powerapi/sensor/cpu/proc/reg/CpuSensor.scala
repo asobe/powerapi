@@ -48,9 +48,9 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor {
    */
   class ActivityPercent() {
 
-    lazy val activityElapsedTime: Long = {
+    def activityElapsedTime(times: Array[Long], globalElapsedTime: Long): Long = {
       // For the activity elapsed time, we remove the idle part
-      processPercent.globalElapsedTime - processPercent.splittedTimes(3)
+      globalElapsedTime - times(3)
     }
 
     // [TickSubscription, (globalElapsedTime, activityElapsedTime)]
@@ -60,7 +60,9 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor {
     }
 
     def process(subscription: TickSubscription) = {
-      val now = (processPercent.globalElapsedTime, activityElapsedTime)
+      val times = processPercent.splittedTimes
+      val globalElapsedTime = processPercent.globalElapsedTime(times)
+      val now = (processPercent.globalElapsedTime(times), activityElapsedTime(times, globalElapsedTime))
       val old = cache.getOrElse(subscription, now)
       refrechCache(subscription, now)
 
