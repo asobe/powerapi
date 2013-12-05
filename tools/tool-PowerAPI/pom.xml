@@ -73,6 +73,19 @@
 			<artifactId>reporter-jfreechart</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>fr.inria.powerapi.reporter</groupId>
+			<artifactId>reporter-virtio</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+                <groupId>org.newsclub</groupId>
+                  <artifactId>junixsocket</artifactId>
+                  <version>1.3</version>
+                 <scope>system</scope>
+                 <systemPath>${basedir}/../../lib/junixsocket-1.3.jar</systemPath>
+                 </dependency>
+
 	</dependencies>
 
 	<build>

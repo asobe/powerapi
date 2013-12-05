@@ -6,7 +6,7 @@ then
   echo "Options:"
   echo "  * -pid <PID1>,<PID2> ..."
   echo "  * -app <APP1>,<APP2> ..."
-  echo "  * -output <console|file|chart>"
+  echo "  * -output <console|file|chart|virtio>"
   echo "  * -frequency <TIME_IN_MS>"
   echo "  * -filename <FILE_NAME>"
   exit 1

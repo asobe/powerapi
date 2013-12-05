@@ -34,6 +34,7 @@ import fr.inria.powerapi.processor.aggregator.process.ProcessAggregator
 import fr.inria.powerapi.reporter.console.ConsoleReporter
 import fr.inria.powerapi.reporter.file.FileReporter
 import fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter
+import fr.inria.powerapi.reporter.virtio.VirtioReporter
 
 class ExtendFileReporter extends FileReporter {
   override lazy val output = {
@@ -158,6 +159,7 @@ object Processes {
       case "console" => classOf[ConsoleReporter]
       case "file" => classOf[ExtendFileReporter]
       case "chart" => classOf[JFreeChartReporter]
+      case "virtio" => classOf[VirtioReporter]
       case _ => classOf[JFreeChartReporter]
     }
   }
