@@ -37,12 +37,9 @@ case class TimeInStates(times: Map[Int, Long]) {
 case class GlobalElapsedTime(time: Long)
 case class ProcessElapsedTime(time: Long)
 case class ProcessPercent(percent: Double)
-case class ActivityPercent(percent: Double)
-
 
 case class CpuSensorMessage(
   timeInStates: TimeInStates = TimeInStates(Map[Int, Long]()),
-  activityPercent: ActivityPercent = ActivityPercent(-1),
   globalElapsedTime: GlobalElapsedTime = GlobalElapsedTime(-1),
   processElapsedTime: ProcessElapsedTime = ProcessElapsedTime(-1),
   processPercent: ProcessPercent = ProcessPercent(-1),
