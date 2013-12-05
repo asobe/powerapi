@@ -58,6 +58,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * @see http://www.kernel.org/doc/man-pages/online/pages/man5/proc.5.html
  *
  * @author abourdon
+ * @author mcolmant
  */
 class CpuSensor extends fr.inria.powerapi.sensor.cpu.api.CpuSensor with Configuration {
 
