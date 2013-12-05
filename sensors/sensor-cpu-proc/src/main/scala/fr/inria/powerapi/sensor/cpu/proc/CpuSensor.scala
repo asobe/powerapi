@@ -68,32 +68,29 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.api.CpuSensor with Configur
   class ProcessPercent {
     lazy val GlobalStatFormat = """cpu\s+([\d\s]+)""".r
 
-    def globalElapsedTime: Long = {
+    lazy val splittedTimes: Array[Long] = {
       try {
         // FIXME: Due to Java JDK bug #7132461, there is no way to apply buffer to procfs files and thus, directly open stream from the given URL.
         // Then, we simply read these files thanks to a FileInputStream in getting those local path
         Resource.fromInputStream(new FileInputStream(new URL(globalStatPath).getPath)).lines().toIndexedSeq(0) match {
-          case GlobalStatFormat(times) => {
-            var globalTime = 0l
-            val splittedTimes = times.split(' ')
-
-            // We consider all the fields, except guest and guest_nice columns because there are already add into utime
-            // see http://lxr.free-electrons.com/source/kernel/sched/cputime.c#L354 (around line 165)
-            for(i <- 0 until 8) {
-              globalTime += splittedTimes(i).toLong
-            }
-
-            globalTime
-          }
+          case GlobalStatFormat(times) => times.split(' ').map(_.toLong)
           case _ => {
             if (log.isWarningEnabled) log.warning("unable to parse line from file \"" + globalStatPath)
-            0l
+            Array.empty[Long]
           }
         }
       } catch {
         case ioe: IOException =>
           if (log.isWarningEnabled) log.warning("i/o exception: " + ioe.getMessage)
-          0l
+          Array.empty[Long]
+      }
+    }
+
+    lazy val globalElapsedTime: Long = {
+      // We consider all the fields, except guest and guest_nice columns because there are already add into utime
+      // see http://lxr.free-electrons.com/source/kernel/sched/cputime.c#L354 (around line 165)
+      splittedTimes.slice(0, 8).foldLeft(0: Long) {
+        (acc, x) => (acc + x)
       }
     }
 
