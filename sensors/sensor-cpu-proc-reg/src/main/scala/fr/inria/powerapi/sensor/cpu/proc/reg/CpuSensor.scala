@@ -39,43 +39,18 @@ import scalax.io.Resource
  * @see http://www.kernel.org/doc/man-pages/online/pages/man5/proc.5.html
  *
  * @author lhuertas
+ * @author mcolmant
  */
 class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor {
 
   /**
-   * Delegate class collecting time information contained into globalStatPath file
-   * and providing the CPU percent activity.
+   * Providing the CPU activity percent
    */
-  class ActivityPercent {
-    lazy val GlobalStatFormat = """cpu\s+([\d\s]+)""".r
-    def activityElapsedTime: Long = {
-      try {
-        // FIXME: Due to Java JDK bug #7132461, there is no way to apply buffer to procfs files and thus, directly open stream from the given URL.
-        // Then, we simply read these files thanks to a FileInputStream in getting those local path
-        Resource.fromInputStream(new FileInputStream(new URL(globalStatPath).getPath)).lines().toIndexedSeq(0) match {
-          case GlobalStatFormat(times) => {
-            var activityTime = 0l
-            val splittedTimes = times.split(' ')
+  class ActivityPercent() {
 
-            // We consider all the fields, except guest and guest_nice columns because there are already add into utime
-            // see http://lxr.free-electrons.com/source/kernel/sched/cputime.c#L354 (around line 165)
-            // For the activity elapsed time, we remove the idle part
-            for(i <- 0 until 8 if i != 3) {
-              activityTime += splittedTimes(i).toLong
-            }
-
-            activityTime
-          }
-          case _ => {
-            if (log.isWarningEnabled) log.warning("unable to parse line from file \"" + globalStatPath)
-            0l
-          }
-        }
-      } catch {
-        case ioe: IOException =>
-          if (log.isWarningEnabled) log.warning("i/o exception: " + ioe.getMessage)
-          0l
-      }
+    lazy val activityElapsedTime: Long = {
+      // For the activity elapsed time, we remove the idle part
+      processPercent.globalElapsedTime - processPercent.splittedTimes(3)
     }
 
     // [TickSubscription, (globalElapsedTime, activityElapsedTime)]
