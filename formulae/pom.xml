@@ -17,7 +17,6 @@
 		<module>formula-cpu-api</module>
 		<module>formula-cpu-dvfs</module>
 		<module>formula-cpu-max</module>
-		<module>formula-virtual</module>
 		<module>formula-cpu-maxvm</module>
 		<module>formula-mem-api</module>
 		<module>formula-mem-single</module>

@@ -20,10 +20,7 @@
  */
 package fr.inria.powerapi.formula.cpu.maxvm
 
-import scala.collection.mutable
-
 import fr.inria.powerapi.core.Energy
-import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.formula.cpu.api.CpuFormulaMessage
 import fr.inria.powerapi.sensor.cpu.api.CpuSensorMessage
 
@@ -31,37 +28,13 @@ import java.io.BufferedReader
 import java.io.FileReader
 
 /**
- * CpuFormula configuration part.
+ * CpuFormula for virtual machines.
+ * Implements a CpuFormula in making the ratio between maximum CPU power (obtained by getting values from the host
+ * machine) and the process CPU usage obtained from the received CpuSensorMessage.
  */
-trait Configuration extends fr.inria.powerapi.core.Configuration {
 
-  /**
-   * CPU Thermal Design Power (TDP) value.
-   *
-   * @see http://en.wikipedia.org/wiki/Thermal_design_power
-   */
-  lazy val tdp = load { _.getInt("powerapi.cpu.tdp") }(0)
-
-  /**
-   * CPU Thermal Design Power (TDP) factor.
-   * Not required but 0.7 as default [1].
-   *
-   * @see [1], JouleSort: A Balanced Energy-Efﬁciency Benchmark, by Rivoire et al.
-   */
-  lazy val tdpFactor = load (_.getDouble("powerapi.cpu.tdp-factor"), false) (0.7)
-}
-
-/**
- * Implements a CpuFormula in making the ratio between maximum CPU power (obtained by multiplying
- * its Thermal Design Power (TDP) value by a specific factor) and the process CPU usage obtained from
- * the received CpuSensorMessage.
- *
- * @see http://en.wikipedia.org/wiki/Thermal_design_power
- */
-class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
-  //lazy val power = tdp * tdpFactor
-  //lazy val power = 7.0 // just for testing, assuming the vm process in the host consumes 17Watt, should be replaced by dynamic value received from host
-  val filepath = "/dev/virtio-ports/port.2"
+class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula {
+  val filepath = "/dev/virtio-ports/port.2" // TODO: add this to config file
   var br = new BufferedReader(new FileReader(filepath))
 
   def compute(now: CpuSensorMessage) = {

@@ -33,13 +33,12 @@ import org.newsclub.net.unix.AFUNIXSocketAddress
 import org.newsclub.net.unix.AFUNIXSocketException
 
 /**
- * Listen to AggregatedMessage and display its content into the console.
- *
- * @author abourdon
+ * Listen to AggregatedMessage and send its content to the virtual machine using VirtioSerial.
  */
+
 class VirtioReporter () extends Reporter {
 
-  val socketpath = "/tmp/port2"
+  val socketpath = "/tmp/port2" // TODO: add this to config file
   val sock = AFUNIXSocket.newInstance()
   val socketaddress = new AFUNIXSocketAddress(new File(socketpath))
   sock.connect(socketaddress)
@@ -54,10 +53,8 @@ class VirtioReporter () extends Reporter {
 
   def process(processedMessage: ProcessedMessage) {
     val os = sock.getOutputStream()
-    val line = Line(processedMessage).toString()
-    val data = line.slice(line.indexOfSlice("power=")+6,line.indexOfSlice(" from v"))+"\n"
+    val data = processedMessage.energy.power.toString+"\n"
     //println(data)
-    //val data = "241\n" -- for testing
     os.write(data.getBytes()) 
     println(Line(processedMessage))
   }
