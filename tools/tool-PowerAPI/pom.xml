@@ -42,6 +42,21 @@
 			<artifactId>sensor-cpu-proc</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+                <dependency>
+                        <groupId>fr.inria.powerapi.sensor</groupId>
+                        <artifactId>sensor-cpu-proc-reg</artifactId>
+                        <version>${project.version}</version>
+                </dependency>
+                <dependency>
+                        <groupId>fr.inria.powerapi.formula</groupId>
+                        <artifactId>formula-cpu-reg</artifactId>
+                        <version>${project.version}</version>
+                </dependency>
+                <dependency>
+                        <groupId>fr.inria.powerapi.formula</groupId>
+                        <artifactId>formula-cpu-maxvm</artifactId>
+                        <version>${project.version}</version>
+                </dependency>
 		<dependency>
 			<groupId>fr.inria.powerapi.formula</groupId>
 			<artifactId>formula-cpu-max</artifactId>

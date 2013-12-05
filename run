@@ -9,6 +9,8 @@ then
   echo "  * -output <console|file|chart|virtio>"
   echo "  * -frequency <TIME_IN_MS>"
   echo "  * -filename <FILE_NAME>"
+  echo "  * -sensor <cpu-proc|cpu-proc-reg>"
+  echo "  * -formula <cpu-reg|cpu-max|cpu-max-vm>"
   exit 1
 fi
-mvn scala:run -DaddArgs="$1 $2|$3 $4|$5 $6|$7 $8|$9 $10"
+mvn scala:run -DaddArgs="$1 $2|$3 $4|$5 $6|$7 $8|$9 ${10}|${11} ${12}|${13} ${14}"
