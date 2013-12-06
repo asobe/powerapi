@@ -51,10 +51,11 @@ class CpuSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
   val cpuSensor = TestActorRef(new CpuSensor with ConfigurationMock)
   val tick = Tick(TickSubscription(Process(123), 1.second))
   val processElapsedTime = 2 + 2
-  val globalElapsedTime = 441650 + 65 + 67586 + 3473742 + 31597 + 0 + 7703 + 0 + 0 + 0
+  val splittedTimes: Array[Long] = Array(441650, 65, 67586, 3473742, 31597, 0, 7703, 0, 23, 22)
+  val globalElapsedTime = 441650 + 65 + 67586 + 3473742 + 31597 + 0 + 7703 + 0
 
   "A CpuSensor" should "read global elapsed time from a given dedicated system file" in {
-    cpuSensor.underlyingActor.processPercent.globalElapsedTime should equal(globalElapsedTime)
+    cpuSensor.underlyingActor.processPercent.globalElapsedTime(splittedTimes) should equal(globalElapsedTime)
   }
 
   "A CpuSensor" should "read process elapsed time from a given dedicated system file" in {

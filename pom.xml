@@ -62,7 +62,8 @@
 		<module>processors</module>
 		<module>listeners</module>
 		<module>reporters</module>
-		<module>examples</module>
+		<!--<module>examples</module>-->
+		<module>tools</module>
 	</modules>
 
 	<properties>
@@ -70,10 +71,11 @@
 		<maven.compiler.target>1.6</maven.compiler.target>
 		<encoding>UTF-8</encoding>
 		<scala.version>2.10</scala.version>
-        <scala.library>2.10.0</scala.library>
+        <scala.library>2.10.2</scala.library>
 		<akka.version>2.1.0</akka.version>
 		<firstAuthor.name>Aurelien Bourdon</firstAuthor.name>
 		<firstAuthor.email>aurelien.bourdon@inria.fr</firstAuthor.email>
+		<powerapi.root>${basedir}</powerapi.root>
 	</properties>
 
 	<repositories>
@@ -156,6 +158,7 @@
 					</execution>
 				</executions>
 				<configuration>
+				  	<checkMultipleScalaVersions>false</checkMultipleScalaVersions>
 					<scalaVersion>${scala.library}</scalaVersion>
 					<args>
 						<arg>-deprecation</arg>

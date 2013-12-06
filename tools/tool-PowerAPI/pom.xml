@@ -22,6 +22,10 @@
 		<version>1.6-SNAPSHOT</version>
 	</parent>
 
+	<properties>
+		<powerapi.root>${basedir}/../..</powerapi.root>
+	</properties>
+
 	<dependencies>
 		<dependency>
 			<groupId>fr.inria.powerapi</groupId>
@@ -38,6 +42,21 @@
 			<artifactId>sensor-cpu-proc</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+                <dependency>
+                        <groupId>fr.inria.powerapi.sensor</groupId>
+                        <artifactId>sensor-cpu-proc-reg</artifactId>
+                        <version>${project.version}</version>
+                </dependency>
+                <dependency>
+                        <groupId>fr.inria.powerapi.formula</groupId>
+                        <artifactId>formula-cpu-reg</artifactId>
+                        <version>${project.version}</version>
+                </dependency>
+                <dependency>
+                        <groupId>fr.inria.powerapi.formula</groupId>
+                        <artifactId>formula-cpu-maxvm</artifactId>
+                        <version>${project.version}</version>
+                </dependency>
 		<dependency>
 			<groupId>fr.inria.powerapi.formula</groupId>
 			<artifactId>formula-cpu-max</artifactId>
@@ -78,6 +97,19 @@
 			<artifactId>reporter-jfreechart</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>fr.inria.powerapi.reporter</groupId>
+			<artifactId>reporter-virtio</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.newsclub</groupId>
+			<artifactId>junixsocket</artifactId>
+			<version>1.3</version>
+			<scope>system</scope>
+			<systemPath>${powerapi.root}/lib/junixsocket-1.3.jar</systemPath>
+		</dependency>
+
 	</dependencies>
 
 	<build>
