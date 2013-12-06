@@ -34,7 +34,7 @@ object Initializer {
       }, 
       formula match {
 	case "cpu-max" => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	case "cpu-max-vm" => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
+	case "cpu-maxvm" => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
 	case "cpu-reg" => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
       }
     ).foreach(PowerAPI.startEnergyModule(_))
@@ -62,7 +62,7 @@ object Monitor extends App {
   lazy val FileFormat   = """-filename\s+(\w+)""".r
   lazy val FreqFormat   = """-frequency\s+(\d+)""".r
   lazy val SensorFormat = """-sensor\s+(cpu-proc|cpu-proc-reg)""".r
-  lazy val FormulaFormat = """-formula\s+(cpu-max|cpu-max-vm|cpu-reg)""".r
+  lazy val FormulaFormat = """-formula\s+(cpu-max|cpu-maxvm|cpu-reg)""".r
  
   val params =
   (for (arg <- args) yield {
