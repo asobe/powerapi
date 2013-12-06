@@ -44,7 +44,7 @@ object Initializer {
 object Monitor extends App {
   lazy val PidsFormat   = """-pid\s+(\d+[,\d]*)""".r
   lazy val AppsFormat   = """-app\s+(\w+[,\w]*)""".r
-  lazy val OutputFormat = """-output\s+(console|file|chart)""".r
+  lazy val OutputFormat = """-output\s+(console|file|gnuplot|chart)""".r
   lazy val FileFormat   = """-filename\s+(\w+)""".r
   lazy val FreqFormat   = """-frequency\s+(\d+)""".r
   

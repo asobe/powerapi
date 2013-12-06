@@ -33,14 +33,24 @@ import fr.inria.powerapi.processor.aggregator.device.DeviceAggregator
 import fr.inria.powerapi.processor.aggregator.process.ProcessAggregator
 import fr.inria.powerapi.reporter.console.ConsoleReporter
 import fr.inria.powerapi.reporter.file.FileReporter
+import fr.inria.powerapi.reporter.gnuplot.GnuplotReporter
 import fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter
 
 class ExtendFileReporter extends FileReporter {
   override lazy val output = {
     if (log.isInfoEnabled) log.info("using " + Processes.filePath + " as output file")
-    Path.fromString(Processes.filePath).deleteIfExists()
-    Resource.fromFile(Processes.filePath)
+    Path.fromString(Processes.filePath+".dat").deleteIfExists()
+    Resource.fromFile(Processes.filePath+".dat")
   }
+}
+
+class ExtendGnuplotReporter extends GnuplotReporter {
+  override lazy val output = {
+    if (log.isInfoEnabled) log.info("using " + Processes.filePath + " as output file")
+    Path.fromString(Processes.filePath+".dat").deleteIfExists()
+    Resource.fromFile(Processes.filePath+".dat")
+  }
+  override lazy val pids = Processes.allPIDs
 }
 
 /**
@@ -50,12 +60,14 @@ class ExtendFileReporter extends FileReporter {
  */
 object Processes {
 
-  var filePath = "powerapi-out.dat"
+  var filePath = "powerapi-out"
+  var allPIDs = List[Int]()
 
   /**
    * Start the CPU monitoring
    */
   def start(pids: Array[Int], apps: String, out: String, freq: Int) {
+    // Retrieve the PIDs of the APPs given in parameters
     val PSFormat = """^\s*(\d+).*""".r
     val appsPID = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", apps, "ho", "pid")).getInputStream).lines().toList.map({
       pid =>
@@ -65,20 +77,24 @@ object Processes {
         }
     })
     
-    val allPIDs = (pids ++ appsPID).filter(elt => elt != -1)
+    allPIDs = (pids ++ appsPID).filter(elt => elt != -1).distinct.sortWith(_.compareTo(_) < 0).toList
     
-    for (pid <- allPIDs) println("pid="+pid)
-    
+    // Monitor all process if no PID or APP is given in parameters
     if (allPIDs.isEmpty)
       all(out, freq)
+    // else monitor the specified processes in parameters
     else
       custom(allPIDs, out, freq)
+      
+    // Create the gnuplot script to generate the graph
+    if (out == "gnuplot")
+      GnuplotScript.create(allPIDs, filePath)
   }
   
   /**
    * CPU monitoring wich hardly specifying the monitored process.
    */
-  def custom(pids: Array[Int], out: String, freq: Int) {
+  def custom(pids: List[Int], out: String, freq: Int) {
     pids.foreach(pid => 
       PowerAPI.startMonitoring(
         process = Process(pid),
@@ -89,7 +105,7 @@ object Processes {
       processor = classOf[ProcessAggregator],
       listener = getReporter(out)
     )
-    Thread.sleep((5.minute).toMillis)
+    Thread.sleep((1.minute).toMillis)
     PowerAPI.stopMonitoring(
       processor = classOf[ProcessAggregator],
       listener = getReporter(out)
@@ -144,7 +160,7 @@ object Processes {
       }
     }, Duration.Zero.toMillis, (250.milliseconds).toMillis)
 
-    Thread.sleep((5.minutes).toMillis)
+    Thread.sleep((1.minutes).toMillis)
 
     timer.cancel
     PowerAPI.stopMonitoring(
@@ -157,6 +173,7 @@ object Processes {
     reporter match {
       case "console" => classOf[ConsoleReporter]
       case "file" => classOf[ExtendFileReporter]
+      case "gnuplot" => classOf[ExtendGnuplotReporter]
       case "chart" => classOf[JFreeChartReporter]
       case _ => classOf[JFreeChartReporter]
     }
