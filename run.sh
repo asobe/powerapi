@@ -11,7 +11,7 @@ then
   echo "  * -frequency <TIME_IN_MS>"
   echo "  * -filename <FILE_NAME>"
   echo "  * -sensor <cpu-proc|cpu-proc-reg>"
-  echo "  * -formula <cpu-reg|cpu-max|cpu-max-vm>"
+  echo "  * -formula <cpu-reg|cpu-max|cpu-maxvm>"
   exit 1
 fi
 if [ $1 == "-config" ]
