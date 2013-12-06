@@ -33,8 +33,15 @@ import java.io.FileReader
  * machine) and the process CPU usage obtained from the received CpuSensorMessage.
  */
 
-class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula {
-  val filepath = "/dev/virtio-ports/port.2" // TODO: add this to config file
+trait Configuration extends fr.inria.powerapi.core.Configuration {
+  /**
+   * Get the configuration for VirtioSerial.
+   */
+  lazy val filepath = load { _.getString("powerapi.cpu.virtio.vm") }("")
+}
+
+class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
+  //val filepath = "/dev/virtio-ports/port.2" // TODO: add this to config file
   var br = new BufferedReader(new FileReader(filepath))
 
   def compute(now: CpuSensorMessage) = {

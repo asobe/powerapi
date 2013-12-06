@@ -35,10 +35,16 @@ import org.newsclub.net.unix.AFUNIXSocketException
 /**
  * Listen to AggregatedMessage and send its content to the virtual machine using VirtioSerial.
  */
+trait Configuration extends fr.inria.powerapi.core.Configuration {
+  /**
+   * Need the path to the unix domain socket for VirtioSerial. 
+   */
+  lazy val socketpath = load { _.getString("powerapi.cpu.virtio.host") }("") // not sure whether there should be standard value, might create conflicts
+}
 
-class VirtioReporter () extends Reporter {
+class VirtioReporter () extends Reporter with Configuration {
 
-  val socketpath = "/tmp/port2" // TODO: add this to config file
+  //val socketpath = "/tmp/port2" // TODO: add this to config file
   val sock = AFUNIXSocket.newInstance()
   val socketaddress = new AFUNIXSocketAddress(new File(socketpath))
   sock.connect(socketaddress)
