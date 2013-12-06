@@ -45,7 +45,8 @@ class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Confi
   var br = new BufferedReader(new FileReader(filepath))
 
   def compute(now: CpuSensorMessage) = {
-    val power = br.readLine()
+    var power = br.readLine()
+    if (power == null) { power = "0.0" }
     println("read power value from host: ", power)
     Energy.fromPower(power.toDouble * now.processPercent.percent)
   }
