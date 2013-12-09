@@ -12,7 +12,7 @@ then
   echo "  * -frequency <TIME_IN_MS>"
   echo "  * -filename <FILE_NAME>"
   echo "  * -cpusensor <cpu-proc|cpu-proc-reg>"
-  echo "  * -cpuformula <cpu-max|cpu-max-vm|cpu-reg>"
+  echo "  * -cpuformula <cpu-max|cpu-maxvm|cpu-reg>"
   echo "  * -memsensor <mem-proc|mem-sigar>"
   echo "  * -memformula <mem-single>"
   echo "  * -disksensor <disk-proc|disk-atop>"

@@ -36,7 +36,7 @@ object Initializer {
       },
       cpuFormula match {
 	      case "cpu-max"    => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	      case "cpu-max-vm" => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
+	      case "cpu-maxvm" => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
 	      case "cpu-reg"    => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
       }
     ).foreach(PowerAPI.startEnergyModule(_))
@@ -78,7 +78,7 @@ object Initializer {
       },
       cpuFormula match {
 	      case "cpu-max"    => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	      case "cpu-max-vm" => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
+	      case "cpu-maxvm" => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
 	      case "cpu-reg"    => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
       }
     ).foreach(PowerAPI.stopEnergyModule(_))
@@ -115,7 +115,7 @@ object Monitor extends App {
   lazy val FileFormat       = """-filename\s+(\w+)""".r
   lazy val FreqFormat       = """-frequency\s+(\d+)""".r
   lazy val CpuSensorFormat   = """-cpusensor\s+(cpu-proc|cpu-proc-reg)""".r
-  lazy val CpuFormulaFormat  = """-cpuformula\s+(cpu-max|cpu-max-vm|cpu-reg)""".r
+  lazy val CpuFormulaFormat  = """-cpuformula\s+(cpu-max|cpu-maxvm|cpu-reg)""".r
   lazy val MemSensorFormat   = """-memsensor\s+(mem-proc|mem-sigar)""".r
   lazy val MemFormulaFormat  = """-memformula\s+(mem-single)""".r
   lazy val DiskSensorFormat  = """-disksensor\s+(disk-proc|disk-atop)""".r

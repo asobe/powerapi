@@ -9,7 +9,7 @@ A simple tool to create a PowerAPI app supporting the following parameters:
  * -frequency <TIME_IN_MS>
  * -filename <FILE_NAME>
  * -cpusensor <cpu-proc|cpu-proc-reg>
- * -cpuformula <cpu-max|cpu-max-vm|cpu-reg>
+ * -cpuformula <cpu-max|cpu-maxvm|cpu-reg>
  * -memsensor <mem-proc|mem-sigar>
  * -memformula <mem-single>
  * -disksensor <disk-proc|disk-atop>
