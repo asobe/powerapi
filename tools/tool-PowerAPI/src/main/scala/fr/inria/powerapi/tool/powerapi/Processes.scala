@@ -29,6 +29,7 @@ import scalax.io.Resource
 
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.library.PowerAPI
+import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 import fr.inria.powerapi.processor.aggregator.device.DeviceAggregator
 import fr.inria.powerapi.processor.aggregator.process.ProcessAggregator
 import fr.inria.powerapi.reporter.console.ConsoleReporter
@@ -51,7 +52,8 @@ class ExtendGnuplotReporter extends GnuplotReporter {
     Path.fromString(Processes.filePath+".dat").deleteIfExists()
     Resource.fromFile(Processes.filePath+".dat")
   }
-  override lazy val pids = Processes.allPIDs
+  override lazy val pids    = Processes.allPIDs
+  override lazy val devices = Processes.allDevs
 }
 
 /**
@@ -63,11 +65,12 @@ object Processes {
 
   var filePath = "powerapi-out"
   var allPIDs = List[Int]()
+  var allDevs = List[String]("cpu")
 
   /**
    * Start the CPU monitoring
    */
-  def start(pids: Array[Int], apps: String, out: String, freq: Int) {
+  def start(pids: List[Int], apps: String, devs: List[String], agg: String, out: String, freq: Int) {
     // Retrieve the PIDs of the APPs given in parameters
     val PSFormat = """^\s*(\d+).*""".r
     val appsPID = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", apps, "ho", "pid")).getInputStream).lines().toList.map({
@@ -78,24 +81,28 @@ object Processes {
         }
     })
     
-    allPIDs = (pids ++ appsPID).filter(elt => elt != -1).distinct.sortWith(_.compareTo(_) < 0).toList
+    allPIDs = (pids ++ appsPID).filter(elt => elt != -1).distinct.sortWith(_.compareTo(_) < 0)
+    allDevs = devs.distinct.sortWith(_.compareTo(_) < 0)
     
     // Monitor all process if no PID or APP is given in parameters
     if (allPIDs.isEmpty)
-      all(out, freq)
+      all(agg, out, freq)
     // else monitor the specified processes in parameters
     else
-      custom(allPIDs, out, freq)
+      custom(allPIDs, agg, out, freq)
       
     // Create the gnuplot script to generate the graph
     if (out == "gnuplot")
-      GnuplotScript.create(allPIDs, filePath)
+      if (allPIDs.nonEmpty)
+        GnuplotScript.create(allPIDs.map(_.toString), filePath)
+      else
+        GnuplotScript.create(allDevs, filePath)
   }
   
   /**
    * CPU monitoring wich hardly specifying the monitored process.
    */
-  def custom(pids: List[Int], out: String, freq: Int) {
+  def custom(pids: List[Int], agg: String, out: String, freq: Int) {
     pids.foreach(pid => 
       PowerAPI.startMonitoring(
         process = Process(pid),
@@ -103,12 +110,12 @@ object Processes {
       )
     )
     PowerAPI.startMonitoring(
-      processor = classOf[ProcessAggregator],
+      processor = getProcessor(agg),
       listener = getReporter(out)
     )
     Thread.sleep((1.minute).toMillis)
     PowerAPI.stopMonitoring(
-      processor = classOf[ProcessAggregator],
+      processor = getProcessor(agg),
       listener = getReporter(out)
     )
     pids.foreach(pid => 
@@ -122,7 +129,7 @@ object Processes {
   /**
    * Intensive process CPU monitoring in periodically scanning all current processes.
    */
-  def all(out: String, freq: Int) {
+  def all(agg: String, out: String, freq: Int) {
     def getPids = {
       val PSFormat = """^\s*(\d+).*""".r
       val pids = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-A")).getInputStream).lines().toList.map({
@@ -150,7 +157,7 @@ object Processes {
     }
 
     PowerAPI.startMonitoring(
-      processor = classOf[DeviceAggregator],
+      processor = getProcessor(agg),
       listener  = getReporter(out)
     )
     val timer = new Timer
@@ -165,9 +172,17 @@ object Processes {
 
     timer.cancel
     PowerAPI.stopMonitoring(
-      processor = classOf[DeviceAggregator],
+      processor = getProcessor(agg),
       listener  = getReporter(out)
     )
+  }
+  
+  def getProcessor(processor: String) = {
+    processor match {
+      case "device" => classOf[DeviceAggregator]
+      case "process" => classOf[ProcessAggregator]
+      case _ => classOf[TimestampAggregator]
+    }
   }
   
   def getReporter(reporter: String) = {
