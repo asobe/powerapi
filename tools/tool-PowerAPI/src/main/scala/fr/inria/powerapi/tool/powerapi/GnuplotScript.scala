@@ -29,7 +29,7 @@ import scalax.io.Resource
  * @author lhuertas
  */
 object GnuplotScript {
-  def create(elems: List[String], filePath: String) {
+  def create(elems: List[Int], filePath: String) {
       lazy val outputPlot = {
         Path.fromString(filePath+".plot").deleteIfExists()
         Resource.fromFile(filePath+".plot")
