@@ -111,7 +111,6 @@ object Sampling extends SamplingConfiguration {
   def start() {
     // Cleaning phase
     Path.fromString(samplesDirPath).deleteRecursively(force = true)
-    Path.createTempDirectory(prefix=samplesDirPath, deleteOnExit = false)
 
     val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
