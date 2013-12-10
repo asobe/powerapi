@@ -50,6 +50,11 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
       (for (item <- JavaConversions.asScalaBuffer(conf.getIntList("powerapi.pids")))
         yield (item.toInt)).toList
   }(List[Int]())
+ 
+  /**
+   * The devices to monitor
+   */
+  lazy val devices = List[String]("cpu")
 }
 
 /**
@@ -60,10 +65,11 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 class GnuplotReporter extends Reporter with Configuration {
   
   lazy val processesEnergy = new Array[Double](pids.size)
+  lazy val devicesEnergy   = new Array[Double](devices.size)
   var lastTimestamp = 0L
   var firstTimestamp = 0L
 
-  def toMultiGnuplot(processedMessage: ProcessedMessage) {
+  def toProcessGnuplot(processedMessage: ProcessedMessage) {
     if (lastTimestamp == 0L || processedMessage.tick.timestamp == lastTimestamp) {
       processesEnergy(pids.indexOf(processedMessage.tick.subscription.process.pid)) = processedMessage.energy.power
     }
@@ -77,7 +83,21 @@ class GnuplotReporter extends Reporter with Configuration {
     lastTimestamp = processedMessage.tick.timestamp
   }
   
-  def toSingleGnuplot(processedMessage: ProcessedMessage) {
+  def toDeviceGnuplot(processedMessage: ProcessedMessage) {
+    if (lastTimestamp == 0L || processedMessage.tick.timestamp == lastTimestamp) {
+      devicesEnergy(devices.indexOf(processedMessage.device)) = processedMessage.energy.power
+    }
+    else {
+      output.append(
+        ((lastTimestamp-firstTimestamp).toDouble/1000.0) + " " + devicesEnergy.mkString(" ") +
+        scalax.io.Line.Terminators.NewLine.sep
+      )
+    }
+    devicesEnergy(devices.indexOf(processedMessage.device)) = processedMessage.energy.power
+    lastTimestamp = processedMessage.tick.timestamp
+  }
+  
+  def toGnuplot(processedMessage: ProcessedMessage) {
     output.append(
       ((processedMessage.tick.timestamp-firstTimestamp).toDouble/1000.0) + " " + processedMessage.energy.power +
       scalax.io.Line.Terminators.NewLine.sep
@@ -94,10 +114,13 @@ class GnuplotReporter extends Reporter with Configuration {
     
     // if the ProcessAgreggator is using
     if (processedMessage.tick.subscription.process.pid != -1 && pids.nonEmpty)
-      toMultiGnuplot(processedMessage)
+      toProcessGnuplot(processedMessage)
+    // if the DeviceAggregator is using
+    else if (processedMessage.device != "all" && devices.nonEmpty)
+      toDeviceGnuplot(processedMessage)
     // if other aggregator is using
     else
-      toSingleGnuplot(processedMessage)
+      toGnuplot(processedMessage)
   }
 
 }

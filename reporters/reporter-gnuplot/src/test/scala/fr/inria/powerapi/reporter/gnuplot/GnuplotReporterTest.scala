@@ -26,9 +26,7 @@ import org.scalatest.junit.ShouldMatchersForJUnit
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import fr.inria.powerapi.formula.cpu.max.CpuFormula
-import fr.inria.powerapi.formula.mem.single.MemFormula
-import fr.inria.powerapi.sensor.cpu.sigar.CpuSensor
-import fr.inria.powerapi.sensor.mem.sigar.MemSensor
+import fr.inria.powerapi.sensor.cpu.proc.CpuSensor
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.library.PowerAPI
 import java.lang.management.ManagementFactory

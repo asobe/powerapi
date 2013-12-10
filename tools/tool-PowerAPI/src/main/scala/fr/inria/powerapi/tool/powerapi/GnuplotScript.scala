@@ -24,12 +24,12 @@ import scalax.file.Path
 import scalax.io.Resource
 
 /**
- * Create the gnuplot script to generate the graph.
+ * Create the gnuplot script which have to generate the graph.
  *
  * @author lhuertas
  */
 object GnuplotScript {
-  def create(pids: List[Int], filePath: String) {
+  def create(elems: List[String], filePath: String) {
       lazy val outputPlot = {
         Path.fromString(filePath+".plot").deleteIfExists()
         Resource.fromFile(filePath+".plot")
@@ -39,10 +39,10 @@ object GnuplotScript {
       outputPlot.append("set title 'PowerAPI'" + scalax.io.Line.Terminators.NewLine.sep)
       outputPlot.append("set xlabel 'Time (s.)'" + scalax.io.Line.Terminators.NewLine.sep)
       outputPlot.append("set ylabel 'Energy consumption (W)'" + scalax.io.Line.Terminators.NewLine.sep)
-      if (pids.size > 1) {
-        outputPlot.append("plot '" + filePath+".dat" + "' u 1:2 title '" + pids(0) + "' w l")
-        for (i <- 3 to pids.size+1)
-          outputPlot.append(", '" + filePath+".dat" + "' u 1:" + i + " title '" + pids(i-2) + "' w l")
+      if (elems.size > 1) {
+        outputPlot.append("plot '" + filePath+".dat" + "' u 1:2 title '" + elems(0) + "' w l")
+        for (i <- 3 to elems.size+1)
+          outputPlot.append(", '" + filePath+".dat" + "' u 1:" + i + " title '" + elems(i-2) + "' w l")
       }
       else
         outputPlot.append("plot '" + filePath+".dat" + "' u 1:2 title 'all' w l")

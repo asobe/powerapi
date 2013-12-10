@@ -4,7 +4,7 @@ Display `AggregatedMessage` into a gnuplot data file.
 
 ## In
 
-Listen to `AggregatedMessage`, which are typically provided by `fr.inria.powerapi.listener.listener-aggregator` module.
+Listen to `AggregatedMessage`, which are typically provided by `fr.inria.powerapi.processor` module.
 
 ## Out
 
