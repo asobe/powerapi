@@ -49,7 +49,6 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 
 class VirtioReporter extends Reporter with Configuration {
   lazy val sockets = scala.collection.mutable.Map.empty[Int, AFUNIXSocket]
-
   for((vmPid, port) <- vmsConfiguration) {
     println("vmPID and port")
    
