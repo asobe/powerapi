@@ -22,21 +22,29 @@ package fr.inria.powerapi.tool.powerapi
 
 import java.util.Timer
 import java.util.TimerTask
+import java.io.File
 
 import scala.concurrent.duration.{Duration, DurationInt}
+import scala.collection.JavaConversions
 import scalax.file.Path
 import scalax.io.Resource
 
+import com.typesafe.config.Config
+
+import org.newsclub.net.unix.AFUNIXSocket
+import org.newsclub.net.unix.AFUNIXSocketAddress
+
 import fr.inria.powerapi.core.Process
+import fr.inria.powerapi.core.Reporter
+import fr.inria.powerapi.core.ProcessedMessage
 import fr.inria.powerapi.library.PowerAPI
-import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 import fr.inria.powerapi.processor.aggregator.device.DeviceAggregator
 import fr.inria.powerapi.processor.aggregator.process.ProcessAggregator
 import fr.inria.powerapi.reporter.console.ConsoleReporter
 import fr.inria.powerapi.reporter.file.FileReporter
+import fr.inria.powerapi.reporter.virtio.VirtioReporter
 import fr.inria.powerapi.reporter.gnuplot.GnuplotReporter
 import fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter
-import fr.inria.powerapi.reporter.virtio.VirtioReporter
 
 class ExtendFileReporter extends FileReporter {
   override lazy val output = {
@@ -52,8 +60,15 @@ class ExtendGnuplotReporter extends GnuplotReporter {
     Path.fromString(Processes.filePath+".dat").deleteIfExists()
     Resource.fromFile(Processes.filePath+".dat")
   }
-  override lazy val pids    = Processes.allPIDs
-  override lazy val devices = Processes.allDevs
+  override lazy val pids = Processes.allPIDs
+}
+  
+class ExtendVirtioReporter extends VirtioReporter {
+    override lazy val vmsConfiguration = load {
+    conf =>
+      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
+        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
+  } (Map[Int, Int]())
 }
 
 /**
@@ -65,12 +80,11 @@ object Processes {
 
   var filePath = "powerapi-out"
   var allPIDs = List[Int]()
-  var allDevs = List[String]("cpu")
 
   /**
    * Start the CPU monitoring
    */
-  def start(pids: List[Int], apps: String, devs: List[String], agg: String, out: String, freq: Int) {
+  def start(pids: Array[Int], apps: String, out: String, freq: Int) {
     // Retrieve the PIDs of the APPs given in parameters
     val PSFormat = """^\s*(\d+).*""".r
     val appsPID = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", apps, "ho", "pid")).getInputStream).lines().toList.map({
@@ -81,28 +95,24 @@ object Processes {
         }
     })
     
-    allPIDs = (pids ++ appsPID).filter(elt => elt != -1).distinct.sortWith(_.compareTo(_) < 0)
-    allDevs = devs.distinct.sortWith(_.compareTo(_) < 0)
+    allPIDs = (pids ++ appsPID).filter(elt => elt != -1).distinct.sortWith(_.compareTo(_) < 0).toList
     
     // Monitor all process if no PID or APP is given in parameters
     if (allPIDs.isEmpty)
-      all(agg, out, freq)
+      all(out, freq)
     // else monitor the specified processes in parameters
     else
-      custom(allPIDs, agg, out, freq)
+      custom(allPIDs, out, freq)
       
     // Create the gnuplot script to generate the graph
     if (out == "gnuplot")
-      if (allPIDs.nonEmpty)
-        GnuplotScript.create(allPIDs.map(_.toString), filePath)
-      else
-        GnuplotScript.create(allDevs, filePath)
+      GnuplotScript.create(allPIDs, filePath)
   }
   
   /**
    * CPU monitoring wich hardly specifying the monitored process.
    */
-  def custom(pids: List[Int], agg: String, out: String, freq: Int) {
+  def custom(pids: List[Int], out: String, freq: Int) {
     pids.foreach(pid => 
       PowerAPI.startMonitoring(
         process = Process(pid),
@@ -110,12 +120,12 @@ object Processes {
       )
     )
     PowerAPI.startMonitoring(
-      processor = getProcessor(agg),
+      processor = classOf[ProcessAggregator],
       listener = getReporter(out)
     )
     Thread.sleep((1.minute).toMillis)
     PowerAPI.stopMonitoring(
-      processor = getProcessor(agg),
+      processor = classOf[ProcessAggregator],
       listener = getReporter(out)
     )
     pids.foreach(pid => 
@@ -129,7 +139,7 @@ object Processes {
   /**
    * Intensive process CPU monitoring in periodically scanning all current processes.
    */
-  def all(agg: String, out: String, freq: Int) {
+  def all(out: String, freq: Int) {
     def getPids = {
       val PSFormat = """^\s*(\d+).*""".r
       val pids = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-A")).getInputStream).lines().toList.map({
@@ -157,7 +167,7 @@ object Processes {
     }
 
     PowerAPI.startMonitoring(
-      processor = getProcessor(agg),
+      processor = classOf[DeviceAggregator],
       listener  = getReporter(out)
     )
     val timer = new Timer
@@ -172,17 +182,9 @@ object Processes {
 
     timer.cancel
     PowerAPI.stopMonitoring(
-      processor = getProcessor(agg),
+      processor = classOf[DeviceAggregator],
       listener  = getReporter(out)
     )
-  }
-  
-  def getProcessor(processor: String) = {
-    processor match {
-      case "device" => classOf[DeviceAggregator]
-      case "process" => classOf[ProcessAggregator]
-      case _ => classOf[TimestampAggregator]
-    }
   }
   
   def getReporter(reporter: String) = {

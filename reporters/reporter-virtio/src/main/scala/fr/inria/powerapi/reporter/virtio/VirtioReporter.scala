@@ -32,6 +32,9 @@ import org.newsclub.net.unix.AFUNIXSocket
 import org.newsclub.net.unix.AFUNIXSocketAddress
 import org.newsclub.net.unix.AFUNIXSocketException
 
+import scala.collection.JavaConversions
+import com.typesafe.config.Config
+
 /**
  * Listen to AggregatedMessage and send its content to the virtual machine using VirtioSerial.
  */
@@ -39,15 +42,24 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
   /**
    * Need the path to the unix domain socket for VirtioSerial. 
    */
-  lazy val socketpath = load { _.getString("powerapi.cpu.virtio.host") }("") // not sure whether there should be standard value, might create conflicts
-}
+  lazy val socketpath = load { _.getString("powerapi.cpu.virtio.host") }("/tmp/")
 
-class VirtioReporter () extends Reporter with Configuration {
+  lazy val vmsConfiguration = Map[Int,Int]()
+} 
 
-  //val socketpath = "/tmp/port2" // TODO: add this to config file
-  val sock = AFUNIXSocket.newInstance()
-  val socketaddress = new AFUNIXSocketAddress(new File(socketpath))
-  sock.connect(socketaddress)
+class VirtioReporter extends Reporter with Configuration {
+  lazy val sockets = scala.collection.mutable.Map.empty[Int, AFUNIXSocket]
+
+  for((vmPid, port) <- vmsConfiguration) {
+    println("vmPID and port")
+   
+    println(vmPid)
+    println(port)
+    var sock = AFUNIXSocket.newInstance()
+    var socketaddress = new AFUNIXSocketAddress(new File(socketpath + "port" + port))
+    sock.connect(socketaddress)
+    sockets(vmPid) = sock
+  }
 
   case class Line(processedMessage: ProcessedMessage) {
     override def toString() =
@@ -58,11 +70,11 @@ class VirtioReporter () extends Reporter with Configuration {
   }
 
   def process(processedMessage: ProcessedMessage) {
-    val os = sock.getOutputStream()
+    val os = sockets(processedMessage.tick.subscription.process.pid).getOutputStream()
     val data = processedMessage.energy.power.toString+"\n"
     //println(data)
-    os.write(data.getBytes()) 
+    os.write(data.getBytes())
     println(Line(processedMessage))
   }
-
 }
+
