@@ -23,9 +23,10 @@ package fr.inria.powerapi.tool.sampling
 import scala.concurrent.duration.DurationInt
 import scalax.io.Resource
 import scalax.file.Path
-import java.io.File
 
+import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigException
 
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.core.ProcessedMessage
@@ -33,14 +34,62 @@ import fr.inria.powerapi.core.Reporter
 import fr.inria.powerapi.library.PowerAPI
 import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 
+/**
+ * Sampling's configuration part
+ *
+ * @author mcolmant
+ */
+trait SamplingConfiguration {
+  /**
+   * Link to get information from configuration files.
+   */
+  private lazy val conf = ConfigFactory.load
+
+  // No default value, required value
+  lazy val nbCore = load(_.getInt("powerapi.cpu.core"))(0)
+  // Samples directory
+  lazy val samplesDirPath = load(_.getString("powerapi.tool.sampling.path"))("samples/")
+  // Sampling step count
+  lazy val nbSamples = load(_.getInt("powerapi.tool.sampling.count"))(4)
+  // Correlation coefficient
+  lazy val corrCoeff = load(_.getDouble("powerapi.tool.sampling.corr_coeff"))(0.998)
+  // PowerSpy messages number, used to improve the sampling accuracy
+  lazy val nbMessage = load(_.getInt("powerapi.tool.sampling.message.count"))(10)
+  // Stress activity increase
+  lazy val stressActivityStep = load(_.getInt("powerapi.tool.sampling.stress.activity-step"))(25)
+  
+  lazy val filePath = samplesDirPath + "powerapi_sampling.dat"
+  lazy val output = {
+    Resource.fromFile(filePath)
+  }
+  lazy val nbStep = nbCore * (100 / stressActivityStep).toInt
+  lazy val separator = "===="
+
+  /**
+   * Default pattern to get information from configuration file.
+   *
+   * @param request: request to get information from configuration file.
+   * @param default: default value returned in case of ConfigException.
+   *
+   * @see http://typesafehub.github.com/config/latest/api/com/typesafe/config/ConfigException.html
+   */
+  def load[T](request: Config => T)(default: T): T =
+    try {
+      request(conf)
+    } catch {
+      case ce: ConfigException => {
+        default
+      }
+    }
+}
 
 /**
  * Listen to ProcessedMessage and display its content into a given file.
  *
  * @author lhuertas
+ * @author mcolmant
  */
-class FileReporter extends Reporter {
-
+class FileReporter extends Reporter with SamplingConfiguration {
   case class Line(processedMessage: ProcessedMessage) {
     override def toString() = {
       processedMessage.energy.power + scalax.io.Line.Terminators.NewLine.sep
@@ -48,7 +97,7 @@ class FileReporter extends Reporter {
   }
 
   def process(processedMessage: ProcessedMessage) {
-    Resource.fromFile("powerapi_sampling.dat").append(Line(processedMessage).toString)
+    output.append(Line(processedMessage).toString)
   }
 }
 
@@ -57,67 +106,70 @@ class FileReporter extends Reporter {
  *
  * @author lhuertas
  */
-object Sampling {
-  //Data sampling configuration part
-  lazy val conf = ConfigFactory.load
-  lazy val nbCore = conf.getInt("powerapi.cpu.core")
-  //Number of message returned by PowerSpy required for the computation of the power average
-  lazy val nbMessage = conf.getInt("powerapi.tool.sampling.message.count")
-  //The increase of the stress activity at each step
-  lazy val stressActivityStep = conf.getInt("powerapi.tool.sampling.stress.activity-step")
-
+object Sampling extends SamplingConfiguration {
+  
   def start() {
-    // File created and handled by the application
-    val samplingFile = new File("powerapi_sampling.dat")
-    var stressPID = ""
-    var curStressActivity = 100.0
-    var curCPUActivity    = 0.0
-    var step   = 1
-    val nbStep = nbCore*(100/stressActivityStep).toInt
-
-    Path.fromString("powerapi_sampling.dat").deleteIfExists()
+    // Cleaning phase
+    Path.fromString(samplesDirPath).deleteRecursively(force = true)
+    Path.createTempDirectory(prefix=samplesDirPath, deleteOnExit = false)
 
     val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
-    PowerAPI.startMonitoring(
-      process = Process(currentPid),
-      duration = 1.second,
-      processor = classOf[TimestampAggregator],
-      listener = classOf[FileReporter]
-    )
-    
-    while (!samplingFile.isFile()) {
-      Thread.sleep((1.second).toMillis)
-    }
-    
-    Thread.sleep(((nbMessage-1).second).toMillis)
-    
-    while (step <= nbStep) {
 
-      if (curStressActivity >= 100.0) {
-        Runtime.getRuntime.exec(Array("stress", "-v", "-c", "1"))
-        stressPID = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", "stress", "ho", "pid")).getInputStream).lines().last
-        curStressActivity = 0.0
+    // One monitoring per samling, it allows to avoid the noise and to have the right messages number
+    for(sample <- 1 to nbSamples) {
+      var stressPID = ""
+      var curStressActivity = 100.0
+      var curCPUActivity = 0.0
+
+      PowerAPI.startMonitoring(
+        process = Process(currentPid),
+        duration = 1.second,
+        processor = classOf[TimestampAggregator],
+        listener = classOf[FileReporter]
+      )
+      
+      // We use a separator between each step
+      // Initialization step, waiting the syncronization between PowerAPI and PowerSPY
+      Thread.sleep((30.second).toMillis)
+      output.append(separator + scalax.io.Line.Terminators.NewLine.sep)
+
+      // Idle sampling
+      Thread.sleep(((nbMessage).second).toMillis)
+      output.append(separator + scalax.io.Line.Terminators.NewLine.sep)
+      
+      // Use stress and cpulimit commands to get all cpu features
+      for(step <- 1 to nbStep) {
+        if (curStressActivity >= 100.0) {
+          Runtime.getRuntime.exec(Array("stress", "-v", "-c", "1"))
+          stressPID = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", "stress", "ho", "pid")).getInputStream).lines().last
+          curStressActivity = 0.0
+        }
+        
+        curStressActivity += stressActivityStep
+        var cpulimitPIDs = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", "cpulimit", "ho", "pid")).getInputStream).lines()
+        
+        if (cpulimitPIDs.size > 0) {
+          Runtime.getRuntime.exec(Array("kill", "-9", cpulimitPIDs(0).toString))
+        }
+        
+        curCPUActivity += 100.0 / nbStep
+        Runtime.getRuntime.exec(Array("cpulimit", "-l", curStressActivity.toString, "-p", stressPID))
+        Thread.sleep((nbMessage.second).toMillis)
+        output.append(separator + scalax.io.Line.Terminators.NewLine.sep)
       }
-      
-      curStressActivity += stressActivityStep
-      val cpulimitPIDs = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", "cpulimit", "ho", "pid")).getInputStream).lines()
-      if (cpulimitPIDs.size > 0) {
-        Runtime.getRuntime.exec(Array("kill", "-9", cpulimitPIDs(0).toString))
-      }
-      Runtime.getRuntime.exec(Array("cpulimit", "-l", curStressActivity.toString, "-p", stressPID))
-      curCPUActivity += 100.0 / nbStep
-      
-      step += 1
-      
-      Thread.sleep((nbMessage.second).toMillis)
+
+      PowerAPI.stopMonitoring(
+        process = Process(currentPid),
+        duration = 1.second,
+        processor = classOf[TimestampAggregator],
+        listener = classOf[FileReporter]
+      )
+
+      Runtime.getRuntime.exec(Array("killall", "stress"))
+
+      // Backup
+      Path.fromString(filePath).copyTo(Path.fromString(samplesDirPath + "sample_" + sample + ".dat"))
+      Path.fromString(filePath).deleteIfExists()
     }
-    
-    PowerAPI.stopMonitoring(
-      process = Process(currentPid),
-      duration = 1.second,
-      processor = classOf[TimestampAggregator],
-      listener = classOf[FileReporter]
-    )
-    Runtime.getRuntime.exec(Array("killall", "stress"))
   }
 }
