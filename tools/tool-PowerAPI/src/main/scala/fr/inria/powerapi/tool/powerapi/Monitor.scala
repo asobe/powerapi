@@ -21,6 +21,18 @@
 package fr.inria.powerapi.tool.powerapi
 
 import fr.inria.powerapi.library.PowerAPI
+import scala.collection.JavaConversions
+import scalax.file.Path
+import scalax.io.Resource
+import com.typesafe.config.Config
+
+class ExtendCpuFormula extends fr.inria.powerapi.formula.cpu.maxvm.CpuFormula {
+    override lazy val vmsConfiguration = load {
+    conf =>
+      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
+        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
+  } (Map[Int, Int]())
+}
 
 object Initializer {
 
@@ -36,7 +48,7 @@ object Initializer {
       },
       cpuFormula match {
 	      case "cpu-max"    => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	      case "cpu-maxvm" => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
+	      case "cpu-maxvm" => classOf[ExtendCpuFormula]
 	      case "cpu-reg"    => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
       }
     ).foreach(PowerAPI.startEnergyModule(_))
@@ -78,7 +90,7 @@ object Initializer {
       },
       cpuFormula match {
 	      case "cpu-max"    => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	      case "cpu-maxvm" => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
+	      case "cpu-maxvm" => classOf[ExtendCpuFormula]
 	      case "cpu-reg"    => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
       }
     ).foreach(PowerAPI.stopEnergyModule(_))
@@ -109,6 +121,7 @@ object Initializer {
 
 object Monitor extends App {
   lazy val PidsFormat       = """-pid\s+(\d+[,\d]*)""".r
+  lazy val VmsFormat        = """-vm\s+(\d+:\d+[,\d+:\d]*)""".r
   lazy val AppsFormat       = """-app\s+(\w+[,\w]*)""".r
   lazy val AggregatorFormat = """-aggregator\s+(device|process)""".r
   lazy val OutputFormat     = """-output\s+(console|file|gnuplot|chart|virtio)""".r
@@ -125,6 +138,7 @@ object Monitor extends App {
   (for (arg <- args) yield {
     arg match {
       case PidsFormat(pids)       => ("pids" -> pids)
+      case VmsFormat(vm)        => ("vm" -> vm)
       case AppsFormat(apps)       => ("apps" -> apps)
       case AggregatorFormat(agg)  => ("agg" -> agg)
       case OutputFormat(out)      => ("out" -> out)
@@ -139,9 +153,36 @@ object Monitor extends App {
       case _ => ("none" -> "")
     }
   }).toMap
-  
+ // Write a runtime configuration file for VMs
+  def createVMCOnfiguration(vmParameter: String): Array[Int] = {
+    lazy val output = {
+      Path.fromString("src/main/resources/vm_configuration.conf").deleteIfExists()
+      Resource.fromFile("src/main/resources/vm_configuration.conf")
+    }
+    // Format : PID:port, PID:port ...
+    lazy val vmsPidPort = vmParameter.split(',')
+    var res = scala.collection.mutable.ListBuffer.empty[String]
+
+    output.append("powerapi {" + scalax.io.Line.Terminators.NewLine.sep)
+    output.append("\tvms = [" + scalax.io.Line.Terminators.NewLine.sep)
+
+    for(vmConf <- vmsPidPort) {
+      var pidPortArr = vmConf.split(':')
+      output.append("\t\t{ pid = " + pidPortArr(0) + ", port = " + pidPortArr(1) + " }" + scalax.io.Line.Terminators.NewLine.sep)
+      res += pidPortArr(0)
+    }
+
+    output.append("\t]" + scalax.io.Line.Terminators.NewLine.sep)
+    output.append("}" + scalax.io.Line.Terminators.NewLine.sep)
+    res.map(_.toInt).toArray
+  }
+
+  var pids = params.getOrElse("pids", "-1": String).split(',').map(_.toInt)
+
+  if(params.isDefinedAt("vm")) {
+    pids = createVMCOnfiguration(params("vm"))
+  }
   for (p <- params) println("> "+p)
-  
   Initializer.beforeStart(
     params.getOrElse("cpuSensor", "cpu-proc":String), params.getOrElse("cpuFormula", "cpu-max":String),
     params.getOrElse("memSensor", "":String), params.getOrElse("memFormula", "":String),
@@ -149,7 +190,7 @@ object Monitor extends App {
   )
   Processes.filePath = params.getOrElse("filePath", "powerapi-out": String)
   Processes.start(
-    pids = params.getOrElse("pids", "-1": String).split(',').map(_.toInt).toList,
+    pids = pids.toList, //params.getOrElse("pids", "-1": String).split(',').map(_.toInt).toList,
     apps = params.getOrElse("apps", "": String),
     agg  = params.getOrElse("agg", "timestamp": String),
     out  = params.getOrElse("out", "chart": String),

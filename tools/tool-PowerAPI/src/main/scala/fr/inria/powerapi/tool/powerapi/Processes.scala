@@ -26,6 +26,8 @@ import java.util.TimerTask
 import scala.concurrent.duration.{Duration, DurationInt}
 import scalax.file.Path
 import scalax.io.Resource
+import scala.collection.JavaConversions
+import com.typesafe.config.Config
 
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.library.PowerAPI
@@ -56,6 +58,14 @@ class ExtendGnuplotReporter extends GnuplotReporter {
   override lazy val devices = Processes.allDevs
 }
 
+class ExtendVirtioReporter extends VirtioReporter {
+    override lazy val vmsConfiguration = load {
+    conf =>
+      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
+        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
+  } (Map[Int, Int]())
+}
+
 /**
  * Set of different use cases of energy monitoring.
  *
@@ -80,10 +90,8 @@ object Processes {
           case _ => -1
         }
     })
-    
     allPIDs = (pids ++ appsPID).filter(elt => elt != -1).distinct.sortWith(_.compareTo(_) < 0)
     allDevs = devs.distinct.sortWith(_.compareTo(_) < 0)
-    
     // Monitor all process if no PID or APP is given in parameters
     if (allPIDs.isEmpty)
       all(agg, out, freq)
@@ -191,7 +199,7 @@ object Processes {
       case "file" => classOf[ExtendFileReporter]
       case "gnuplot" => classOf[ExtendGnuplotReporter]
       case "chart" => classOf[JFreeChartReporter]
-      case "virtio" => classOf[VirtioReporter]
+      case "virtio" => classOf[ExtendVirtioReporter]
       case _ => classOf[JFreeChartReporter]
     }
   }
