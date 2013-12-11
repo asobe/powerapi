@@ -57,7 +57,7 @@ public class SimplePowerSpy implements PowerSpy {
 					connection.openDataInputStream()));
 			PrintWriter output = new PrintWriter(connection.openOutputStream());
 
-			SimplePowerSpy powerSpy = new SimplePowerSpy(connection);
+			SimplePowerSpy powerSpy = new SimplePowerSpy(connection, 1);
 			powerSpy.setInput(input);
 			powerSpy.setOutput(output);
 			return powerSpy;
@@ -78,9 +78,11 @@ public class SimplePowerSpy implements PowerSpy {
 	protected Reader input;
 	protected Writer output;
 	protected ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+	protected int version;
 
-	protected SimplePowerSpy(final StreamConnection connection) {
+	protected SimplePowerSpy(final StreamConnection connection, final int version) {
 		this.connection = connection;
+		this.version = version;
 
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override
@@ -356,9 +358,10 @@ public class SimplePowerSpy implements PowerSpy {
 			;
 	}
 
-	void reset() {
+  void start() {
 		flushOutput();
-		send("R");
+		send("S");
+		recv(DEFAULT_TIMEOUT, true);
 		try {
 			Thread.sleep(DEFAULT_TIMEOUT);
 		} catch (InterruptedException e) {
@@ -367,7 +370,23 @@ public class SimplePowerSpy implements PowerSpy {
 			}
 		}
 		if (LOG.isDebugEnabled()) {
-			LOG.debug("PowerSpy reset");
+			LOG.debug("PowerSpy start");
+		}
+	}
+
+	void cancel() {
+		flushOutput();
+		send("Q");
+		send("C");
+		try {
+			Thread.sleep(DEFAULT_TIMEOUT);
+		} catch (InterruptedException e) {
+			if (LOG.isEnabledFor(Level.WARN)) {
+				LOG.warn(e.getMessage());
+			}
+		}
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("PowerSpy cancel");
 		}
 	}
 
@@ -419,7 +438,7 @@ public class SimplePowerSpy implements PowerSpy {
 
 		private boolean init() {
 			// PowerSpy initialization
-			reset();
+			start();
 			try {
 				Thread.sleep(SimplePowerSpy.DEFAULT_TIMEOUT);
 			} catch (InterruptedException e) {
@@ -441,7 +460,10 @@ public class SimplePowerSpy implements PowerSpy {
 		public void startMonitoring() {
 			// Start PowerSpy monitoring in receiving results every 20 averaging
 			// periods
-			send("J20");
+			if (version == 2)
+			  send("J0020");
+			else
+			  send("J20");
 			if (LOG.isDebugEnabled()) {
 				LOG.debug("Monitoring started");
 			}
@@ -449,7 +471,7 @@ public class SimplePowerSpy implements PowerSpy {
 
 		public synchronized void stopMonitoring() {
 			setToContinue(false);
-			reset();
+			cancel();
 			flushInput();
 			if (LOG.isDebugEnabled()) {
 				LOG.debug("Monitoring stopped");
@@ -480,8 +502,15 @@ public class SimplePowerSpy implements PowerSpy {
 		public void run() {
 			if (init()) {
 				startMonitoring();
-				while (hasToContinue()) {
-					monitor();
+				try {
+				  while (hasToContinue()) {
+					  monitor();
+				  }
+				}
+				catch (NullPointerException e) {
+				  if (LOG.isEnabledFor(Level.WARN)) {
+					LOG.warn("Monitor thread stooped");
+				}
 				}
 			} else {
 				if (LOG.isEnabledFor(Level.WARN)) {

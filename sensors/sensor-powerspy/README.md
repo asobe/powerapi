@@ -18,7 +18,8 @@ This module reacts to `Tick` messages, typically sent by the core `Clock` class.
 
 ## Configuration
 
-This module has to know adress of the given [PowerSpy](http://www.alciom.com/fr/produits/powerspy2.html "PowerSpy"), represented by a BtSPP (Bluetooth Serial Port Protocol) URL
+This module has to know adress of the given [PowerSpy](http://www.alciom.com/fr/produits/powerspy2.html "PowerSpy"), represented by a BtSPP (Bluetooth Serial Port Protocol) URL.
+He has to know also the PowerSpy version.
 
 For example:
 ```
@@ -26,6 +27,7 @@ powerapi {
 	sensor {
 		powerspy {
 			spp-url = "btspp://the-powerspy-mac-address;some=value"
+			version = 1
 		}
 	}
 }

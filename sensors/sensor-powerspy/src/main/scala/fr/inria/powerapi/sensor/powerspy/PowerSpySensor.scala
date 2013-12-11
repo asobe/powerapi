@@ -56,17 +56,17 @@ case class PowerSpySensorDelegateMessage(currentRMS: Double, uScale: Float, iSca
 }
 
 object PowerSpyDelegate {
-  def apply(sppUrl: String): Option[PowerSpyDelegate] = {
+  def apply(sppUrl: String, version: Int): Option[PowerSpyDelegate] = {
     try {
       val connection = Connector.open(sppUrl).asInstanceOf[StreamConnection]
-      Some(new PowerSpyDelegate(connection, new BufferedReader(new InputStreamReader(connection.openInputStream())), new PrintWriter(connection.openOutputStream())))
+      Some(new PowerSpyDelegate(connection, version, new BufferedReader(new InputStreamReader(connection.openInputStream())), new PrintWriter(connection.openOutputStream())))
     } catch {
       case e: Exception => None
     }
   }
 }
 
-class PowerSpyDelegate(connection: StreamConnection, in: Reader, out: Writer) extends SimplePowerSpy(connection) with Actor {
+class PowerSpyDelegate(connection: StreamConnection, version: Int, in: Reader, out: Writer) extends SimplePowerSpy(connection, version) with Actor {
   setInput(in)
   setOutput(out)
 
@@ -85,12 +85,13 @@ class PowerSpyDelegate(connection: StreamConnection, in: Reader, out: Writer) ex
 }
 
 trait Configuration extends fr.inria.powerapi.core.Configuration {
-  lazy val sppUrl = load { _.getString("powerapi.sensor.powerspy.spp-url") }("btspp://nothing")
+  lazy val sppUrl  = load { _.getString("powerapi.sensor.powerspy.spp-url") }("btspp://nothing")
+  lazy val version = load { _.getInt("powerapi.sensor.powerspy.version") }(1)
 }
 
 class PowerSpySensor extends Sensor with Configuration {
 
-  lazy val powerSpySensorDelegate = context.actorOf(Props(PowerSpyDelegate(sppUrl).getOrElse(null)))
+  lazy val powerSpySensorDelegate = context.actorOf(Props(PowerSpyDelegate(sppUrl, version).getOrElse(null)))
 
   lazy val powerSpySensorDelegateMessages = new collection.mutable.SynchronizedStack[PowerSpySensorDelegateMessage]()
   lazy val powerSpySensorDelegateMessagesLock = new Lock
