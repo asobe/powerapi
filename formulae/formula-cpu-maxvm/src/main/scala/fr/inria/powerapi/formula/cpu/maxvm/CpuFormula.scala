@@ -38,11 +38,10 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
    * Get the configuration for VirtioSerial.
    */
   lazy val filepath = load { _.getString("powerapi.cpu.virtio.vm") }("/dev/virtio-ports/")
-  //lazy val vmsConfiguration = Map[Int,Int]()
+  lazy val vmsConfiguration = Map[Int,Int]()
 }
 
 class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
-  lazy val vmsConfiguration = Map[Int,Int]()
   lazy val files = scala.collection.mutable.Map.empty[Int, BufferedReader] 
   println("vmsconf: "+vmsConfiguration)
   for((vmPid, port) <- vmsConfiguration) {
@@ -50,7 +49,6 @@ class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Confi
 	var br = new BufferedReader(new FileReader(filepath+"port."+port))	
 	files(vmPid) = br	
   }
-  //var br = new BufferedReader(new FileReader(filepath))
 
   def compute(now: CpuSensorMessage) = {
     var power = files(now.tick.subscription.process.pid).readLine()

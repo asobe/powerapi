@@ -66,13 +66,6 @@ class ExtendVirtioReporter extends VirtioReporter {
   } (Map[Int, Int]())
 }
 
-class ExtendCpuFormula extends fr.inria.powerapi.formula.cpu.maxvm.CpuFormula {
-    override lazy val vmsConfiguration = load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
-        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
-  } (Map[Int, Int]())
-}
 /**
  * Set of different use cases of energy monitoring.
  *
@@ -206,7 +199,7 @@ object Processes {
       case "file" => classOf[ExtendFileReporter]
       case "gnuplot" => classOf[ExtendGnuplotReporter]
       case "chart" => classOf[JFreeChartReporter]
-      case "virtio" => classOf[VirtioReporter]
+      case "virtio" => classOf[ExtendVirtioReporter]
       case _ => classOf[JFreeChartReporter]
     }
   }
