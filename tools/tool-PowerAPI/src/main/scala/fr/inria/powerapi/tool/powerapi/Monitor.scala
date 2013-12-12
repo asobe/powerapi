@@ -26,14 +26,6 @@ import scalax.file.Path
 import scalax.io.Resource
 import com.typesafe.config.Config
 
-class ExtendCpuFormula extends fr.inria.powerapi.formula.cpu.maxvm.CpuFormula {
-    override lazy val vmsConfiguration = load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
-        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
-  } (Map[Int, Int]())
-}
-
 object Initializer {
 
   var devs = List[String]("cpu")
