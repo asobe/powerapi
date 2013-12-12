@@ -80,7 +80,7 @@ object Processes {
   /**
    * Start the CPU monitoring
    */
-  def start(pids: List[Int], apps: String, devs: List[String], agg: String, out: String, freq: Int) {
+  def start(pids: List[Int], apps: String, devs: List[String], agg: String, out: String, freq: Int, time: Int) {
     // Retrieve the PIDs of the APPs given in parameters
     val PSFormat = """^\s*(\d+).*""".r
     val appsPID = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", apps, "ho", "pid")).getInputStream).lines().toList.map({
@@ -94,10 +94,10 @@ object Processes {
     allDevs = devs.distinct.sortWith(_.compareTo(_) < 0)
     // Monitor all process if no PID or APP is given in parameters
     if (allPIDs.isEmpty)
-      all(agg, out, freq)
+      all(agg, out, freq, time)
     // else monitor the specified processes in parameters
     else
-      custom(allPIDs, agg, out, freq)
+      custom(allPIDs, agg, out, freq, time)
       
     // Create the gnuplot script to generate the graph
     if (out == "gnuplot")
@@ -110,7 +110,7 @@ object Processes {
   /**
    * CPU monitoring wich hardly specifying the monitored process.
    */
-  def custom(pids: List[Int], agg: String, out: String, freq: Int) {
+  def custom(pids: List[Int], agg: String, out: String, freq: Int, time: Int) {
     pids.foreach(pid => 
       PowerAPI.startMonitoring(
         process = Process(pid),
@@ -121,7 +121,7 @@ object Processes {
       processor = getProcessor(agg),
       listener = getReporter(out)
     )
-    Thread.sleep((1.minute).toMillis)
+    Thread.sleep((time.minute).toMillis)
     PowerAPI.stopMonitoring(
       processor = getProcessor(agg),
       listener = getReporter(out)
@@ -137,7 +137,7 @@ object Processes {
   /**
    * Intensive process CPU monitoring in periodically scanning all current processes.
    */
-  def all(agg: String, out: String, freq: Int) {
+  def all(agg: String, out: String, freq: Int, time: Int) {
     def getPids = {
       val PSFormat = """^\s*(\d+).*""".r
       val pids = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-A")).getInputStream).lines().toList.map({
@@ -176,7 +176,7 @@ object Processes {
       }
     }, Duration.Zero.toMillis, (250.milliseconds).toMillis)
 
-    Thread.sleep((1.minutes).toMillis)
+    Thread.sleep((time.minutes).toMillis)
 
     timer.cancel
     PowerAPI.stopMonitoring(

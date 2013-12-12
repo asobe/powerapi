@@ -50,6 +50,8 @@ class TimestampAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
 
   implicit val system = ActorSystem("timestamp-aggregator-spec")
   val timestampAggregator = TestActorRef[TimestampAggregatorMock]
+  
+  SmoothingAggregator.addFilter("timestampTest")
 
   "A TimestampAggregator" should "listen to FormulaMessage" in {
     timestampAggregator.underlyingActor.messagesToListen should equal(Array(classOf[FormulaMessage]))
@@ -66,12 +68,12 @@ class TimestampAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
 
     timestampAggregator.underlyingActor.sent should have size 1
     timestampAggregator.underlyingActor.sent should contain key 1
-    timestampAggregator.underlyingActor.sent(1).energy should equal(Energy.fromPower(1 + 2 + 3))
+    timestampAggregator.underlyingActor.sent(1).energy should equal(Energy.fromPower(SmoothingAggregator.filter("timestampTest", 1 + 2 + 3)))
 
     timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(Process(123), 1.second), 3)))
 
     timestampAggregator.underlyingActor.sent should have size 2
     timestampAggregator.underlyingActor.sent should contain key 2
-    timestampAggregator.underlyingActor.sent(2).energy should equal(Energy.fromPower(1))
+    timestampAggregator.underlyingActor.sent(2).energy should equal(Energy.fromPower(SmoothingAggregator.filter("timestampTest", 1)))
   }
 }

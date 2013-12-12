@@ -20,6 +20,8 @@
  */
 package fr.inria.powerapi.processor.aggregator.timestamp
 
+import com.typesafe.config.ConfigFactory
+
 import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.FormulaMessage
 import fr.inria.powerapi.core.Process
@@ -27,6 +29,25 @@ import fr.inria.powerapi.core.ProcessedMessage
 import fr.inria.powerapi.core.Processor
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
+
+object SmoothingAggregator {
+  /**
+   * Link to get information from configuration files.
+   */
+  lazy val conf = ConfigFactory.load
+  lazy val state     = conf.getBoolean("powerapi.aggregator.smoothing.state")
+  lazy val freq      = conf.getDouble("powerapi.aggregator.smoothing.freq")
+  lazy val mincutoff = conf.getDouble("powerapi.aggregator.smoothing.mincutoff")
+  lazy val beta      = conf.getDouble("powerapi.aggregator.smoothing.beta")
+  
+  val filterList = collection.mutable.HashMap[String, OneEuroFilter]("timestamp" -> new OneEuroFilter(freq, mincutoff, beta))
+  
+  def addFilter(key: String) {
+    filterList += (key -> new OneEuroFilter(freq, mincutoff, beta))
+  }
+  def containsFilter(key: String) = filterList.contains(key)
+  def filter(key: String, value: Double) = if (state) filterList(key).filter(value) else value
+}
 
 /**
  * Messages that can be sent by aggregators:
@@ -37,7 +58,24 @@ import fr.inria.powerapi.core.TickSubscription
  */
 case class RowMessage(tick: Tick, device: String, energy: Energy) extends ProcessedMessage
 case class AggregatedMessage(tick: Tick, device: String, messages: collection.mutable.Set[ProcessedMessage] = collection.mutable.Set[ProcessedMessage]()) extends ProcessedMessage {
-  def energy = Energy.fromPower(messages.foldLeft(0: Double) { (acc, message) => acc + message.energy.power })
+  def energy = {
+    if (SmoothingAggregator.state) {
+      var key = "timestamp"
+      if (tick.subscription.process.pid != -1) {
+        if (SmoothingAggregator.containsFilter(tick.subscription.process.pid.toString) == false)
+          SmoothingAggregator.addFilter(tick.subscription.process.pid.toString)
+        key = tick.subscription.process.pid.toString
+      }
+      else if (device != "all") {
+        if (SmoothingAggregator.containsFilter(device) == false)
+          SmoothingAggregator.addFilter(device)
+        key = device
+      }
+      Energy.fromPower(SmoothingAggregator.filter(key, messages.foldLeft(0: Double) { (acc, message) => acc + message.energy.power }))
+    }
+    else
+      Energy.fromPower(messages.foldLeft(0: Double) { (acc, message) => acc + message.energy.power })
+  }
   def add(message: ProcessedMessage) {
     messages += message
   }

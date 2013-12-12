@@ -27,6 +27,7 @@ import akka.testkit.TestActorRef
 import org.junit.runner.RunWith
 import org.scalatest.junit.ShouldMatchersForJUnit
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatedMessage
+import fr.inria.powerapi.processor.aggregator.timestamp.SmoothingAggregator
 import org.scalatest.FlatSpec
 import fr.inria.powerapi.core.FormulaMessage
 import org.scalatest.junit.JUnitRunner
@@ -50,6 +51,9 @@ class DeviceAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
 
   implicit val system = ActorSystem("device-aggregator-spec")
   val deviceAggregator = TestActorRef[DeviceAggregatorMock]
+  
+  SmoothingAggregator.addFilter("cpuTest")
+  SmoothingAggregator.addFilter("memTest")
 
   "A DeviceAggregator" should "listen to FormulaMessage" in {
     deviceAggregator.underlyingActor.messagesToListen should equal(Array(classOf[FormulaMessage]))
@@ -66,7 +70,7 @@ class DeviceAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
 
     deviceAggregator.underlyingActor.sent should have size 2
     deviceAggregator.underlyingActor.sent should (contain key ("cpu") and contain key ("mem"))
-    deviceAggregator.underlyingActor.sent("cpu").energy should equal(Energy.fromPower(1 + 2))
-    deviceAggregator.underlyingActor.sent("mem").energy should equal(Energy.fromPower(3))
+    deviceAggregator.underlyingActor.sent("cpu").energy should equal(Energy.fromPower(SmoothingAggregator.filter("cpuTest", 1 + 2)))
+    deviceAggregator.underlyingActor.sent("mem").energy should equal(Energy.fromPower(SmoothingAggregator.filter("memTest", 3)))
   }
 }

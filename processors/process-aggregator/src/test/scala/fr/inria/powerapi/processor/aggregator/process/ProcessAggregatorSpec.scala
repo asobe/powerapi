@@ -27,6 +27,7 @@ import akka.testkit.TestActorRef
 import org.junit.runner.RunWith
 import org.scalatest.junit.ShouldMatchersForJUnit
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatedMessage
+import fr.inria.powerapi.processor.aggregator.timestamp.SmoothingAggregator
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.FlatSpec
 import fr.inria.powerapi.core.FormulaMessage
@@ -51,6 +52,9 @@ class ProcessAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
   implicit val system = ActorSystem("process-aggregator-spec")
   val processAggregator = TestActorRef[ProcessAggregatorMock]
 
+  SmoothingAggregator.addFilter("123Test")
+  SmoothingAggregator.addFilter("345Test")
+
   "A ProcessAggregator" should "listen to FormulaMessage" in {
     processAggregator.underlyingActor.messagesToListen should equal(Array(classOf[FormulaMessage]))
   }
@@ -66,7 +70,7 @@ class ProcessAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
 
     processAggregator.underlyingActor.sent should have size 2
     processAggregator.underlyingActor.sent should (contain key (Process(123)) and contain key (Process(345)))
-    processAggregator.underlyingActor.sent(Process(123)).energy should equal(Energy.fromPower(1 + 2))
-    processAggregator.underlyingActor.sent(Process(345)).energy should equal(Energy.fromPower(3))
+    processAggregator.underlyingActor.sent(Process(123)).energy should equal(Energy.fromPower(SmoothingAggregator.filter("123Test", 1 + 2)))
+    processAggregator.underlyingActor.sent(Process(345)).energy should equal(Energy.fromPower(SmoothingAggregator.filter("345Test", 3)))
   }
 }

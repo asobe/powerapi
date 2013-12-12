@@ -127,6 +127,7 @@ object Monitor extends App {
   lazy val OutputFormat     = """-output\s+(console|file|gnuplot|chart|virtio)""".r
   lazy val FileFormat       = """-filename\s+(\w+)""".r
   lazy val FreqFormat       = """-frequency\s+(\d+)""".r
+  lazy val TimeFormat       = """-time\s+(\d+)""".r
   lazy val CpuSensorFormat   = """-cpusensor\s+(cpu-proc|cpu-proc-reg)""".r
   lazy val CpuFormulaFormat  = """-cpuformula\s+(cpu-max|cpu-maxvm|cpu-reg)""".r
   lazy val MemSensorFormat   = """-memsensor\s+(mem-proc|mem-sigar)""".r
@@ -138,12 +139,13 @@ object Monitor extends App {
   (for (arg <- args) yield {
     arg match {
       case PidsFormat(pids)       => ("pids" -> pids)
-      case VmsFormat(vm)        => ("vm" -> vm)
+      case VmsFormat(vm)          => ("vm" -> vm)
       case AppsFormat(apps)       => ("apps" -> apps)
       case AggregatorFormat(agg)  => ("agg" -> agg)
       case OutputFormat(out)      => ("out" -> out)
       case FileFormat(filePath)   => ("filePath" -> filePath)
       case FreqFormat(freq)       => ("freq" -> freq)
+      case TimeFormat(time)       => ("time" -> time)
       case CpuSensorFormat(cpuSensor)     => ("cpuSensor" -> cpuSensor)
       case CpuFormulaFormat(cpuFormula)   => ("cpuFormula" -> cpuFormula)
       case MemSensorFormat(memSensor)     => ("memSensor" -> memSensor)
@@ -153,7 +155,8 @@ object Monitor extends App {
       case _ => ("none" -> "")
     }
   }).toMap
- // Write a runtime configuration file for VMs
+  
+  // Write a runtime configuration file for VMs
   def createVMCOnfiguration(vmParameter: String): Array[Int] = {
     lazy val output = {
       Path.fromString("src/main/resources/vm_configuration.conf").deleteIfExists()
@@ -178,11 +181,10 @@ object Monitor extends App {
   }
 
   var pids = params.getOrElse("pids", "-1": String).split(',').map(_.toInt)
-
   if(params.isDefinedAt("vm")) {
     pids = createVMCOnfiguration(params("vm"))
   }
-  for (p <- params) println("> "+p)
+  
   Initializer.beforeStart(
     params.getOrElse("cpuSensor", "cpu-proc":String), params.getOrElse("cpuFormula", "cpu-max":String),
     params.getOrElse("memSensor", "":String), params.getOrElse("memFormula", "":String),
@@ -190,11 +192,12 @@ object Monitor extends App {
   )
   Processes.filePath = params.getOrElse("filePath", "powerapi-out": String)
   Processes.start(
-    pids = pids.toList, //params.getOrElse("pids", "-1": String).split(',').map(_.toInt).toList,
+    pids = pids.toList,
     apps = params.getOrElse("apps", "": String),
     agg  = params.getOrElse("agg", "timestamp": String),
     out  = params.getOrElse("out", "chart": String),
     freq = params.getOrElse("freq", "1000": String).toInt,
+    time = params.getOrElse("time", "5": String).toInt,
     devs = Initializer.devs
   )
   Initializer.beforeEnd(

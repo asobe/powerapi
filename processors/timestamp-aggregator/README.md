@@ -12,4 +12,18 @@ Send `ProcessedMessage`, and more particularly `AggregatedMessage`, gathering ea
 
 ## Configuration part
 
-No configuration part.
+This module has to know the parameter to smooth the energy data.
+
+For example:
+```
+powerapi {
+  aggregator {
+    smoothing {
+      state = true
+      freq = 60.0
+      mincutoff = 3.0
+      beta = 0.007
+    }
+  }
+}
+```
