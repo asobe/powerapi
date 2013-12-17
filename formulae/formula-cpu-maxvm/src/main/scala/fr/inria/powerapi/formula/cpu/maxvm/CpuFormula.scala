@@ -20,9 +20,9 @@
  */
 package fr.inria.powerapi.formula.cpu.maxvm
 
-import fr.inria.powerapi.core.Energy
+import fr.inria.powerapi.core.{Energy, Formula}
 import fr.inria.powerapi.formula.cpu.api.CpuFormulaMessage
-import fr.inria.powerapi.sensor.cpu.api.CpuSensorMessage
+import fr.inria.powerapi.sensor.cpu.proc.virtio.CpuVirtioSensorMessage
 
 import java.io.BufferedReader
 import java.io.FileReader
@@ -30,36 +30,21 @@ import java.io.FileReader
 /**
  * CpuFormula for virtual machines.
  * Implements a CpuFormula in making the ratio between maximum CPU power (obtained by getting values from the host
- * machine) and the process CPU usage obtained from the received CpuSensorMessage.
+ * machine) and the process CPU usage obtained from the received CpuVirtioSensorMessage.
  */
+class CpuFormula extends Formula {
+  def messagesToListen = Array(classOf[CpuVirtioSensorMessage])
 
-trait Configuration extends fr.inria.powerapi.core.Configuration {
-  /**
-   * Get the configuration for VirtioSerial.
-   */
-  lazy val filepath = load { _.getString("powerapi.cpu.virtio.vm") }("/dev/virtio-ports/")
-  lazy val vmsConfiguration = Map[Int,Int]()
-}
-
-class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
-  lazy val files = scala.collection.mutable.Map.empty[Int, BufferedReader] 
-  println("vmsconf: "+vmsConfiguration)
-  for((vmPid, port) <- vmsConfiguration) {
-	println("process ",vmPid," and will open port number ",port)
-	var br = new BufferedReader(new FileReader(filepath+"port."+port))	
-	files(vmPid) = br	
-  }
-
-  def compute(now: CpuSensorMessage) = {
-    var power = files(now.tick.subscription.process.pid).readLine()
-    if (power == null) { power = "0.0" }
-    println("read power value from host: ", power)
+  def compute(now: CpuVirtioSensorMessage) = {
     println("utilization: ",now.processPercent.percent)
-    Energy.fromPower(power.toDouble * now.processPercent.percent)
+    Energy.fromPower(now.vmConsumption.power * now.processPercent.percent)
   }
 
-  def process(cpuSensorMessage: CpuSensorMessage) {
-    publish(CpuFormulaMessage(compute(cpuSensorMessage), cpuSensorMessage.tick))
+  def process(cpuVirtioSensorMessage: CpuVirtioSensorMessage) {
+    publish(CpuFormulaMessage(compute(cpuVirtioSensorMessage), cpuVirtioSensorMessage.tick))
   }
 
+  def acquire = {
+    case cpuVirtioSensorMessage: CpuVirtioSensorMessage => process(cpuVirtioSensorMessage)
+  }
 }

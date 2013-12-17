@@ -22,7 +22,7 @@
 		</dependency>
 		<dependency>
 			<groupId>fr.inria.powerapi.sensor</groupId>
-			<artifactId>sensor-cpu-api</artifactId>
+			<artifactId>sensor-cpu-proc-virtio</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>

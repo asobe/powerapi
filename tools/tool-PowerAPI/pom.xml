@@ -42,6 +42,11 @@
 			<artifactId>sensor-cpu-proc</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>fr.inria.powerapi.sensor</groupId>
+			<artifactId>sensor-cpu-proc-virtio</artifactId>
+			<version>${project.version}</version>
+		</dependency>
     <dependency>
       <groupId>fr.inria.powerapi.sensor</groupId>
       <artifactId>sensor-cpu-proc-reg</artifactId>

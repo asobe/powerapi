@@ -16,6 +16,6 @@
 
 	<modules>
 		<module>tool-PowerAPI</module>
-		<module>tool-sampling</module>
+		<!-- <module>tool-sampling</module>-->
 	</modules>
 </project>

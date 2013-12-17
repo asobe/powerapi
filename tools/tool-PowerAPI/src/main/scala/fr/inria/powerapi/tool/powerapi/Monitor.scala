@@ -36,11 +36,12 @@ object Initializer {
     Array(
       cpuSensor match {
 	      case "cpu-proc"     => classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor]
-	      case "cpu-proc-reg" => classOf[fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor] 	
+	      case "cpu-proc-reg" => classOf[fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor]
+        case "cpu-proc-virtio" => classOf[fr.inria.powerapi.sensor.cpu.proc.virtio.CpuSensor]  	
       },
       cpuFormula match {
 	      case "cpu-max"    => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	      case "cpu-maxvm" => classOf[ExtendCpuFormula]
+	      case "cpu-maxvm"  => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
 	      case "cpu-reg"    => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
       }
     ).foreach(PowerAPI.startEnergyModule(_))
@@ -78,11 +79,12 @@ object Initializer {
     Array(
       cpuSensor match {
 	      case "cpu-proc"     => classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor]
-	      case "cpu-proc-reg" => classOf[fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor] 	
+	      case "cpu-proc-reg" => classOf[fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor]
+        case "cpu-proc-virtio" => classOf[fr.inria.powerapi.sensor.cpu.proc.virtio.CpuSensor]	
       },
       cpuFormula match {
 	      case "cpu-max"    => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	      case "cpu-maxvm" => classOf[ExtendCpuFormula]
+	      case "cpu-maxvm"  => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
 	      case "cpu-reg"    => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
       }
     ).foreach(PowerAPI.stopEnergyModule(_))
@@ -120,7 +122,7 @@ object Monitor extends App {
   lazy val FileFormat       = """-filename\s+(\w+)""".r
   lazy val FreqFormat       = """-frequency\s+(\d+)""".r
   lazy val TimeFormat       = """-time\s+(\d+)""".r
-  lazy val CpuSensorFormat   = """-cpusensor\s+(cpu-proc|cpu-proc-reg)""".r
+  lazy val CpuSensorFormat   = """-cpusensor\s+(cpu-proc|cpu-proc-reg|cpu-proc-virtio)""".r
   lazy val CpuFormulaFormat  = """-cpuformula\s+(cpu-max|cpu-maxvm|cpu-reg)""".r
   lazy val MemSensorFormat   = """-memsensor\s+(mem-proc|mem-sigar)""".r
   lazy val MemFormulaFormat  = """-memformula\s+(mem-single)""".r

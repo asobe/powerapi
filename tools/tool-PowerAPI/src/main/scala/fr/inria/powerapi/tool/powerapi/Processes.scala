@@ -58,15 +58,6 @@ class ExtendGnuplotReporter extends GnuplotReporter {
   override lazy val devices = Processes.allDevs
 }
 
-  class ExtendCpuFormula extends fr.inria.powerapi.formula.cpu.maxvm.CpuFormula {
-    override lazy val vmsConfiguration = load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
-        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
-  } (Map[Int, Int]())
-}
-
-
 class ExtendVirtioReporter extends VirtioReporter {
     override lazy val vmsConfiguration = load {
     conf =>
