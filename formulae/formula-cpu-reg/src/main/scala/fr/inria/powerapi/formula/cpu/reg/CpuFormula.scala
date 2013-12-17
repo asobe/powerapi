@@ -56,12 +56,12 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Configuration {
 
   def compute(now: CpuSensorMessage) = {
-    lazy val idlePower = coeffs(0)
-    val CPUpower = polyval(coeffs, now.activityPercent.percent) - idlePower
+    // Remove idle part
+    coeffs(0) = 0.0
+    val CPUpower = polyval(coeffs, now.activityPercent.percent)
 
-    // CPUPower can be negative because of the estimation, but not correct
-    // Also, the division by 0 it's not allowed
-    if (CPUpower < 0 || now.activityPercent.percent == 0) {
+    // The division by 0 it's not allowed
+    if (now.activityPercent.percent == 0) {
       Energy.fromPower(0)
     }
     
