@@ -61,7 +61,20 @@ class PolynomialFitting(var threshold: Double) extends SamplingConfiguration {
   def readMatrixFromFile: DenseMatrix[Double] = {
     // +1 because of the 0.0 usage percentage
     val nbLines = nbStep + 1
-    val samplingFiles = Path.fromString(samplesDirPath).descendants(PathMatcher.All, 1).toArray
+    val pattern = """.+_(\d{1,})\.dat$""".r
+    val samplingFiles = Path.fromString(samplesDirPath).descendants(PathMatcher.RegexNameMatcher(pattern), 1).toArray.sortWith((a, b) => {
+        val nb1 = a.path match {
+          case pattern(nb) => nb.toDouble
+          case _ => 0.0
+        }
+        val nb2 = b.path match {
+          case pattern(nb) => nb.toDouble
+          case _ => 0.0
+        }
+
+        nb1.compareTo(nb2) < 0
+      }
+    )
     // Map to save all the results
     var acc = scala.collection.mutable.Map.empty[Double, scala.collection.mutable.ListBuffer[Double]]
     val res = new Array[Double](nbLines * 2)
