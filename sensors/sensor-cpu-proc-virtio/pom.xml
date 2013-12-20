@@ -30,7 +30,7 @@
         </dependency>
         <dependency>
             <groupId>fr.inria.powerapi.sensor</groupId>
-            <artifactId>sensor-cpu-proc</artifactId>
+            <artifactId>sensor-cpu-proc-reg</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
