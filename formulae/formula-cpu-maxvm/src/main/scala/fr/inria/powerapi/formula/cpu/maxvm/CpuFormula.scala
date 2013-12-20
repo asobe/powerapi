@@ -37,7 +37,8 @@ class CpuFormula extends Formula {
 
   def compute(now: CpuVirtioSensorMessage) = {
     println("utilization: ",now.processPercent.percent)
-    Energy.fromPower(now.vmConsumption.power * now.processPercent.percent)
+    println("activity percent: ",now.activityPercent.percent)
+    Energy.fromPower((now.vmConsumption.power * now.processPercent.percent) / now.activityPercent.percent)
   }
 
   def process(cpuVirtioSensorMessage: CpuVirtioSensorMessage) {

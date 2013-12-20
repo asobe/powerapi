@@ -68,7 +68,7 @@ case class CpuVirtioSensorMessage(
 /**
  * CPU sensor component that collects data from virtio serial port
  */
-class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor with Configuration {
+class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor with Configuration {
 
   /**
    * Delegate class collecting time information contained into virtio file, providing process utilization and VM consumption from host
@@ -96,6 +96,7 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor with Configu
       CpuVirtioSensorMessage(
         vmConsumption = vmConsumption.process,
         processPercent = processPercent.process(tick.subscription),
+	activityPercent = activityPercent.process(tick.subscription),
         tick = tick))
   }
 }
