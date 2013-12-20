@@ -49,8 +49,8 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor {
   class ActivityPercent() {
 
     def activityElapsedTime(times: Array[Long], globalElapsedTime: Long): Long = {
-      // For the activity elapsed time, we remove the idle part
-      globalElapsedTime - times(3)
+      // For the activity elapsed time, we take only the activity values from stat file
+      times(0) + times(1) + times(2) + times(7)
     }
 
     // [TickSubscription, (globalElapsedTime, activityElapsedTime)]
