@@ -117,6 +117,7 @@ object Monitor extends App {
   lazy val PidsFormat       = """-pid\s+(\d+[,\d]*)""".r
   lazy val VmsFormat        = """-vm\s+(\d+:\d+[,\d+:\d]*)""".r
   lazy val AppsFormat       = """-app\s+(\w+[,\w]*)""".r
+  lazy val AppsContFormat   = """-appscont\s+(1|0)""".r
   lazy val AggregatorFormat = """-aggregator\s+(device|process)""".r
   lazy val OutputFormat     = """-output\s+(console|file|gnuplot|chart|virtio)""".r
   lazy val FileFormat       = """-filename\s+(\w+)""".r
@@ -135,6 +136,7 @@ object Monitor extends App {
       case PidsFormat(pids)       => ("pids" -> pids)
       case VmsFormat(vm)          => ("vm" -> vm)
       case AppsFormat(apps)       => ("apps" -> apps)
+      case AppsContFormat(appscont) => ("appscont" -> appscont)
       case AggregatorFormat(agg)  => ("agg" -> agg)
       case OutputFormat(out)      => ("out" -> out)
       case FileFormat(filePath)   => ("filePath" -> filePath)
@@ -192,6 +194,7 @@ object Monitor extends App {
     out  = params.getOrElse("out", "chart": String),
     freq = params.getOrElse("freq", "1000": String).toInt,
     time = params.getOrElse("time", "5": String).toInt,
+    appscont = params.getOrElse("appscont","0": String).toInt,
     devs = Initializer.devs
   )
   Initializer.beforeEnd(
