@@ -168,6 +168,7 @@ val currentPids = scala.collection.mutable.Set[Int](getPids: _*)
       newPids.foreach(pid => PowerAPI.startMonitoring(process = Process(pid), duration = dur))
       pids ++= newPids
       //println("updated the pids:"+pids.toString)
+       allPIDs = pids.toList
     }
             PowerAPI.startMonitoring(
       processor = getProcessor(agg),
