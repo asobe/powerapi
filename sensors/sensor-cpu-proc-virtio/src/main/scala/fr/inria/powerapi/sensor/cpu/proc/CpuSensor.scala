@@ -74,18 +74,30 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor with Con
    * Delegate class collecting time information contained into virtio file, providing process utilization and VM consumption from host
    */
   class VMConsumptionFromHost {
+    lazy val cache = collection.mutable.Map[Long, Double]()
     
-    def process = {
-      var power = "0.0"
+    def refreshCache(timestamp: Long, hostConsumption: Double) {
+      cache += (timestamp -> hostConsumption)
+    }
+    
+    def process(timestamp: Long) = {
+      var power = cache.getOrElse(timestamp, 0.0)
 
-      if (br != null) {
-        power = br.readLine()
-        if (power == null) power = "0.0"
-
-        println("read power value from host: ", power)
+      // Value not found in the cache, we have to read the consumption in the buffer
+      if(power == 0.0) {
+        if (br != null) {
+          val readPower = br.readLine
+          
+          if (readPower == null) power = 0.0
+          else {
+            power = readPower.toDouble
+            refreshCache(timestamp, power)
+          }
+        }
       }
 
-      Energy.fromPower(power.toDouble)
+      println("read power value from host: ", power)
+      Energy.fromPower(power)
     }
   }
 
@@ -94,9 +106,9 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor with Con
   override def process(tick: Tick) {
     publish(
       CpuVirtioSensorMessage(
-        vmConsumption = vmConsumption.process,
+        vmConsumption = vmConsumption.process(tick.timestamp),
         processPercent = processPercent.process(tick.subscription),
-	activityPercent = activityPercent.process(tick.subscription),
+        activityPercent = activityPercent.process(tick.subscription),
         tick = tick))
   }
 }
