@@ -116,7 +116,7 @@ object Initializer {
 object Monitor extends App {
   lazy val PidsFormat       = """-pid\s+(\d+[,\d]*)""".r
   lazy val VmsFormat        = """-vm\s+(\d+:\d+[,\d+:\d]*)""".r
-  lazy val AppsFormat       = """-app\s+(\w+[,\w]*)""".r
+  lazy val AppsFormat       = """-app\s+(.+[,.]*)""".r
   lazy val AppsContFormat   = """-appscont\s+(1|0)""".r
   lazy val AggregatorFormat = """-aggregator\s+(device|process)""".r
   lazy val OutputFormat     = """-output\s+(console|file|gnuplot|chart|virtio)""".r
