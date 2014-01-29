@@ -10,7 +10,7 @@ PowerAPI offers an API which can be used to express request about energy spent b
 * [Getting started](#getting-started)
 * [Architecture details](#architecture-details)
 * [API details](#api-details)
-* [Last features](#last-works)
+* [Last features](#last-features)
 * [Future works](#future-works)
 * [License](#license)
 
@@ -186,9 +186,9 @@ PowerAPI.startMonitoring(
 
 That's all!
 
-<h2 id="last-works">Last features</h2>
+<h2 id="last-features">Last features</h2>
 
-First version of BitWatts is available ! To use it, plug `VirtioSensor` and `VirtioReporter` together. See README to know how it works.
+First version of BitWatts is available ! This new version allows to estimate the power consumption of a process inside a VM. To use it, plug `VirtioSensor` and `VirtioReporter` together. See README to know all the details.
 
 <h2 id="future-works">Future works</h2>
 
