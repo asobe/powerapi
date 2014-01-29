@@ -15,7 +15,7 @@ PowerAPI offers an API which can be used to express request about energy spent b
 
 <h2 id="getting-started">Getting started</h2>
 
-PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.9.1+), using the [Akka library](http://akka.io "Akka library") (v 2.0.1+). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
+PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.9.1+), using the [Akka library](http://akka.io "Akka library") (v 2.10+). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
 PowerAPI project is fully managed by [Maven](http://maven.apache.org "Maven") (v. 3).
 
 ### How to acquire it
@@ -185,9 +185,13 @@ PowerAPI.startMonitoring(
 
 That's all!
 
+<h2 id="last-works">Last implemented features</h2>
+
+First version of BitWatts is available ! To use it, we have just to plug `VirtioSensor` and `VirtioReporter`. See README to know how it works.
+
 <h2 id="future-works">Future works</h2>
 
-We are working on new _energy modules_ (`Sensor` + `Formula`) development. If you are interested to participate, feel free to contact us via our [GitHub](https://github.com/abourdon/powerapi-akka "GitHub") webpage or mail us at powerapi-user-list@googlegroups.com!
+We are working on new models to have better estimation for any situation (with performance counters). If you are interested to participate, feel free to contact us via our [GitHub](https://github.com/mcolmant/powerapi-akka "GitHub") webpage or mail us at powerapi-user-list@googlegroups.com!
 
 <h2 id="license">License</h2>
 
