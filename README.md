@@ -16,7 +16,7 @@ PowerAPI offers an API which can be used to express request about energy spent b
 
 <h2 id="getting-started">Getting started</h2>
 
-PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.9.1+), using the [Akka library](http://akka.io "Akka library") (v 2.10+). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
+PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.10.2+), using the [Akka library](http://akka.io "Akka library") (v 2.1+). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
 PowerAPI project is fully managed by [Maven](http://maven.apache.org "Maven") (v. 3).
 
 ### How to acquire it
@@ -142,6 +142,12 @@ Set of `Reporter`, which listen to `Processor` events in order to display them t
 
 The Library module defines the API that can be used by user to interact with PowerAPI.
 
+### Tools
+
+The Tools module defines two default apps:
+* tool-PowerAPI: powerful tool to launch PowerAPI directly by a command line. See all the available options inside the corresponding README.
+* tool-sampling: default app defined to compute and get the energy profile of a processor. This tool is based on `stress`command which available on UNIX System. See all the details inside the module.
+
 <h2 id="api-details">API details</h2>
 
 Process-level energy monitoring is based on a periodically computation that can be expressed via the API. Here there are several examples to describe PowerAPI's API:
@@ -192,7 +198,7 @@ First version of BitWatts is available ! This new version allows to estimate the
 
 <h2 id="future-works">Future works</h2>
 
-We are working on new models to have better estimation for any situation (with performance counters). If you are interested to participate, feel free to contact us via our [GitHub](https://github.com/mcolmant/powerapi-akka "GitHub") webpage or mail us at powerapi-user-list@googlegroups.com!
+We are working on new models to have better estimation for any situation (with performance counters). If you are interested to participate, feel free to contact us via our [GitHub](https://github.com/mcolmant/powerapi "GitHub") webpage or mail us at powerapi-user-list@googlegroups.com!
 
 <h2 id="license">License</h2>
 

@@ -35,12 +35,10 @@ import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 import fr.inria.powerapi.processor.aggregator.device.DeviceAggregator
 import fr.inria.powerapi.processor.aggregator.process.ProcessAggregator
 import fr.inria.powerapi.reporter.console.ConsoleReporter
-import fr.inria.powerapi.reporter.file.FileReporter
-import fr.inria.powerapi.reporter.gnuplot.GnuplotReporter
 import fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter
-import fr.inria.powerapi.reporter.virtio.VirtioReporter
 
-class ExtendFileReporter extends FileReporter {
+
+class ExtendFileReporter extends fr.inria.powerapi.reporter.file.FileReporter {
   override lazy val output = {
     if (log.isInfoEnabled) log.info("using " + Processes.filePath + " as output file")
     Path.fromString(Processes.filePath+".dat").deleteIfExists()
@@ -48,7 +46,7 @@ class ExtendFileReporter extends FileReporter {
   }
 }
 
-class ExtendGnuplotReporter extends GnuplotReporter {
+class ExtendGnuplotReporter extends fr.inria.powerapi.reporter.gnuplot.GnuplotReporter {
   override lazy val output = {
     if (log.isInfoEnabled) log.info("using " + Processes.filePath + " as output file")
     Path.fromString(Processes.filePath+".dat").deleteIfExists()
@@ -58,7 +56,7 @@ class ExtendGnuplotReporter extends GnuplotReporter {
   override lazy val devices = Processes.allDevs
 }
 
-class ExtendVirtioReporter extends VirtioReporter {
+class ExtendVirtioReporter extends fr.inria.powerapi.reporter.virtio.VirtioReporter {
     override lazy val vmsConfiguration = load {
     conf =>
       (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
@@ -138,12 +136,12 @@ object Processes {
     )
   }
  
-/**
- * CPU monitoring for specific processes that is updated regularly.
- * Can be used for load scripts with child processes.
-**/
+  /**
+   * CPU monitoring for specific processes that is updated regularly.
+   * Can be used for load scripts with child processes.
+  **/
   def customUpdate(pids: List[Int],agg:String,out:String,freq:Int,time:Int, apps:String) {
-def getPids = {
+    def getPids = {
       val PSFormat = """^\s*(\d+).*""".r
       val pids = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps","-C",apps,"ho","pid")).getInputStream).lines().toList.map({
         pid =>
@@ -158,7 +156,7 @@ def getPids = {
     val pids = scala.collection.mutable.Set[Int]()
     val dur = freq.millis
     def updateMonitoredPids() {
-val currentPids = scala.collection.mutable.Set[Int](getPids: _*)
+      val currentPids = scala.collection.mutable.Set[Int](getPids: _*)
 
       val oldPids = pids -- currentPids
       oldPids.foreach(pid => PowerAPI.stopMonitoring(process = Process(pid), duration = dur))
@@ -170,18 +168,22 @@ val currentPids = scala.collection.mutable.Set[Int](getPids: _*)
       //println("updated the pids:"+pids.toString)
        allPIDs = pids.toList
     }
-            PowerAPI.startMonitoring(
+    
+    PowerAPI.startMonitoring(
       processor = getProcessor(agg),
       listener  = getReporter(out)
     )
     val timer = new Timer
+    
     timer.scheduleAtFixedRate(new TimerTask() {
       def run() {
         updateMonitoredPids
       }
     }, Duration.Zero.toMillis, (250.milliseconds).toMillis)
+    
     Thread.sleep((time.minutes).toMillis)
     timer.cancel
+    
     PowerAPI.stopMonitoring(
       processor = getProcessor(agg),
       listener  = getReporter(out)

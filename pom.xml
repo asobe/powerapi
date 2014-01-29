@@ -15,12 +15,12 @@
 		<version>7</version>
 	</parent>
 
-	<url>https://github.com/abourdon/powerapi-akka</url>
+	<url>https://github.com/mcolmant/powerapi</url>
 
 	<scm>
-		<url>https://github.com/abourdon/powerapi-akka.git</url>
-		<connection>scm:git:ssh://git@github.com/abourdon/powerapi-akka.git</connection>
-		<developerConnection>scm:git:ssh://git@github.com/abourdon/powerapi-akka.git</developerConnection>
+		<url>https://github.com/mcolmant/powerapi.git</url>
+		<connection>scm:git:ssh://git@github.com/mcolmant/powerapi.git</connection>
+		<developerConnection>scm:git:ssh://git@github.com/mcolmant/powerapi.git</developerConnection>
 	</scm>
 
 	<licenses>
@@ -32,10 +32,21 @@
 
 	<developers>
 		<developer>
-			<id>abourdon</id>
-			<name>Aurelien Bourdon</name>
-			<email>aurelien.bourdon@inria.fr</email>
-			<organization>Inria / University Lille 1</organization>
+			<id>mcolmant</id>
+			<name>Maxime Colmant</name>
+			<email>maxime.colmant@inria.fr</email>
+			<organization>University Lille 1 / ADEME</organization>
+			<organizationUrl>http://www.ademe.fr</organizationUrl>
+			<roles>
+				<role>Architect</role>
+				<role>Developer</role>
+			</roles>
+		</developer>
+		<developer>
+			<id>huertas</id>
+			<name>Loic Huertas</name>
+			<email>loic.huertas@inria.fr</email>
+			<organization>INRIA / University Lille 1</organization>
 			<organizationUrl>http://www.inria.fr</organizationUrl>
 			<roles>
 				<role>Architect</role>
@@ -52,6 +63,16 @@
 				<role>Architect</role>
 			</roles>
 		</developer>
+		<developer>
+			<id>maskur</id>
+			<name>Mascha Kurpicz</name>
+			<email>mascha.kurpicz@unine.ch</email>
+			<organization>University of Neuchatel</organization>
+			<organizationUrl>http://www.unine.ch/</organizationUrl>
+			<roles>
+				<role>Developer</role>
+			</roles>
+		</developer>
 	</developers>
 
 	<modules>
@@ -60,9 +81,7 @@
 		<module>formulae</module>
 		<module>library</module>
 		<module>processors</module>
-		<!--<module>listeners</module>-->
 		<module>reporters</module>
-		<!--<module>examples</module>-->
 		<module>tools</module>
 	</modules>
 

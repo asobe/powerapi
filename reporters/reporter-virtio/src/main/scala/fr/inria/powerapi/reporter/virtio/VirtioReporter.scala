@@ -49,11 +49,9 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 
 class VirtioReporter extends Reporter with Configuration {
   lazy val sockets = scala.collection.mutable.Map.empty[Int, AFUNIXSocket]
+  
   for((vmPid, port) <- vmsConfiguration) {
-    println("vmPID and port")
-   
-    println(vmPid)
-    println(port)
+    if (log.isInfoEnabled) log.info("vmPID: " + vmPid + "and port: " + port)
     var sock = AFUNIXSocket.newInstance()
     var socketaddress = new AFUNIXSocketAddress(new File(socketpath + "port" + port))
     sock.connect(socketaddress)
@@ -71,9 +69,7 @@ class VirtioReporter extends Reporter with Configuration {
   def process(processedMessage: ProcessedMessage) {
     val os = sockets(processedMessage.tick.subscription.process.pid).getOutputStream()
     val data = processedMessage.energy.power.toString+"\n"
-    //println(data)
     os.write(data.getBytes())
-    println(Line(processedMessage))
+    if (log.isInfoEnabled) log.info(Line(processedMessage).toString)
   }
 }
-

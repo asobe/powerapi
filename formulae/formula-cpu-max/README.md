@@ -1,8 +1,8 @@
-# Implementation of the PowerAPI CPU Formula module by maximum frequency and voltage used
+# Implementation of the PowerAPI CPU Formula module by using the consumption sent by the host
 
 ## Presentation
 
-Implements PowerAPI CPU Formula module at the maximum frequency and voltage used by the CPU principally represented by its [Thermal Design Power](http://en.wikipedia.org/wiki/Thermal_design_power "Thermal Design Power").
+Implements PowerAPI CPU Formula module by splitting the energy consumption between the processes activity related to the system activity.
 
 ## In
 
@@ -14,13 +14,4 @@ Conform to `fr.inria.powerapi.formula.formula-cpu-api`.
 
 ## Configuration part
 
-To provide CPU energy spent by a process, this module has to know the CPU [Thermal Design Power](http://en.wikipedia.org/wiki/Thermal_design_power "Thermal Design Power") value.
-
-For example:
-```
-powerapi {
-	cpu {
-		tdp = 105
-	}
-}
-```
+No configuration. The only required thing is to plug this Formula with a `VirtioSensor`.

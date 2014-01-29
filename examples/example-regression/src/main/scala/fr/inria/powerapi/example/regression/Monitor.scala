@@ -25,8 +25,6 @@ import fr.inria.powerapi.library.PowerAPI
 object Initializer {
   def beforeStart() {
     Array(
-      /*classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor],
-      classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula],*/
       classOf[fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor],
       classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
     ).foreach(PowerAPI.startEnergyModule(_))
@@ -34,8 +32,6 @@ object Initializer {
 
   def beforeEnd() {
     Array(
-      /*classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor],
-      classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula],*/
       classOf[fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor],
       classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
     ).foreach(PowerAPI.stopEnergyModule(_))
