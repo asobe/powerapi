@@ -32,3 +32,6 @@ powerapi {
 	}
 }
 ```
+
+To establish the connection between PowerSPY and PowerAPI, one library is required (bluecove). The easiest way is to install this library:
+* `libbluetooth-dev` (not required if PowerSPY worked before)
