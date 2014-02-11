@@ -8,16 +8,14 @@ Libraries are required:
 * `libbluetooth-dev` (not required if communication between PowerSpy / PowerAPI is already established)
 * `stess`
 * `cpulimit`
+* `libatlas-base`
+
+Intall the following package:
 * `libatlas-base-dev`
-* `libopenblas-base`
 
-For the two last mentioned above, symbolic links are missing on some system. That's why, check if this module exists:
-* `/usr/lib/libblas.so.3`
-* `/usr/lib/liblapack.so.3`
-
-If they don't exist, please enter these two commands as follows:
-* `ln -s /usr/lib/libblas.so /usr/lib/libblas.so.3`
+If the files `/usr/lib/liblapack.so.3` and `/usr/lib/libblas.so.3` does not exist, create the symbolic links:
 * `ln -s /usr/lib/liblapack.so /usr/lib/liblapack.so.3`
+* `ln -s /usr/lib/libblas.so /usr/lib/libblas.so.3`
 
-If this solution does not work, please check this link:
+If you need further details, see the link below:
 * `https://github.com/fommil/netlib-java/`
