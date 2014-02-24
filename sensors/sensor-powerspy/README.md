@@ -35,3 +35,11 @@ powerapi {
 
 To establish the connection between PowerSPY and PowerAPI, one library is required (bluecove). The easiest way is to install this library:
 * `libbluetooth-dev` (not required if PowerSPY worked before)
+
+If you don't have GUI and use PowerSPY v1, please follow these steps to pair-up PowerAPI with PowerSPY:
+* hcitool dev (get the mac address of your bluetooth card or adapter)
+* hcitool scan (get the mac address of your PowerSPY)
+* sudo hciconfig hci0 piscan
+* Check the file /var/lib/bluetooth/${bluetooth_mac_adress}/pincodes (please, create the file it it doesn't exist)
+* Add the following line: ${powersy_mac_adress} 0000
+* sudo /etc/init.d/bluetooth restart (or restart bluetooth)
