@@ -119,7 +119,7 @@ object Monitor extends App {
   lazy val AppsFormat       = """-app\s+(.+[,.]*)""".r
   lazy val AppsContFormat   = """-appscont\s+(1|0)""".r
   lazy val AggregatorFormat = """-aggregator\s+(device|process)""".r
-  lazy val OutputFormat     = """-output\s+(console|file|gnuplot|chart|virtio)""".r
+  lazy val OutputFormat     = """-output\s+(console|file|gnuplot|chart|virtio|thrift)""".r
   lazy val FileFormat       = """-filename\s+(\w+)""".r
   lazy val FreqFormat       = """-frequency\s+(\d+)""".r
   lazy val TimeFormat       = """-time\s+(\d+)""".r

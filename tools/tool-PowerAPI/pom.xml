@@ -27,6 +27,12 @@
 	</properties>
 
 	<dependencies>
+<dependency>
+  <groupId>org.slf4j</groupId>
+  <artifactId>slf4j-log4j12</artifactId>
+  <version>1.7.5</version>
+  <scope>test</scope>
+</dependency>
 		<dependency>
 			<groupId>fr.inria.powerapi</groupId>
 			<artifactId>core</artifactId>
@@ -117,6 +123,11 @@
 			<artifactId>reporter-console</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+		                <dependency>
+                        <groupId>fr.inria.powerapi.reporter</groupId>
+                        <artifactId>reporter-thrift</artifactId>
+                        <version>${project.version}</version>
+                </dependency>
 		<dependency>
 			<groupId>fr.inria.powerapi.reporter</groupId>
 			<artifactId>reporter-file</artifactId>

@@ -24,6 +24,7 @@
 		<module>reporter-file</module>
 		<module>reporter-gnuplot</module>
 		<module>reporter-jfreechart</module>
+		<module>reporter-thrift</module>
 	</modules>
 
 </project>

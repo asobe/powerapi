@@ -35,6 +35,7 @@ import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 import fr.inria.powerapi.processor.aggregator.device.DeviceAggregator
 import fr.inria.powerapi.processor.aggregator.process.ProcessAggregator
 import fr.inria.powerapi.reporter.console.ConsoleReporter
+import fr.inria.powerapi.reporter.thrift.ThriftReporter
 import fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter
 
 
@@ -256,6 +257,7 @@ object Processes {
       case "gnuplot" => classOf[ExtendGnuplotReporter]
       case "chart" => classOf[JFreeChartReporter]
       case "virtio" => classOf[ExtendVirtioReporter]
+      case "thrift" => classOf[ThriftReporter]
       case _ => classOf[JFreeChartReporter]
     }
   }

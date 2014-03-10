@@ -205,7 +205,7 @@
 				<inherited>false</inherited>
 				<configuration>
 					<header>${basedir}/COPYING.HEADER</header>
-					<failIfMissing>true</failIfMissing>
+					<failIfMissing>false</failIfMissing>
 					<aggregate>true</aggregate>
 					<strictCheck>true</strictCheck>
 					<properties>

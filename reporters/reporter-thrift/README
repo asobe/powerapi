@@ -1,0 +1,16 @@
+PowerAPI Thrift Reporter
+
+Creates an Apache Thrift packet and sends the power consumption using ZeroMQ communication channel. It allows to use the output of BitWatts in a pub/sub system.
+
+In
+
+Listen to ProcessedMessage, which are typically provided by fr.inria.powerapi.processor modules.
+
+Out
+
+Creates an Apache Thrift object and sends it using ZeroMQ as a publisher to localhost:5556. An external program listening on this port and is required (Generally a ZMQ broker to distributed the message to interested subscribers).
+
+Configuration part
+
+Currently no special configuration required.
+TODO: put the address and port to connect to in the configuration.
