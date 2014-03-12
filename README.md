@@ -16,7 +16,7 @@ PowerAPI offers an API which can be used to express request about energy spent b
 
 <h2 id="getting-started">Getting started</h2>
 
-PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.10.2+), using the [Akka library](http://akka.io "Akka library") (v 2.1+). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
+PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.10), using the [Akka library](http://akka.io "Akka library") (v 2.3). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
 PowerAPI project is fully managed by [Maven](http://maven.apache.org "Maven") (v. 3).
 
 ### How to acquire it
