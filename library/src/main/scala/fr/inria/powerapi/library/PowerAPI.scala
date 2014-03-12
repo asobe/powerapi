@@ -26,11 +26,14 @@ import scala.concurrent.duration.{FiniteDuration, Duration, DurationInt}
 import akka.actor.{ Props, ActorSystem, ActorPath }
 import akka.pattern.ask
 import akka.util.Timeout
+import akka.actor.Status.Success
 import fr.inria.powerapi.core.Clock
 import fr.inria.powerapi.core.EnergyModule
 import fr.inria.powerapi.core.{ Message, MessagesToListen, Listener, Component, TickIt, UnTickIt, TickSubscription, Process }
 import fr.inria.powerapi.core.Processor
 import fr.inria.powerapi.core.Reporter
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
  * PowerAPI's messages definition
@@ -105,7 +108,9 @@ class PowerAPI extends Component {
      */
     def stop(componentType: Class[_ <: Component]) {
       if (components.contains(componentType)) {
-        val component = context.actorFor(components(componentType))
+        val futureComponent = context.actorSelection(components(componentType)).resolveOne()
+        val component = Await.result(futureComponent, 1.seconds)
+
         val messages = Await.result(component ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
         messages.foreach(message => context.system.eventStream.unsubscribe(component, message))
         context.stop(component)
