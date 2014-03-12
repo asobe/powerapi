@@ -109,8 +109,7 @@ class Clock extends Component with ClockConfiguration {
       if (currentSubscriptions.isEmpty) {
         // Stop schedule associated to the associated duration.
         val schedule = schedulers getOrElse (duration, new Cancellable {
-          def cancel() {}
-
+          def cancel = true
           def isCancelled = true
         })
         schedule.cancel()

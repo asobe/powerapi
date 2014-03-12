@@ -73,6 +73,17 @@
 				<role>Developer</role>
 			</roles>
 		</developer>
+		<developer>
+			<id>abourdon</id>
+			<name>Aurelien Bourdon</name>
+			<email>aurelien.bourdon@inria.fr</email>
+			<organization>Inria / University Lille 1</organization>
+			<organizationUrl>http://www.inria.fr</organizationUrl>
+			<roles>
+				<role>Architect</role>
+				<role>Developer</role>
+			</roles>
+		</developer>
 	</developers>
 
 	<modules>
@@ -90,8 +101,8 @@
 		<maven.compiler.target>1.6</maven.compiler.target>
 		<encoding>UTF-8</encoding>
 		<scala.version>2.10</scala.version>
-        <scala.library>2.10.2</scala.library>
-		<akka.version>2.1.0</akka.version>
+        <scala.library>2.10.3</scala.library>
+		<akka.version>2.3.0</akka.version>
 		<firstAuthor.name>Aurelien Bourdon</firstAuthor.name>
 		<firstAuthor.email>aurelien.bourdon@inria.fr</firstAuthor.email>
 		<powerapi.root>${basedir}</powerapi.root>

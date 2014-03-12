@@ -20,8 +20,6 @@
  */
 package fr.inria.powerapi.processor.aggregator.timestamp
 
-import com.typesafe.config.ConfigFactory
-
 import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.FormulaMessage
 import fr.inria.powerapi.core.Process
@@ -29,16 +27,19 @@ import fr.inria.powerapi.core.ProcessedMessage
 import fr.inria.powerapi.core.Processor
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
+import fr.inria.powerapi.core.TickIt
 
-object SmoothingAggregator {
+trait Configuration extends fr.inria.powerapi.core.DefaultConfiguration {
   /**
    * Link to get information from configuration files.
    */
-  lazy val conf = ConfigFactory.load
-  lazy val state     = conf.getBoolean("powerapi.aggregator.smoothing.state")
-  lazy val freq      = conf.getDouble("powerapi.aggregator.smoothing.freq")
-  lazy val mincutoff = conf.getDouble("powerapi.aggregator.smoothing.mincutoff")
-  lazy val beta      = conf.getDouble("powerapi.aggregator.smoothing.beta")
+  lazy val state = load { _.getBoolean("powerapi.aggregator.smoothing.state") }(false)
+  lazy val freq = load { _.getDouble("powerapi.aggregator.smoothing.freq") }(60.0)
+  lazy val mincutoff = load { _.getDouble("powerapi.aggregator.smoothing.mincutoff") }(3.0)
+  lazy val beta = load { _.getDouble("powerapi.aggregator.smoothing.beta") }(0.007)
+}
+
+object SmoothingAggregator extends Configuration {
   
   val filterList = collection.mutable.HashMap[String, OneEuroFilter]("timestamp" -> new OneEuroFilter(freq, mincutoff, beta))
   
