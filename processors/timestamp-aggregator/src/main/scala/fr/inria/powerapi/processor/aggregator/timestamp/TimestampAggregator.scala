@@ -29,7 +29,7 @@ import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.core.TickIt
 
-trait Configuration extends fr.inria.powerapi.core.DefaultConfiguration {
+trait Configuration extends fr.inria.powerapi.core.SimpleConfiguration {
   /**
    * Link to get information from configuration files.
    */

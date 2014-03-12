@@ -60,12 +60,12 @@ trait Configuration extends Component {
 /**
  * Base trait dealing with configuration files for simple object which needs to be configured
  */
-trait DefaultConfiguration {
+trait SimpleConfiguration {
   /**
    * Link to get information from configuration files.
    */
   private lazy val conf = ConfigFactory.load
-  lazy val logger: Logger = Logger.getLogger(classOf[DefaultConfiguration]);
+  lazy val logger: Logger = Logger.getLogger(classOf[SimpleConfiguration]);
 
   /**
    * Default pattern to get information from configuration file.
