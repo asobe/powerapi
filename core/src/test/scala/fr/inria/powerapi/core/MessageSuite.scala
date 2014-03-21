@@ -24,8 +24,8 @@ import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 import akka.actor.actorRef2Scala
 import akka.actor.Actor
@@ -34,7 +34,7 @@ import akka.actor.Props
 import akka.pattern.ask
 import akka.util.Timeout
 
-class MessageSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class MessageSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Test
   def testLeafMessage {

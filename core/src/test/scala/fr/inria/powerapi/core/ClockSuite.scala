@@ -27,8 +27,8 @@ import scala.concurrent.duration.DurationInt
 
 import org.junit.Ignore
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 import akka.actor.ActorLogging
 import akka.actor.ActorSystem
@@ -62,7 +62,7 @@ class SimpleTickReceiver extends akka.actor.Actor with ActorLogging {
   }
 }
 
-class ClockSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("ClockTest")
   val clock = TestActorRef[Clock]
 

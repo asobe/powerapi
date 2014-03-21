@@ -21,13 +21,12 @@
 package fr.inria.powerapi.example.adamdemo.full
 
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
 
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 
-class DemoListenerSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DemoListenerSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   implicit val system = ActorSystem("DemoListenerSuite")
 

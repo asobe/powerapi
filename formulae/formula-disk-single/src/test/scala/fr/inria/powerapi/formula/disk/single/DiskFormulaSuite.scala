@@ -23,8 +23,8 @@ package fr.inria.powerapi.formula.disk.single
 import scala.concurrent.duration.DurationInt
 
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
@@ -35,7 +35,7 @@ import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.formula.disk.api.DiskFormulaMessage
 import fr.inria.powerapi.sensor.disk.api.DiskSensorMessage
 
-class DiskFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DiskFormulaSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("DiskFormulaSuiteSystem")
   val diskFormula = TestActorRef[DiskFormula].underlyingActor
 

@@ -29,13 +29,14 @@ import akka.util.Timeout
 import fr.inria.powerapi.core.{ Message, MessagesToListen }
 import fr.inria.powerapi.sensor.cpu.api.CpuSensorMessage
 import org.junit.Test
-import org.scalatest.junit.{ ShouldMatchersForJUnit, JUnitSuite }
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 class CpuFormulaMock extends CpuFormula {
   def process(cpuSensorMessage: CpuSensorMessage) {}
 }
 
-class CpuFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class CpuFormulaSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   lazy val system = ActorSystem("CpuFormulaSuite")
   implicit lazy val timeout = Timeout(5 seconds)
 

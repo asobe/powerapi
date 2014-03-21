@@ -24,8 +24,8 @@ import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import com.typesafe.config.Config
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import scala.collection.JavaConversions
 
 case class Item(id: Int, value: Double)
@@ -92,7 +92,7 @@ class SimpleConfigurationMock extends SimpleConfiguration {
   }(false)
 }
 
-class ConfigurationSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class ConfigurationSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("configuration-suite")
   val configuration = TestActorRef[ConfigurationMock].underlyingActor
 

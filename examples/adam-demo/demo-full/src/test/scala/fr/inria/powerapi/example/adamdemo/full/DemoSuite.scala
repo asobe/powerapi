@@ -23,11 +23,10 @@ package fr.inria.powerapi.example.adamdemo.full
 import scala.concurrent.duration.DurationInt
 
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
 import org.junit.Ignore
 
-class DemoSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DemoSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Ignore
   @Test

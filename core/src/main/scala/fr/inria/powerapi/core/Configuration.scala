@@ -23,6 +23,29 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigException
 import com.typesafe.config.Config
 import org.apache.log4j.Logger
+import akka.event.LoggingAdapter
+ 
+/*trait Logging {
+  def logger: Logger
+
+  trait Logger {
+    def isWarningEnabled: Boolean
+    def isInfoEnabled: Boolean
+    def warning(msg: String)
+    def info(msg: String)
+  }
+}
+
+trait AkkaLogging extends Logging {
+  override val logger = new AkkaLogger
+
+  class AkkaLogger extends Logger with akka.actor.Actor with akka.actor.ActorLogging {
+    def isWarningEnabled = log.isWarningEnabled
+    def isInfoEnabled = log.isInfoEnabled
+    def warning(msg: String) = log.warning(msg)
+    def info(msg: String) = log.info(msg)
+  }
+}*/
 
 /**
  * Base trait dealing with configuration files using the Typesafe Config library.

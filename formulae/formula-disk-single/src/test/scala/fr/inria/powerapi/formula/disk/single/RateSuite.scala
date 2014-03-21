@@ -20,12 +20,12 @@
  */
 package fr.inria.powerapi.formula.disk.single
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 
-class RateSuiteWrapper extends Configuration with JUnitSuite with ShouldMatchersForJUnit {
+class RateSuiteWrapper extends JUnitSuite with Configuration with Matchers with AssertionsForJUnit {
   val megaByte = 1000000.0
   val gigaByte = 1000000000.0
 
@@ -49,7 +49,7 @@ class RateSuiteWrapper extends Configuration with JUnitSuite with ShouldMatchers
   }
 }
 
-class RateSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class RateSuite extends JUnitSuite {
   implicit val system = ActorSystem("RateSuite")
   val rateSuite = TestActorRef[RateSuiteWrapper].underlyingActor
 

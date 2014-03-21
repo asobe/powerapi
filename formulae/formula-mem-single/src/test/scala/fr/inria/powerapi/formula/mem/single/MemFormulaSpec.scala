@@ -22,8 +22,8 @@ package fr.inria.powerapi.formula.mem.single
 
 import scala.concurrent.duration.DurationInt
 
-import org.scalatest.junit.ShouldMatchersForJUnit
-import org.scalatest.FlatSpec
+import org.scalatest.junit.AssertionsForJUnit
+import org.scalatest.{FlatSpec, Matchers}
 import fr.inria.powerapi.library.PowerAPI
 import fr.inria.powerapi.core.Process
 import org.junit.runner.RunWith
@@ -46,7 +46,7 @@ class MemFormulaListener extends Listener {
 }
 
 @RunWith(classOf[JUnitRunner])
-class MemFormulaSpec extends FlatSpec with ShouldMatchersForJUnit {
+class MemFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
   trait ConfigurationMock extends Configuration {
     override lazy val readPower = 5.0

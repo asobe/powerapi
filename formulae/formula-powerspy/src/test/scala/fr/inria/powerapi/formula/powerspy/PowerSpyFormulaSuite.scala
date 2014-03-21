@@ -25,8 +25,8 @@ import scala.concurrent.duration.DurationInt
 
 
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.pattern.ask
@@ -69,7 +69,7 @@ class PowerSpyFormulaListener extends Listener {
   }
 }
 
-class PowerSpyFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class PowerSpyFormulaSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Test
   def testComputation() {
