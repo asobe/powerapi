@@ -34,7 +34,7 @@ import scalax.io.Resource
 import java.io.FileInputStream
 import java.net.URL
 import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.Matchers
 import scala.util.Properties
 import org.junit.Test
 import akka.actor.ActorSystem
@@ -62,7 +62,7 @@ class DiskSensorReceiver extends Listener {
   }
 }
 
-class DiskSensorSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DiskSensorSuite extends JUnitSuite with Matchers {
   @Test
   def testReadAndWrite() {
     implicit val system = ActorSystem("DiskSensorSuite")

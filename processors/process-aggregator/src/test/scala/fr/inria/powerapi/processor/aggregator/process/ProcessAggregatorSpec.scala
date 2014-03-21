@@ -25,10 +25,10 @@ import scala.concurrent.duration.DurationInt
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import org.junit.runner.RunWith
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite, JUnitRunner}
+import org.scalatest.Matchers
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatedMessage
 import fr.inria.powerapi.processor.aggregator.timestamp.SmoothingAggregator
-import org.scalatest.junit.JUnitRunner
 import org.scalatest.FlatSpec
 import fr.inria.powerapi.core.FormulaMessage
 import fr.inria.powerapi.core.Energy
@@ -47,7 +47,7 @@ class ProcessAggregatorMock extends ProcessAggregator {
 }
 
 @RunWith(classOf[JUnitRunner])
-class ProcessAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class ProcessAggregatorSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
   implicit val system = ActorSystem("process-aggregator-spec")
   val processAggregator = TestActorRef[ProcessAggregatorMock]

@@ -20,13 +20,14 @@
  */
 package fr.inria.powerapi.listener.cpu.filent
 
-import akka.util.duration.intToDurationInt
+import scala.concurrent.duration.DurationInt
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.library.PowerAPI
 import fr.inria.powerapi.sensor.cpu.proc.CpuSensor
 import java.lang.management.ManagementFactory
 import org.junit.{ Test, Before, After }
-import org.scalatest.junit.{ ShouldMatchersForJUnit, JUnitSuite }
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import scalax.file.Path
 import fr.inria.powerapi.formula.cpu.max.CpuFormula
 
@@ -38,7 +39,7 @@ trait ConfigurationMock extends Configuration {
 
 class CpuListenerMock extends CpuListener with ConfigurationMock
 
-class CpuListenerSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class CpuListenerSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   @Before
   def setUp() {
     Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.startEnergyModule(_))
@@ -47,9 +48,9 @@ class CpuListenerSuite extends JUnitSuite with ShouldMatchersForJUnit {
   @Test
   def testCurrentPid() {
     val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
-    PowerAPI.startMonitoring(process = Process(currentPid), duration = 500 milliseconds, listener = classOf[CpuListenerMock])
-    Thread.sleep((5 seconds).toMillis)
-    PowerAPI.stopMonitoring(process = Process(currentPid), duration = 500 milliseconds, listener = classOf[CpuListenerMock])
+    PowerAPI.startMonitoring(process = Process(currentPid), duration = 500.milliseconds, listener = classOf[CpuListenerMock])
+    Thread.sleep((5.seconds).toMillis)
+    PowerAPI.stopMonitoring(process = Process(currentPid), duration = 500.milliseconds, listener = classOf[CpuListenerMock])
   }
 
   @After

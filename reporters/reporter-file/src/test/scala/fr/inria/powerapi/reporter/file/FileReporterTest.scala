@@ -22,7 +22,8 @@ package fr.inria.powerapi.reporter.file
 
 import scala.concurrent.duration.DurationInt
 
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import fr.inria.powerapi.formula.cpu.max.CpuFormula
@@ -33,7 +34,6 @@ import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.library.PowerAPI
 import java.lang.management.ManagementFactory
 import scalax.file.Path
-import org.scalatest.junit.JUnitSuite
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -49,7 +49,7 @@ trait ConfigurationMock extends Configuration {
 
 class FileReporterMock extends FileReporter with ConfigurationMock
 
-class FileReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
+class FileReporterTest extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Before
   def setUp() {

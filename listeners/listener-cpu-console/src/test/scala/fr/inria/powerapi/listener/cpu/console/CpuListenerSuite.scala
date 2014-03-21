@@ -27,11 +27,12 @@ import fr.inria.powerapi.library.PowerAPI
 import fr.inria.powerapi.sensor.cpu.proc.CpuSensor
 import java.lang.management.ManagementFactory
 import org.junit.{ Test, Ignore, Before, After }
-import org.scalatest.junit.{ ShouldMatchersForJUnit, JUnitSuite }
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import scalax.io.Resource
 import fr.inria.powerapi.formula.cpu.max.CpuFormula
 
-class CpuListenerSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class CpuListenerSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   @Before
   def setUp() {
     Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.startEnergyModule(_))

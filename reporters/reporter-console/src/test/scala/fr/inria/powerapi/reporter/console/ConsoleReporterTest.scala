@@ -22,8 +22,9 @@ package fr.inria.powerapi.reporter.console
 
 import scala.concurrent.duration.DurationInt
 
-import org.scalatest.junit.ShouldMatchersForJUnit
 import akka.actor.ActorSystem
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import akka.testkit.TestActorRef
 import fr.inria.powerapi.formula.cpu.max.CpuFormula
 import fr.inria.powerapi.formula.mem.single.MemFormula
@@ -39,7 +40,7 @@ import org.junit.Before
 import org.junit.Test
 import fr.inria.powerapi.processor.aggregator.device.DeviceAggregator
 
-class ConsoleReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
+class ConsoleReporterTest extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Before
   def setUp() {

@@ -24,7 +24,7 @@ import scala.concurrent.duration.DurationInt
 
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.Matchers
 import fr.inria.powerapi.core.Listener
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.library.PowerAPI
@@ -42,7 +42,7 @@ class PowerSpySensorListener extends Listener {
   }
 }
 
-class PowerSpySensorSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class PowerSpySensorSuite extends JUnitSuite with Matchers {
   
   @Ignore
   @Test

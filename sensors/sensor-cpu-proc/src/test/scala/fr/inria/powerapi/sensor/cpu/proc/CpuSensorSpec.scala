@@ -27,8 +27,8 @@ import scala.concurrent.duration.DurationInt
 import scala.util.Properties
 
 import org.junit.runner.RunWith
-import org.scalatest.junit.JUnitRunner
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitRunner}
+import org.scalatest.Matchers
 import org.scalatest.FlatSpec
 
 import akka.actor.ActorSystem
@@ -39,7 +39,7 @@ import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.sensor.cpu.api.ProcessPercent
 
 @RunWith(classOf[JUnitRunner])
-class CpuSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class CpuSensorSpec extends FlatSpec with Matchers {
 
   trait ConfigurationMock extends Configuration {
     lazy val basedir = new URL("file", Properties.propOrEmpty("basedir"), "")

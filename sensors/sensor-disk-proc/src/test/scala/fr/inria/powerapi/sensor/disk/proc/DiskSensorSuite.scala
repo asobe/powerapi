@@ -26,7 +26,7 @@ import scala.util.Properties
 
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.Matchers
 
 import akka.actor.actorRef2Scala
 import akka.actor.Actor
@@ -49,7 +49,7 @@ class DiskReceiverMock extends Actor {
   }
 }
 
-class DiskSensorSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DiskSensorSuite extends JUnitSuite with Matchers {
   trait ConfigurationMock extends Configuration {
     lazy val basedir = new URL("file", Properties.propOrEmpty("basedir"), "")
     override lazy val iofile = new URL(basedir, "/src/test/resources/proc/%?/io").toString

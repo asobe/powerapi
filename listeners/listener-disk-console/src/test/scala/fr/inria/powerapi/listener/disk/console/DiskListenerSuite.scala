@@ -23,8 +23,8 @@ package fr.inria.powerapi.listener.disk.console
 import scala.concurrent.duration.DurationInt
 
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import fr.inria.powerapi.formula.disk.single.DiskFormula
 import fr.inria.powerapi.library.PowerAPI
 import fr.inria.powerapi.sensor.disk.proc.DiskSensor
@@ -34,7 +34,7 @@ import org.junit.After
 import scalax.io.Resource
 import org.junit.Ignore
 
-class DiskListenerSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DiskListenerSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Before
   def setup() {

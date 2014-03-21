@@ -27,8 +27,8 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import fr.inria.powerapi.core.Listener
 import fr.inria.powerapi.core.Message
 import fr.inria.powerapi.core.Process
@@ -48,7 +48,7 @@ trait ConfigurationMock extends Configuration {
 
 class CpuDiskListenerMock extends CpuDiskListener with ConfigurationMock
 
-class CpuDiskListenerSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class CpuDiskListenerSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Test
   def testAggregate() {

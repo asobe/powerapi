@@ -23,8 +23,8 @@ import java.lang.management.ManagementFactory
 
 import org.junit.Ignore
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.Duration
@@ -48,7 +48,7 @@ trait ConfigurationMock extends Configuration {
 
 class CpuDiskListenerMock extends CpuDiskListener with ConfigurationMock
 
-class CpuDiskListenerSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class CpuDiskListenerSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Test
   def testAggregate() {

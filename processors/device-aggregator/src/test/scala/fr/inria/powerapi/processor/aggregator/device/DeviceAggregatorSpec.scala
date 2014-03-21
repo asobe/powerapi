@@ -25,12 +25,12 @@ import scala.concurrent.duration.DurationInt
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import org.junit.runner.RunWith
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite, JUnitRunner}
+import org.scalatest.Matchers
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatedMessage
 import fr.inria.powerapi.processor.aggregator.timestamp.SmoothingAggregator
 import org.scalatest.FlatSpec
 import fr.inria.powerapi.core.FormulaMessage
-import org.scalatest.junit.JUnitRunner
 import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
@@ -47,7 +47,7 @@ class DeviceAggregatorMock extends DeviceAggregator {
 }
 
 @RunWith(classOf[JUnitRunner])
-class DeviceAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class DeviceAggregatorSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
   implicit val system = ActorSystem("device-aggregator-spec")
   val deviceAggregator = TestActorRef[DeviceAggregatorMock]

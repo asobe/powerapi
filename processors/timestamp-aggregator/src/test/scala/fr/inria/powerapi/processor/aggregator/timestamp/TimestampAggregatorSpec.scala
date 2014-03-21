@@ -24,8 +24,8 @@ import scala.concurrent.duration.DurationInt
 
 import org.junit.runner.RunWith
 import org.scalatest.FlatSpec
-import org.scalatest.junit.JUnitRunner
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite, JUnitRunner}
+import org.scalatest.Matchers
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.testkit.TestActorRef
@@ -46,7 +46,7 @@ class TimestampAggregatorMock extends TimestampAggregator {
 }
 
 @RunWith(classOf[JUnitRunner])
-class TimestampAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class TimestampAggregatorSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
   implicit val system = ActorSystem("timestamp-aggregator-spec")
   val timestampAggregator = TestActorRef[TimestampAggregatorMock]

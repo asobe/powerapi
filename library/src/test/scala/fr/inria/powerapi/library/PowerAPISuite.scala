@@ -22,12 +22,13 @@ package fr.inria.powerapi.library
 
 import scala.concurrent.duration.DurationInt
 import akka.actor.ActorLogging
+import org.scalatest.junit.JUnitSuite
+import org.scalatest.Matchers
 import fr.inria.powerapi.core.{ Listener, Process }
 import fr.inria.powerapi.formula.cpu.api.CpuFormulaMessage
 import fr.inria.powerapi.sensor.cpu.proc.CpuSensor
 import java.lang.management.ManagementFactory
 import org.junit.Test
-import org.scalatest.junit.{ ShouldMatchersForJUnit, JUnitSuite }
 import fr.inria.powerapi.formula.cpu.max.CpuFormula
 
 class SimpleCpuListener extends Listener {
@@ -38,7 +39,7 @@ class SimpleCpuListener extends Listener {
   def messagesToListen = Array(classOf[CpuFormulaMessage])
 }
 
-class PowerAPISuite extends JUnitSuite with ShouldMatchersForJUnit {
+class PowerAPISuite extends JUnitSuite {
   @Test
   def testPowerAPI() {
     Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.startEnergyModule(_))

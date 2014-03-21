@@ -21,10 +21,10 @@
 package fr.inria.powerapi.sensor.powerspy
 
 import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.Matchers
 import org.junit.Test
 
-class PowerSpySensorDelegateMessageSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class PowerSpySensorDelegateMessageSuite extends JUnitSuite with Matchers {
   @Test
   def testSum() {
     PowerSpySensorDelegateMessage(1.0, 1.0f, 1.0f) + PowerSpySensorDelegateMessage(1.0, 1.0f, 1.0f) should equal(PowerSpySensorDelegateMessage(1.0 + 1.0, 1.0f + 1.0f, 1.0f + 1.0f))
