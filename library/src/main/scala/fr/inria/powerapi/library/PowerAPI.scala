@@ -22,6 +22,8 @@ package fr.inria.powerapi.library
 
 import scala.concurrent.Await
 import scala.concurrent.duration.{FiniteDuration, Duration, DurationInt}
+import scala.concurrent.{ Future, blocking }
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import akka.actor.{ Props, ActorSystem, ActorPath, ActorRef }
 import akka.pattern.ask
@@ -33,8 +35,6 @@ import fr.inria.powerapi.core.{ Message, MessagesToListen, Listener, Component, 
 import fr.inria.powerapi.core.Processor
 import fr.inria.powerapi.core.Reporter
 import fr.inria.powerapi.core.CallbackReporter
-
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
  * PowerAPI's messages definition
@@ -63,6 +63,8 @@ case class StopMonitoring(
   duration: FiniteDuration = Duration.Zero,
   processor: Class[_ <: Processor] = null,
   listener: Class[_ <: Listener] = null) extends Message
+
+case object MonitoringStopped
 
 /**
  * PowerAPI engine which start/stop every PowerAPI components such as Listener or Energy Module.
@@ -175,6 +177,7 @@ class PowerAPI extends Component {
      * Stop all the components stored in the hashmap
     */
     components.filter((tuple) => tuple._1 != classOf[Clock]).foreach((tuple) => process(StopComponent(tuple._1)))
+    sender ! MonitoringStopped
   }
 
   def process(cancelSubscription: CancelSubscription) {
@@ -188,6 +191,10 @@ class PowerAPI extends Component {
       messages.foreach(message => context.system.eventStream.unsubscribe(actorRef, message))
       context.stop(actorRef)
       components -= componentType
+      
+      if(componentType == classOf[Clock]) {
+        if (log.isDebugEnabled) log.debug("Clock stopped.")
+      }
     }
 
     unsubscribe(cancelSubscription.actorRef, cancelSubscription.componentType)
@@ -195,7 +202,7 @@ class PowerAPI extends Component {
     // Be aware to stop the Clock if all other components has been stopped.
     if (components.size == 1 && components.contains(classOf[Clock])) {
       process(StopComponent(classOf[Clock]))
-      if (log.isDebugEnabled) log.debug("Clock is shutting down")
+      if (log.isDebugEnabled) log.debug("Clock is going to shutdown.")
     }
   }
 
@@ -360,6 +367,7 @@ object PowerAPI {
 class API(name: String) {
   implicit lazy val system = ActorSystem(name)
   lazy val engine = system.actorOf(Props[PowerAPI])
+  implicit val timeout = Timeout(5.seconds)
 
   /**
    * Start the component associated to the given type
@@ -370,33 +378,29 @@ class API(name: String) {
   }
 
   /**
-   * Stop the component associated to the given type 
-   * @param componentType: component type to stop.
-   */
-  def stopComponent(componentType: Class[_ <: Component]) {
-    engine ! StopComponent(componentType)
-  }
-
-  /**
    * Stop all the components
    */
-  def stopComponents() {
-    engine ! StopComponents()
+  def stop() {
+    Await.result(engine ? StopComponents(), timeout.duration)
   }
 
   /**
    * Start the monitoring of the given processes during with a specified frequency for the Clock component
-   * Results are displayed by the given reporters
+   * Results are displayed by the given reporter
    *
    * @param processes: processes to monitor.
    * @param duration: clock frequency.
-   * @param reporters: reporters used to display the results.
+   * @param reporters: reporter used to display the results.
    */
-  def startMonitoring(processes: Array[Process], duration: FiniteDuration, reporters: Array[Class[_ <: Reporter]]) {
-    // Start the reporters
-    reporters.foreach(reporter => engine ! StartMonitoring(listener = reporter))
+  def startMonitoring(processes: Array[Process], duration: FiniteDuration, reporter: Class[_ <: Reporter], timeout: FiniteDuration) {
+    // Start the reporter
+    engine ! StartMonitoring(listener = reporter)
     // Start the monitoring with the given processes
     processes.foreach(process => engine ! StartMonitoring(process = process, duration = duration))
+
+    if(timeout != null) {
+        Thread.sleep(timeout.toMillis)
+    }
   }
 
   /**
@@ -407,11 +411,15 @@ class API(name: String) {
    * @param duration: clock frequency.
    * @param process: function used to display the results.
    */
-  def startMonitoring(processes: Array[Process], duration: FiniteDuration, reporter: (ProcessedMessage) => Unit) {
+  def startMonitoring(processes: Array[Process], duration: FiniteDuration, reporter: (ProcessedMessage) => Unit, timeout: FiniteDuration) {
     // Start the callback reporter with the specified behavior (function) for the reporting
     engine ! StartConfiguredMonitoring(listener = (CallbackReporter.props(reporter), classOf[CallbackReporter]))
     // Start the monitoring with the given processes
     processes.foreach(process => engine ! StartMonitoring(process = process, duration = duration))
+    
+    if(timeout != null) {
+      Thread.sleep(timeout.toMillis)
+    }
   }
 
   /**
@@ -422,10 +430,14 @@ class API(name: String) {
    * @param duration: clock frequency.
    * @param actorRef: actor reference to process the messages.
    */
-  def startMonitoring(processes: Array[Process], duration: FiniteDuration, reporter: (ActorRef, Class[_ <: Reporter])) {
+  def startMonitoring(processes: Array[Process], duration: FiniteDuration, reporter: (ActorRef, Class[_ <: Reporter]), timeout: FiniteDuration) {
     engine ! StartSubscription(reporter._1, reporter._2)
     // Start the monitoring with the given processes
     processes.foreach(process => engine ! StartMonitoring(process = process, duration = duration))
+
+    if(timeout != null) {
+      Thread.sleep(timeout.toMillis)
+    }
   }
 
   /**

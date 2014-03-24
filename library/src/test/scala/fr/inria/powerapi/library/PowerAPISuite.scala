@@ -20,24 +20,19 @@
  */
 package fr.inria.powerapi.library
 
+import fr.inria.powerapi.core.{ Listener, Process, Reporter, ProcessedMessage }
+import fr.inria.powerapi.formula.cpu.api.CpuFormulaMessage
+import fr.inria.powerapi.sensor.cpu.proc.CpuSensor
+import fr.inria.powerapi.formula.cpu.max.CpuFormula
+import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
+
 import scala.concurrent.duration.DurationInt
 import akka.actor.{ ActorLogging, Props }
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.Matchers
-import fr.inria.powerapi.core.{ Listener, Process, Reporter, ProcessedMessage }
-import fr.inria.powerapi.formula.cpu.api.CpuFormulaMessage
-import fr.inria.powerapi.sensor.cpu.proc.CpuSensor
 import java.lang.management.ManagementFactory
 import org.junit.Test
-import fr.inria.powerapi.formula.cpu.max.CpuFormula
-
-class SimpleCpuListener extends Listener {
-  def acquire = {
-    case values: CpuFormulaMessage => println(values)
-  }
-
-  def messagesToListen = Array(classOf[CpuFormulaMessage])
-}
+import akka.util.Timeout
 
 class SimpleCpuReporter extends Reporter {
   def process(processedMessage: ProcessedMessage) {
@@ -48,48 +43,53 @@ class SimpleCpuReporter extends Reporter {
 class PowerAPISuite extends JUnitSuite {
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
-  // @Test
-  // def testPowerAPI() {
-  //   Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.startEnergyModule(_))
+  @Test
+  def testPowerAPI() {
+    Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.startEnergyModule(_))
 
-  //   PowerAPI.startMonitoring(process = Process(currentPid), duration = 500.milliseconds, listener = classOf[SimpleCpuListener])
-  //   Thread.sleep((5.seconds).toMillis)
-  //   PowerAPI.stopMonitoring(process = Process(currentPid), duration = 500.milliseconds, listener = classOf[SimpleCpuListener])
+    PowerAPI.startMonitoring(
+      process = Process(currentPid),
+      duration = 500.milliseconds,
+      processor = classOf[TimestampAggregator],
+      listener = classOf[SimpleCpuReporter])
+    Thread.sleep((5.seconds).toMillis)
+    PowerAPI.stopMonitoring(
+      process = Process(currentPid),
+      duration = 500.milliseconds,
+      processor = classOf[TimestampAggregator],
+      listener = classOf[SimpleCpuReporter])
 
-  //   Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.stopEnergyModule(_))
-  // }
+    Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.stopEnergyModule(_))
+  }
 
-  // @Test
-  // def testAPIBakeryWithReporter() {
-  //   val powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with TimestampAggregator
+  @Test
+  def testAPIBakeryWithReporter() {
+    val powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
     
-  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), duration = 500.milliseconds, reporters = Array(classOf[SimpleCpuReporter]))
-  //   Thread.sleep((5.seconds).toMillis)
-  //   powerapi.stopMonitoring(processes = Array(Process(currentPid)), duration = 500.milliseconds)
-   
-  //   powerapi.stopComponents()
-  // }
+    powerapi.startMonitoring(
+      processes = Array(Process(currentPid)), duration = 500.milliseconds, reporter = classOf[SimpleCpuReporter], timeout = 5.seconds)
+    powerapi.stopMonitoring(processes = Array(Process(currentPid)), duration = 500.milliseconds)
+    powerapi.stop
+  }
 
   @Test
   def testAPIBakeryWithFunctionAsReporter() {
-    val powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with TimestampAggregator
-
-    powerapi.startMonitoring(processes = Array(Process(currentPid)), duration = 500.milliseconds, reporter = { println(_)})
-    //Thread.sleep((5.seconds).toMillis)
-    //powerapi.stopMonitoring(processes = Array(Process(currentPid)), duration = 500.milliseconds)
-
-    //powerapi.stopComponents()
+    val powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    
+    powerapi.startMonitoring(
+      processes = Array(Process(currentPid)), duration = 1.seconds, reporter = { println(_)}, timeout = 5.seconds)
+    powerapi.stopMonitoring(processes = Array(Process(currentPid)), duration = 1.seconds)
+    powerapi.stop
   }
 
-  // @Test
-  // def testAPIBakeryWithActorRefAsReporter() {
-  //   val powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with TimestampAggregator
-  //   val reporter = powerapi.system.actorOf(Props[SimpleCpuReporter], classOf[SimpleCpuReporter].getCanonicalName)
+  @Test
+  def testAPIBakeryWithActorRefAsReporter() {
+    val powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    val reporter = powerapi.system.actorOf(Props[SimpleCpuReporter], classOf[SimpleCpuReporter].getCanonicalName)
 
-  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), duration = 500.milliseconds, reporter = (reporter, classOf[SimpleCpuReporter]))
-  //   Thread.sleep((5.seconds).toMillis)
-  //   powerapi.stopMonitoring(processes = Array(Process(currentPid)), duration = 500.milliseconds)
-
-  //   powerapi.stopComponents()
-  // }
+    powerapi.startMonitoring(
+      processes = Array(Process(currentPid)), duration = 500.milliseconds, reporter = (reporter, classOf[SimpleCpuReporter]), timeout = 5.seconds)
+    powerapi.stopMonitoring(processes = Array(Process(currentPid)), duration = 500.milliseconds)
+    powerapi.stop
+  }
 }
