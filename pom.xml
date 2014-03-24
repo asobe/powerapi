@@ -192,7 +192,6 @@
                     <scalaVersion>${scala.library}</scalaVersion>
                     <args>
                         <arg>-deprecation</arg>
-                        <arg>-feature</arg>
                     </args>
                 </configuration>
             </plugin>

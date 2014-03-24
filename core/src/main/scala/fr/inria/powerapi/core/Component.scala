@@ -21,6 +21,7 @@
 package fr.inria.powerapi.core
 
 import akka.event.LoggingReceive
+import akka.actor.Props
 
 /**
  * Base types used to describe PowerAPI architecture.
@@ -138,4 +139,18 @@ trait Reporter extends Listener {
   def acquire = {
     case processedMessage: ProcessedMessage => process(processedMessage)
   }
+} 
+
+/**
+ * Reporter used with a callback to report the processed messages 
+ * (with the companion object for its creation)
+ */
+class CallbackReporter(callback: (ProcessedMessage) => Unit)  extends Reporter {
+  def process(processedMessage: ProcessedMessage) {
+    callback(processedMessage)
+  }
+}
+
+object CallbackReporter {
+  def props(callback: (ProcessedMessage) => Unit): Props = Props(new CallbackReporter(callback))
 }
