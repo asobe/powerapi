@@ -26,9 +26,7 @@ import fr.inria.powerapi.sensor.disk.api.DiskSensorMessage
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.Listener
-import fr.inria.powerapi.core.Clock
-import fr.inria.powerapi.core.TickIt
-import fr.inria.powerapi.core.UnTickIt
+import fr.inria.powerapi.core.ClockSupervisor
 import fr.inria.powerapi.core.TickSubscription
 import scalax.io.Resource
 import java.io.FileInputStream
@@ -73,16 +71,18 @@ class DiskSensorSuite extends JUnitSuite with Matchers {
 
   @Test
   def testTick() {
+    import ClockSupervisor.{ StartTickSub, StopTickSub }
+
     implicit val system = ActorSystem("DiskSensorSuite")
     val diskSensor = system.actorOf(Props[DiskSensorMock])
     val diskSensorReceiver = TestActorRef[DiskSensorReceiver]
-    val clock = system.actorOf(Props[Clock])
+    val clock = system.actorOf(Props[ClockSupervisor])
     system.eventStream.subscribe(diskSensor, classOf[Tick])
     system.eventStream.subscribe(diskSensorReceiver, classOf[DiskSensorMessage])
 
-    clock ! TickIt(TickSubscription(Process(123), 10.seconds))
+    clock ! StartTickSub(TickSubscription(Process(123), 10.seconds))
     Thread.sleep(1000)
-    clock ! UnTickIt(TickSubscription(Process(123), 10.seconds))
+    clock ! StopTickSub(TickSubscription(Process(123), 10.seconds))
 
     diskSensorReceiver.underlyingActor.receivedData should have size 1
     diskSensorReceiver.underlyingActor.receivedData("n/a") should equal((1.0, 3.0))

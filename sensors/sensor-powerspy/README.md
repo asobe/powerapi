@@ -6,7 +6,7 @@ PowerAPI `Sensor` providing power metrics from a [PowerSpy](http://www.alciom.co
 
 ## In
 
-This module reacts to `Tick` messages, typically sent by the core `Clock` class.
+This module reacts to `Tick` messages, typically sent by the core `ClockWorker` class.
 
 ## Out
 

@@ -27,7 +27,6 @@ import fr.inria.powerapi.core.ProcessedMessage
 import fr.inria.powerapi.core.Processor
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
-import fr.inria.powerapi.core.TickIt
 
 trait Configuration extends fr.inria.powerapi.core.SimpleConfiguration {
   /**

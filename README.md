@@ -114,7 +114,7 @@ These modules are organized as follow:
 
 As its name indicates, `Core` module gather all *kernel* functionnalities that will be used by other modules. More particulary, this module defines the whole types used by PowerAPI to define its architecture.
 
-This module also defines the essential `Clock` class, responsible of the periodically sending of the `Tick` message, later responsible of the process of the PowerAPI business part.
+This module also defines the essential `ClockSupervisor` and `ClockWorker` classes, responsible of the periodically sending of the `Tick` message, later responsible of the process of the PowerAPI business part.
 
 ### Sensors
 

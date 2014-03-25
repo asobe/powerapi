@@ -6,7 +6,7 @@
     <description>As its name indicates, Core module gather all "kernel" functionalities that will be use by other
         modules. More precisely, this module defines the whole types used by PowerAPI to define its architecture.
 
-        This module also defines the essential Clock class, responsible of the periodically sending of the Tick message,
+        This module also defines the essential ClockSupervisor and ClockWorker classes, responsible of the periodically sending of the Tick message,
         itself responsible of the process of the PowerAPI business part.
     </description>
     <inceptionYear>2012</inceptionYear>

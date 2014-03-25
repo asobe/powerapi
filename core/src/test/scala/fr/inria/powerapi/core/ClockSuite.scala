@@ -63,8 +63,11 @@ class SimpleTickReceiver extends akka.actor.Actor with ActorLogging {
 }
 
 class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
+
+  import ClockSupervisor._
+
   implicit val system = ActorSystem("ClockTest")
-  val clock = TestActorRef[Clock]
+  val clock = TestActorRef[ClockSupervisor]
 
   @Test
   def testMessagesToListen() {
@@ -73,8 +76,8 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
     val messages = Await.result(request, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
 
     messages should have size 2
-    messages(0) should be(classOf[TickIt])
-    messages(1) should be(classOf[UnTickIt])
+    messages(0) should be(classOf[StartTickSub])
+    messages(1) should be(classOf[StopTickSub])
   }
 
   @Test
@@ -82,44 +85,33 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
     val tickReceiver = TestActorRef[ByProcessTickReceiver]
     system.eventStream.subscribe(tickReceiver, classOf[Tick])
 
-    clock ! TickIt(TickSubscription(Process(123), 500.milliseconds))
-    clock ! TickIt(TickSubscription(Process(124), 1000.milliseconds))
-    clock ! TickIt(TickSubscription(Process(125), 1500.milliseconds))
+    clock ! StartTickSub(TickSubscription(Process(123), 500.milliseconds))
+    clock ! StartTickSub(TickSubscription(Process(124), 1000.milliseconds))
+    clock ! StartTickSub(TickSubscription(Process(125), 1500.milliseconds))
     Thread.sleep(3200)
 
-    clock ! UnTickIt(TickSubscription(Process(123), 500.milliseconds))
+    clock ! StopTickSub(TickSubscription(Process(123), 500.milliseconds))
     Thread.sleep(2200)
 
-    clock ! UnTickIt(TickSubscription(Process(124), 500.milliseconds))
-    clock ! UnTickIt(TickSubscription(Process(125), 1500.milliseconds))
+    clock ! StopTickSub(TickSubscription(Process(124), 500.milliseconds))
+    clock ! StopTickSub(TickSubscription(Process(125), 1500.milliseconds))
+
+    Thread.sleep(1200)
+
+    clock ! StopTickSub(TickSubscription(Process(124), 1000.milliseconds))
+
+    // There are not any more tick on the bus, waiting to do the assertions
+    Thread.sleep(1000)
 
     val receivedTicks = tickReceiver.underlyingActor.receivedTicks
     receivedTicks getOrElse(TickSubscription(Process(123), 500.milliseconds), 0) should {
       equal(7) or equal(7 + 1)
     }
     receivedTicks getOrElse(TickSubscription(Process(124), 1000.milliseconds), 0) should {
-      equal(5) or equal(5 + 1)
+      equal(6) or equal(6 + 1)
     }
     receivedTicks getOrElse(TickSubscription(Process(125), 1500.milliseconds), 0) should {
       equal(4) or equal(4 + 1)
     }
-  }
-
-  @Ignore
-  @Test
-  def testReceivedIntensiveTicks() {
-    val tickReceiver = TestActorRef[SimpleTickReceiver]
-    val duration = 100.milliseconds
-    val sleep = 10.seconds
-    val pids = (0 to 500)
-    system.eventStream.subscribe(tickReceiver, classOf[Tick])
-
-    pids.foreach(pid => clock ! TickIt(TickSubscription(Process(pid), duration)))
-    Thread.sleep(sleep.toMillis)
-    pids.foreach(pid => clock ! UnTickIt(TickSubscription(Process(pid), duration)))
-    Thread.sleep(sleep.toMillis / 2)
-
-    val averageReceivedTicks = tickReceiver.underlyingActor.receivedTicks.toDouble / pids.size
-    println(averageReceivedTicks)
   }
 }

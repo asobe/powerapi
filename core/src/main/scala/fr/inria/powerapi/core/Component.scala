@@ -139,18 +139,4 @@ trait Reporter extends Listener {
   def acquire = {
     case processedMessage: ProcessedMessage => process(processedMessage)
   }
-} 
-
-/**
- * Reporter used with a callback to report the processed messages 
- * (with the companion object for its creation)
- */
-class CallbackReporter(callback: (ProcessedMessage) => Unit)  extends Reporter {
-  def process(processedMessage: ProcessedMessage) {
-    callback(processedMessage)
-  }
-}
-
-object CallbackReporter {
-  def props(callback: (ProcessedMessage) => Unit): Props = Props(new CallbackReporter(callback))
 }
