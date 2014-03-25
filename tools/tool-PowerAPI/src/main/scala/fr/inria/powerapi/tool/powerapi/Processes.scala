@@ -79,7 +79,7 @@ object Processes {
   /**
    * Start the CPU monitoring
    */
-  def start(pids: List[Int], apps: String, devs: List[String], agg: String, out: String, freq: Int, time: Int, appscont: Int) {
+  def start(pids: List[Int], apps: String, devs: List[String], agg: String, out: List[String], freq: Int, time: Int, appscont: Int) {
     // Retrieve the PIDs of the APPs given in parameters
     val PSFormat = """^\s*(\d+).*""".r
     val appsPID = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", apps, "ho", "pid")).getInputStream).lines().toList.map({
@@ -103,7 +103,7 @@ object Processes {
       custom(allPIDs, agg, out, freq, time)
     }
     // Create the gnuplot script to generate the graph
-    if (out == "gnuplot")
+    if (out.contains("gnuplot"))
       if (allPIDs.nonEmpty)
         GnuplotScript.create(allPIDs.map(_.toString), filePath)
       else
@@ -113,22 +113,24 @@ object Processes {
   /**
    * CPU monitoring wich hardly specifying the monitored process.
    */
-  def custom(pids: List[Int], agg: String, out: String, freq: Int, time: Int) {
+  def custom(pids: List[Int], agg: String, out: List[String], freq: Int, time: Int) {
     pids.foreach(pid => 
       PowerAPI.startMonitoring(
         process = Process(pid),
         duration = freq.millis
       )
     )
+    out.foreach(out =>
     PowerAPI.startMonitoring(
       processor = getProcessor(agg),
       listener = getReporter(out)
-    )
+    ))
     Thread.sleep((time.minute).toMillis)
+   out.foreach( out =>
     PowerAPI.stopMonitoring(
       processor = getProcessor(agg),
       listener = getReporter(out)
-    )
+    ))
     pids.foreach(pid => 
       PowerAPI.stopMonitoring(
         process = Process(pid),
@@ -141,7 +143,7 @@ object Processes {
    * CPU monitoring for specific processes that is updated regularly.
    * Can be used for load scripts with child processes.
   **/
-  def customUpdate(pids: List[Int],agg:String,out:String,freq:Int,time:Int, apps:String) {
+  def customUpdate(pids: List[Int],agg:String,out:List[String],freq:Int,time:Int, apps:String) {
     def getPids = {
       val PSFormat = """^\s*(\d+).*""".r
       val pids = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps","-C",apps,"ho","pid")).getInputStream).lines().toList.map({
@@ -169,11 +171,11 @@ object Processes {
       //println("updated the pids:"+pids.toString)
        allPIDs = pids.toList
     }
-    
+    out.foreach( out => 
     PowerAPI.startMonitoring(
       processor = getProcessor(agg),
       listener  = getReporter(out)
-    )
+    ))
     val timer = new Timer
     
     timer.scheduleAtFixedRate(new TimerTask() {
@@ -184,17 +186,17 @@ object Processes {
     
     Thread.sleep((time.minutes).toMillis)
     timer.cancel
-    
+    out.foreach( out =>
     PowerAPI.stopMonitoring(
       processor = getProcessor(agg),
       listener  = getReporter(out)
-    )
+    ))
   }
  
   /**
    * Intensive process CPU monitoring in periodically scanning all current processes.
    */
-  def all(agg: String, out: String, freq: Int, time: Int) {
+  def all(agg: String, out: List[String], freq: Int, time: Int) {
     def getPids = {
       val PSFormat = """^\s*(\d+).*""".r
       val pids = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-A")).getInputStream).lines().toList.map({
@@ -220,11 +222,11 @@ object Processes {
       newPids.foreach(pid => PowerAPI.startMonitoring(process = Process(pid), duration = dur))
       pids ++= newPids
     }
-
+    out.foreach (out =>
     PowerAPI.startMonitoring(
       processor = getProcessor(agg),
       listener  = getReporter(out)
-    )
+    ))
     val timer = new Timer
 
     timer.scheduleAtFixedRate(new TimerTask() {
@@ -236,10 +238,11 @@ object Processes {
     Thread.sleep((time.minutes).toMillis)
 
     timer.cancel
+    out.foreach( out =>
     PowerAPI.stopMonitoring(
       processor = getProcessor(agg),
       listener  = getReporter(out)
-    )
+    ))
   }
   
   def getProcessor(processor: String) = {
