@@ -48,6 +48,8 @@ trait ClockSupervisorConfiguration extends Configuration {
 object ClockSupervisor {
   case class StartTickSub(subscription: TickSubscription) extends Message
   case class StopTickSub(subscription: TickSubscription) extends Message
+  case class Running(duration: FiniteDuration) extends Message
+  case object Ack
 }
 
 object ClockWorker {
@@ -56,6 +58,8 @@ object ClockWorker {
 
   case object Empty
   case object NonEmpty
+
+  case object Stop
 
   // Factory to instanciate an actor with parameters
   def props(eventBus: EventStream, duration: FiniteDuration): Props = Props(new ClockWorker(eventBus, duration))
@@ -74,14 +78,15 @@ object ClockWorker {
  */
 class ClockSupervisor extends Component with ClockSupervisorConfiguration {
   import ClockSupervisor._
-  import ClockWorker.{ TickIt, UnTickIt, Empty, NonEmpty }
+  import ClockWorker.{ TickIt, UnTickIt, Empty, NonEmpty, Stop }
 
   def messagesToListen = Array(classOf[StartTickSub], classOf[StopTickSub])
 
   def acquire = {
     case subscribe: StartTickSub => doSubscription(subscribe)
     case unsubscribe: StopTickSub => undoSubscription(unsubscribe)
-    case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
+    case running: Running => runningForDuration(running, sender)
+    case unknown => throw new UnsupportedOperationException("unable to process message yes " + unknown)
   }
 
   val workers = new mutable.HashMap[FiniteDuration, ActorRef] with mutable.SynchronizedMap[FiniteDuration, ActorRef]
@@ -138,6 +143,33 @@ class ClockSupervisor extends Component with ClockSupervisorConfiguration {
       if(log.isWarningEnabled) log.debug("worker does not exist for this frequency, unable to stop the subscription.")
     }
   }
+
+  /**
+   * Allows to run the ClockSupervisor during a fixed period.
+   * Stop all the workers when the time is finished and send an ack to the API.
+   */
+  def runningForDuration(running: Running, sender: ActorRef) = {
+    def stopWorkers() = {
+      workers.foreach({
+        case (duration, actorRef) => {
+          actorRef ! Stop
+          workers -= duration
+          context.stop(actorRef)
+          if(log.isDebugEnabled) log.debug("clock worker stopped.")
+        }
+      })
+    }
+
+    if(running.duration != Duration.Zero) {
+      context.system.scheduler.scheduleOnce(running.duration) {
+        stopWorkers
+        sender ! Ack
+      }(context.system.dispatcher)
+    }
+
+    // Don't the stop the workers if the duration was not fixed (old way to use PowerAPI with Thread sleeps).
+    else sender ! Ack
+  }
 }
 
 /**
@@ -145,17 +177,21 @@ class ClockSupervisor extends Component with ClockSupervisorConfiguration {
  * It starts a scheduler related to the clock frequency for the Ticks publishing.
  */
 class ClockWorker(eventBus: EventStream, duration: FiniteDuration) extends Actor with ActorLogging {
-  import ClockWorker.{ TickIt, UnTickIt, Empty, NonEmpty }
+  import ClockWorker.{ TickIt, UnTickIt, Empty, NonEmpty, Stop }
 
   def receive = LoggingReceive {
     case subscribe: TickIt => makeItTick(subscribe)
     case unsubscribe: UnTickIt => unmakeItTick(unsubscribe)
+    case Stop => stopWorker()
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 
   val subscriptions = new mutable.ArrayBuffer[TickSubscription] with mutable.SynchronizedBuffer[TickSubscription]
   var scheduler: Cancellable = null
 
+  /**
+   * Publishes Tick for each Subscription
+   */
   def makeItTick(implicit tickIt: TickIt) {
     def subscribe(implicit tickIt: TickIt) {
       subscriptions += tickIt.subscription
@@ -174,6 +210,9 @@ class ClockWorker(eventBus: EventStream, duration: FiniteDuration) extends Actor
     schedule
   }
 
+  /**
+   * Stop the subscription
+   */
   def unmakeItTick(implicit untickIt: UnTickIt) {
     def unsubscribe(implicit untickIt: UnTickIt) {
       if (!subscriptions.isEmpty) {
@@ -195,5 +234,13 @@ class ClockWorker(eventBus: EventStream, duration: FiniteDuration) extends Actor
 
     unsubscribe
     unschedule
+  }
+
+  /**
+   * Allows to shutdown completely a worker.
+   */
+  def stopWorker() = {
+    subscriptions.clear()
+    if(scheduler != null) scheduler.cancel
   }
 }

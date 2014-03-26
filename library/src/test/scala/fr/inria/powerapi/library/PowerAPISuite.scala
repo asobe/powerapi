@@ -33,14 +33,14 @@ import org.scalatest.Matchers
 import java.lang.management.ManagementFactory
 import org.junit.Test
 import akka.util.Timeout
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 class SimpleCpuReporter extends Reporter {
   def process(processedMessage: ProcessedMessage) {
     println(processedMessage)
   }
 }
-
-class Anonymous
 
 class PowerAPISuite extends JUnitSuite {
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
@@ -97,7 +97,15 @@ class PowerAPISuite extends JUnitSuite {
 
   @Test
   def test() {
-    //val powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    implicit val timeout = Duration.Inf
     
+    var powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    powerapi.attachReporter({println(_)})
+    
+    powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds)
+    powerapi.startMonitoring(processes = Array(Process(682)), frequency = 500.milliseconds)
+    
+    Await.result(powerapi.ack, Duration.Inf)
+    powerapi.stop()
   }
 }

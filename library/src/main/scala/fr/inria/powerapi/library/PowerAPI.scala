@@ -109,7 +109,7 @@ class PowerAPI extends Component {
     def stop(componentType: Class[_ <: Component]) {
       if (components.contains(componentType)) {
         val futureComponent = context.actorSelection(components(componentType)).resolveOne()
-        val component = Await.result(futureComponent, 1.seconds)
+        val component = Await.result(futureComponent, timeout.duration)
 
         val messages = Await.result(component ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
         messages.foreach(message => context.system.eventStream.unsubscribe(component, message))
