@@ -119,7 +119,7 @@ object Monitor extends App {
   lazy val AppsFormat       = """-app\s+(.+[,.]*)""".r
   lazy val AppsContFormat   = """-appscont\s+(1|0)""".r
   lazy val AggregatorFormat = """-aggregator\s+(device|process)""".r
-  lazy val OutputFormat     = """-output\s+(console|file|gnuplot|chart|virtio|thrift)""".r
+  lazy val OutputFormat     = """-output\s+(\w+[,\w]*)""".r
   lazy val FileFormat       = """-filename\s+(\w+)""".r
   lazy val FreqFormat       = """-frequency\s+(\d+)""".r
   lazy val TimeFormat       = """-time\s+(\d+)""".r
@@ -177,6 +177,7 @@ object Monitor extends App {
   }
 
   var pids = params.getOrElse("pids", "-1": String).split(',').map(_.toInt)
+  var out = params.getOrElse("out","chart": String).split(',')
   if(params.isDefinedAt("vm")) {
     pids = createVMCOnfiguration(params("vm"))
   }
@@ -191,7 +192,7 @@ object Monitor extends App {
     pids = pids.toList,
     apps = params.getOrElse("apps", "": String),
     agg  = params.getOrElse("agg", "timestamp": String),
-    out  = params.getOrElse("out", "chart": String),
+    out = out.toList,
     freq = params.getOrElse("freq", "1000": String).toInt,
     time = params.getOrElse("time", "5": String).toInt,
     appscont = params.getOrElse("appscont","0": String).toInt,

@@ -8,7 +8,7 @@ then
   echo "  * -app <APP1>,<APP2> ..."
   echo "  * -appscont <0|1> #continously monitors for the app name, even if not present in the beginning of execution"
   echo "  * -aggregator <device|process>"
-  echo "  * -output <console|file|gnuplot|chart|virtio|thrift>"
+  echo "  * -output <console|file|gnuplot|chart|virtio|thrift>,<console|file|gnuplot|chart|virtio|thrift>, ..."
   echo "  * -frequency <TIME_IN_MS>"
   echo "  * -time <TIME_IN_MIN>"
   echo "  * -filename <FILE_NAME>"
