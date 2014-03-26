@@ -43,11 +43,18 @@ import scala.collection.JavaConversions._
  *
  * @author mkurpicz
  */
-class ThriftReporter extends Reporter {
+trait Configuration extends fr.inria.powerapi.core.Configuration {
+	lazy val ipaddress = load { _.getString("powerapi.thrift.ip") } ("localhost")
+	lazy val port = load { _.getString("powerapi.thrift.port") } ("5556")
+	lazy val sendername = load { _.getString("powerapi.thrift.sender") } ("nosender")
+	lazy val topic = load { _.getString("powerapi.thrift.topic") } ("topic")
+} 
+
+class ThriftReporter extends Reporter with Configuration {
 
   val zmqcontext = ZMQ.context(1)
   val publisher = zmqcontext.socket(ZMQ.PUB) // publisher socket
-  publisher.connect("tcp://localhost:5556")
+  publisher.connect("tcp://"+ipaddress+":"+port)
 
   var interval_index = 0
   //def this() = this(org.zeromq.ZMQ.Socket)
@@ -70,8 +77,8 @@ class ThriftReporter extends Reporter {
     println("mymap: ",myjmap)
     messageobject.content = myjmap
     val message = serializer.serialize(messageobject)
-    val topic = "kmeans"
     publisher.send(topic.getBytes(),ZMQ.SNDMORE)
+    publisher.send(sendername.getBytes(),ZMQ.SNDMORE)
     publisher.send(message,0)
     println("Message sending is done!")
   }
