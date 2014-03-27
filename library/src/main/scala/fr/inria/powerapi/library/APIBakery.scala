@@ -27,7 +27,10 @@ import scala.concurrent.Await
 import akka.util.Timeout
 import scala.collection
 
-
+/**
+ * Actors factory, used to create an actor inside an actor context (keep the same hierarchy) or get one which is already created
+ * TODO: add control for the creation (only one actor for this kind of component), and change it to a class (one per API)
+ */
 object ActorsFactory {
   def createActor(componentType: Class[_ <: Component], args: Any*)(implicit context: ActorContext): ActorRef = {
     val prop = Props(componentType, args:_*)

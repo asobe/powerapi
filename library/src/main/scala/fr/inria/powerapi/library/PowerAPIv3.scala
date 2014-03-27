@@ -20,27 +20,32 @@
  */
 package fr.inria.powerapi.library
 
-import scala.concurrent.Await
-import scala.concurrent.duration.{FiniteDuration, Duration, DurationInt}
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 
-import akka.actor.{ Props, Actor, ActorSystem, ActorPath, ActorRef, ActorLogging }
-import akka.pattern.ask
-import akka.util.Timeout
-import akka.actor.Status.Success
-import akka.event.LoggingReceive
-import fr.inria.powerapi.core.ClockSupervisor
-import fr.inria.powerapi.core.EnergyModule
-import fr.inria.powerapi.core.{ Message, MessagesToListen, Listener, Component, TickSubscription, Process, ProcessedMessage }
-import fr.inria.powerapi.core.Processor
-import fr.inria.powerapi.core.Reporter
 
-import fr.inria.powerapi.core.ClockSupervisor
+import fr.inria.powerapi.core.{ Ack, ClockSupervisor, Component, Message, MessagesToListen }
+import fr.inria.powerapi.core.{ Process, ProcessedMessage, Reporter, TickSubscription }
+
 import collection.mutable
 
+import scala.concurrent.Await
+import scala.concurrent.duration.{FiniteDuration, Duration, DurationInt}
+
+import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, Props }
+import akka.event.LoggingReceive
+import akka.pattern.ask
+import akka.util.Timeout
+
 /**
- * PowerAPI engine which start/stop every PowerAPI components.
+ * Default reporter used to process the messages with a callbacK.
+ */
+class CallbackReporter(callback: (ProcessedMessage) => Unit)  extends Reporter {
+  def process(processedMessage: ProcessedMessage) {
+    callback(processedMessage)
+  }
+}
+
+/**
+ * PowerAPI object encapsulates all the messages.
  */
 object PowerAPIv3 {
   case class StartClock(componentType: Class[_ <: Component])
@@ -61,7 +66,7 @@ class PowerAPIv3 extends Actor with ActorLogging {
   def receive = LoggingReceive {
     case startClock: StartClock => process(startClock, sender)
     case startComponent: StartComponent => process(startComponent)
-    case StopComponents => stopComponents()
+    case StopComponents => stopComponents(sender)
     case startSubscription: StartSubscription => process(startSubscription)
     case startMonitoring: StartMonitoring => process(startMonitoring)
     case stopMonitoring: StopMonitoring => process(stopMonitoring)
@@ -139,8 +144,9 @@ class PowerAPIv3 extends Actor with ActorLogging {
   /**
    * Stops all the components (safety).
    * Only used when you specified a duration for the monitoring.
+   * @param sender: sender's actor reference
    */
-  def stopComponents() = {
+  def stopComponents(sender: ActorRef) = {
     components.foreach(actorRef => {
       val messages = Await.result(actorRef ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
       messages.foreach(message => context.system.eventStream.unsubscribe(actorRef, message))
@@ -149,18 +155,14 @@ class PowerAPIv3 extends Actor with ActorLogging {
     })
 
     components.clear()
+    sender ! Ack
   }
 }
 
 /**
- * TODO: Move the component factory inside the core package
+ * Main API used as a dependency for each trait component. It's the main entry to
+ * interact with the main API actor.
  */
-class CallbackReporter(callback: (ProcessedMessage) => Unit)  extends Reporter {
-  def process(processedMessage: ProcessedMessage) {
-    callback(processedMessage)
-  }
-}
-
 class API(name: String, duration: FiniteDuration = Duration.Zero) {
   import PowerAPIv3._
   import ClockSupervisor.Running
@@ -176,7 +178,8 @@ class API(name: String, duration: FiniteDuration = Duration.Zero) {
   val clockRef = Await.result(engine ? StartClock(classOf[ClockSupervisor]), timeout.duration).asInstanceOf[ActorRef]
 
   // If a monitoring duration is fixed, we asked the ClockSupervisor to stay alive during this period.
-  val ack = clockRef.ask(Running(duration))(Timeout(10.minutes))
+  // Timeout fixed because it's needed. We add 5.seconds to handle possible latency problems.
+  val ack = clockRef.ask(Running(duration))(Timeout(duration + 5.seconds))
   
   /**
    * Starts the component associated to the given type.
@@ -192,7 +195,7 @@ class API(name: String, duration: FiniteDuration = Duration.Zero) {
    * Else, you have to stop the monitoring for each process.
    */
   def stop() {
-    engine ! StopComponents
+    Await.result(engine ? StopComponents, timeout.duration)
   }
 
   /**

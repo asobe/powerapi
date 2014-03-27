@@ -49,7 +49,6 @@ object ClockSupervisor {
   case class StartTickSub(subscription: TickSubscription) extends Message
   case class StopTickSub(subscription: TickSubscription) extends Message
   case class Running(duration: FiniteDuration) extends Message
-  case object Ack
 }
 
 object ClockWorker {
@@ -167,7 +166,8 @@ class ClockSupervisor extends Component with ClockSupervisorConfiguration {
       }(context.system.dispatcher)
     }
 
-    // Don't the stop the workers if the duration was not fixed (old way to use PowerAPI with Thread sleeps).
+    // Don't stop the workers if the duration was not fixed.
+    // Example: ctrl+c handling, waiting for user inputs and so on
     else sender ! Ack
   }
 }
