@@ -21,6 +21,8 @@
 package fr.inria.powerapi.core
 
 import scala.concurrent.duration.FiniteDuration
+import akka.actor.ActorRef
+
 
 /**
  * Base types used to describe PowerAPI messages.
@@ -37,6 +39,7 @@ import scala.concurrent.duration.FiniteDuration
 
 /**
  * In addition to a specific Listener, each PowerAPI request is composed by:
+ * - 
  * - a process
  * - a time period or computation duration
  * Thus, a TickSubscription represents this PowerAPI request composition.
@@ -46,9 +49,9 @@ case class TickSubscription(process: Process, duration: FiniteDuration)
 /**
  * Each PowerAPI's request is created according to a specific time period.
  * Each time period is "ticked", as a clock "tick", according to a specific timestamp.
- * A Tick is a wrapper of this specific timestamp, according a given TickSubscription.
+ * A Tick is a wrapper of this specific timestamp, according a given TickSubscription for a specific monitoring.
  */
-case class Tick(subscription: TickSubscription, timestamp: Long = System.currentTimeMillis) extends Message with Ordering[Tick] {
+case class Tick(clockRef: ActorRef, subscription: TickSubscription, timestamp: Long = System.currentTimeMillis) extends Message with Ordering[Tick] {
   def compare(a: Tick, b: Tick) = a.timestamp compare b.timestamp
 }
 

@@ -40,28 +40,31 @@ trait ClockSupervisorConfiguration extends Configuration {
       case Duration(length, unit) => FiniteDuration(length, unit)
     }
   }(10.milliseconds)
+
+  def acquire = {
+    case _ => ()
+  }
+  def messagesToListen = Array()
 }
 
 /**
  * Define messages for the clock components
  */
 object ClockSupervisor {
-  case class StartTickSub(subscription: TickSubscription) extends Message
-  case class StopTickSub(subscription: TickSubscription) extends Message
-  case class Running(duration: FiniteDuration) extends Message
+  case class StartClock(processes: Array[Process], frequency: FiniteDuration)
+  case class RemoveClock(clockRef: ActorRef)
+  case object StopWorker
+  case object StopClocks
+
+  case object ClocksStopped
 }
 
 object ClockWorker {
-  case class TickIt(subscription: TickSubscription) extends Message
-  case class UnTickIt(subscription: TickSubscription) extends Message 
+  case object TickIt
+  case object UnTickIt
+  case class WaitFor(duration: FiniteDuration)
 
-  case object Empty
-  case object NonEmpty
-
-  case object Stop
-
-  // Factory to instanciate an actor with parameters
-  def props(eventBus: EventStream, duration: FiniteDuration): Props = Props(new ClockWorker(eventBus, duration))
+  case object ClockStopped
 }
 
 /**
@@ -69,120 +72,77 @@ object ClockWorker {
  * Each component listen to an event bus and reacts following messages sent by the event bus.
  * Thus, each component is in a passive state and only run its business part following the sent message.
  *
- * At the bottom of this architecture, the ClockSupervisor component manages a pool of ClockWorkers to schedule the Tick subscriptions. 
+ * At the bottom of this architecture, the ClockSupervisor component manages a pool of ClockWorkers to handle the several monitorings. 
 
- * The supervisor reacts on StartTickSub and StopTickSub published on the event bus (published when a monitoring is asked).
- * It creates workers in relation of the clock frequency to cut down the load. 
- * Each worker schedules the Ticks publishing on the event bus.
+ * It creates workers per monitoring to cut down the load.
+ * Each worker schedules the Ticks' publishing on the event bus.
  */
-class ClockSupervisor extends Component with ClockSupervisorConfiguration {
+class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfiguration {
   import ClockSupervisor._
-  import ClockWorker.{ TickIt, UnTickIt, Empty, NonEmpty, Stop }
+  import ClockWorker.{ TickIt, UnTickIt }
+  implicit val timeout = Timeout(5.seconds)
 
-  def messagesToListen = Array(classOf[StartTickSub], classOf[StopTickSub])
-
-  def acquire = {
-    case subscribe: StartTickSub => doSubscription(subscribe)
-    case unsubscribe: StopTickSub => undoSubscription(unsubscribe)
-    case running: Running => runningForDuration(running, sender)
+  override def receive = LoggingReceive {
+    case startClock: StartClock => startClockWorker(sender, startClock)
+    case removeClock: RemoveClock => removeClockWorker(removeClock)
+    case StopClocks => stopClockWorkers(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message yes " + unknown)
   }
 
-  val workers = new mutable.HashMap[FiniteDuration, ActorRef] with mutable.SynchronizedMap[FiniteDuration, ActorRef]
+  val workers = new mutable.ArrayBuffer[ActorRef] with mutable.SynchronizedBuffer[ActorRef]
 
   /**
-   * Start the monitoring of a given process by starting a worker if the frequency is not already handled, else forward to the right one.
+   * Starts a clock worker.
    */
-  def doSubscription(subscribe: StartTickSub) {
-    val duration = if (subscribe.subscription.duration < minimumTickDuration) {
-      if (log.isWarningEnabled) log.warning("unable to schedule a duration less than that specified in the configuration file (" + subscribe.subscription.duration + " vs " + minimumTickDuration)
+  def startClockWorker(sender: ActorRef, startClock: StartClock) {
+    val duration = if (startClock.frequency < minimumTickDuration) {
+      if(log.isWarningEnabled) log.warning("unable to schedule a duration less than that specified in the configuration file (" + startClock.frequency + " vs " + minimumTickDuration)
       minimumTickDuration
     } else {
-      subscribe.subscription.duration
+      startClock.frequency
     }
 
-    if(workers.contains(duration)) {
-      if(log.isDebugEnabled) log.debug("worker already forked for this clock frequency, we will use it.")
-      val actorRef = workers(duration)
-      actorRef ! TickIt(subscribe.subscription)
-    }
-
-    else {
-      if(log.isDebugEnabled) log.debug("worker is not created for this clock frequency, we will create it.")
-      val actorRef = context.actorOf(ClockWorker.props(context.system.eventStream, duration))
-      workers += (duration -> actorRef)
-      actorRef ! TickIt(subscribe.subscription)
-    }
+    if(log.isDebugEnabled) log.debug("New clock will be created.")
+    
+    val clockRef = context.actorOf(Props(classOf[ClockWorker], context.system.eventStream, startClock.processes, startClock.frequency))
+    workers += clockRef
+    clockRef ! TickIt
+    sender ! clockRef
   }
 
   /**
-   * Stop the monitoring of a given process, it can also stop a worker if there is not any more processes for its frequency.
+   * Allows to refresh the workers buffer when a clock is shuts down itself.
    */
-  def undoSubscription(unsubscribe: StopTickSub) {
-    implicit val timeout = Timeout(5.seconds)
-
-    val duration = if (unsubscribe.subscription.duration < minimumTickDuration) {
-      if (log.isWarningEnabled) log.warning("unable to schedule a duration less than that specified in the configuration file (" + unsubscribe.subscription.duration + " vs " + minimumTickDuration)
-      minimumTickDuration
-    } else {
-      unsubscribe.subscription.duration
-    }
-
-    if(workers.contains(duration)) {
-      if(log.isDebugEnabled) log.debug("worker is forked for this clock frequency, forward the message to the right worker.")
-      val actorRef = workers(duration)
-      val response = Await.result(actorRef ? UnTickIt(unsubscribe.subscription), timeout.duration).asInstanceOf[Object]
-      response match {
-        case Empty => context.stop(actorRef); workers -= duration; if(log.isDebugEnabled) log.debug("worker stopped.")
-        case NonEmpty => if(log.isDebugEnabled) log.debug("worker has remaining jobs.")
-      }
-    }
-
-    else {
-      if(log.isWarningEnabled) log.debug("worker does not exist for this frequency, unable to stop the subscription.")
-    }
+  def removeClockWorker(removeClock: RemoveClock) {
+    workers -= removeClock.clockRef
   }
 
   /**
-   * Allows to run the ClockSupervisor during a fixed period.
-   * Stop all the workers when the time is finished and send an ack to the API.
+   * Stop all the remaining clocks.
    */
-  def runningForDuration(running: Running, sender: ActorRef) = {
-    def stopWorkers() = {
-      workers.foreach({
-        case (duration, actorRef) => {
-          actorRef ! Stop
-          workers -= duration
-          context.stop(actorRef)
-          if(log.isDebugEnabled) log.debug("clock worker stopped.")
-        }
-      })
-    }
+  def stopClockWorkers(sender: ActorRef) {
+    workers.foreach(clock => {
+      Await.result(clock ? StopWorker, timeout.duration)
+      context.stop(clock)
+    })
 
-    if(running.duration != Duration.Zero) {
-      context.system.scheduler.scheduleOnce(running.duration) {
-        stopWorkers
-        sender ! Ack
-      }(context.system.dispatcher)
-    }
-
-    // Don't stop the workers if the duration was not fixed.
-    // Example: ctrl+c handling, waiting for user inputs and so on
-    else sender ! Ack
+    workers.clear
+    sender ! ClocksStopped
   }
 }
 
 /**
  * ClockWorker is used to cut down the load.
- * It starts a scheduler related to the clock frequency for the Ticks publishing.
+ * We use one ClockWorker per monitoring to cut down the load.
  */
-class ClockWorker(eventBus: EventStream, duration: FiniteDuration) extends Actor with ActorLogging {
-  import ClockWorker.{ TickIt, UnTickIt, Empty, NonEmpty, Stop }
+class ClockWorker(eventBus: EventStream, processes: Array[Process], frequency: FiniteDuration) extends Actor with ActorLogging {
+  import ClockSupervisor.{ RemoveClock, StopWorker }
+  import ClockWorker.{ TickIt, ClockStopped, UnTickIt, WaitFor }
 
   def receive = LoggingReceive {
-    case subscribe: TickIt => makeItTick(subscribe)
-    case unsubscribe: UnTickIt => unmakeItTick(unsubscribe)
-    case Stop => stopWorker()
+    case TickIt => makeItTick
+    case StopWorker => stop(sender)
+    case waitFor: WaitFor => runningForDuration(sender, waitFor)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 
@@ -190,18 +150,20 @@ class ClockWorker(eventBus: EventStream, duration: FiniteDuration) extends Actor
   var scheduler: Cancellable = null
 
   /**
-   * Publishes Tick for each Subscription
+   * Publishes Tick for each Subscription.
    */
-  def makeItTick(implicit tickIt: TickIt) {
-    def subscribe(implicit tickIt: TickIt) {
-      subscriptions += tickIt.subscription
+  def makeItTick() {
+    def subscribe() {
+      processes.foreach(process => {
+        subscriptions += TickSubscription(process, frequency)
+      })
     }
 
-    def schedule(implicit tickIt: TickIt) {
+    def schedule() {
       if (scheduler == null) {
-        scheduler = context.system.scheduler.schedule(Duration.Zero, duration)({
+        scheduler = context.system.scheduler.schedule(Duration.Zero, frequency)({
           val timestamp = System.currentTimeMillis
-          subscriptions.foreach(subscription => eventBus.publish(Tick(subscription, timestamp)))
+          subscriptions.foreach(subscription => eventBus.publish(Tick(self, subscription, timestamp)))
         })(context.system.dispatcher)
       }
     }
@@ -211,36 +173,48 @@ class ClockWorker(eventBus: EventStream, duration: FiniteDuration) extends Actor
   }
 
   /**
-   * Stop the subscription
+   * Used to stop a clock from the outside (no timer defined)
    */
-  def unmakeItTick(implicit untickIt: UnTickIt) {
-    def unsubscribe(implicit untickIt: UnTickIt) {
+  def stop(sender: ActorRef) {
+    unmakeItTick
+    sender ! ClockStopped
+  }
+
+  /**
+   * Used to specify a clock's lifespan with a timer.
+   * When the timer is over, the clock shuts down itself.
+   */
+  def runningForDuration(sender: ActorRef, waitFor: WaitFor) {
+    if(waitFor.duration != Duration.Zero) {
+      context.system.scheduler.scheduleOnce(waitFor.duration) {
+        unmakeItTick
+        context.parent ! RemoveClock(self)
+        sender ! ClockStopped
+      }(context.system.dispatcher)
+    }
+  }
+
+  /**
+   * Remove all the subscriptions.
+   */
+  private def unmakeItTick() {
+    def unsubscribe() {
       if (!subscriptions.isEmpty) {
-        subscriptions -= untickIt.subscription
+        processes.foreach(process => {
+          subscriptions -= TickSubscription(process, frequency)
+        })
       }
     }
 
-    def unschedule(implicit untickIt: UnTickIt) {
-      // If there is not any more subscription for this frequency, we stop the scheduler
+    def unschedule() {
       if (subscriptions.isEmpty) {
         if(scheduler != null) {
           scheduler.cancel
-          sender ! Empty
         }
       }
-
-      else sender ! NonEmpty
     }
 
     unsubscribe
     unschedule
-  }
-
-  /**
-   * Allows to shutdown completely a worker.
-   */
-  def stopWorker() = {
-    subscriptions.clear()
-    if(scheduler != null) scheduler.cancel
   }
 }

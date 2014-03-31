@@ -25,7 +25,6 @@ import scala.collection.mutable.SynchronizedMap
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-import org.junit.Ignore
 import org.junit.Test
 import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
 import org.scalatest.Matchers
@@ -33,84 +32,64 @@ import org.scalatest.Matchers
 import akka.actor.ActorLogging
 import akka.actor.ActorSystem
 import akka.actor.actorRef2Scala
+import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.testkit.TestActorRef
 import akka.util.Timeout
 
 case object Result
 
-class ByProcessTickReceiver extends akka.actor.Actor with ActorLogging {
-  val receivedTicks = new HashMap[TickSubscription, Int] with SynchronizedMap[TickSubscription, Int]
+class ByClockTickReceiver extends akka.actor.Actor with ActorLogging {
+  val receivedTicks = new HashMap[ActorRef, Int] with SynchronizedMap[ActorRef, Int]
 
-  private def increment(tickSubscription: TickSubscription) {
-    val currentTick = receivedTicks getOrElse(tickSubscription, 0)
-    receivedTicks += (tickSubscription -> (currentTick + 1))
+  private def increment(clockRef: ActorRef) {
+    val currentTick = receivedTicks getOrElse(clockRef, 0)
+    receivedTicks += (clockRef -> (currentTick + 1))
   }
 
   def receive = {
-    case tick: Tick => increment(tick.subscription)
-    case Result => sender ! receivedTicks
+    case tick: Tick => increment(tick.clockRef)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 }
 
-class SimpleTickReceiver extends akka.actor.Actor with ActorLogging {
-  var receivedTicks = 0
-
-  def receive = {
-    case tick: Tick => receivedTicks += 1
-  }
-}
-
 class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
-
   import ClockSupervisor._
+  import ClockWorker._
 
   implicit val system = ActorSystem("ClockTest")
   val clock = TestActorRef[ClockSupervisor]
+  implicit val timeout = Timeout(1.minutes)
 
   @Test
-  def testMessagesToListen() {
-    implicit val timeout = Timeout(5.seconds)
-    val request = clock ? MessagesToListen
-    val messages = Await.result(request, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
-
-    messages should have size 2
-    messages(0) should be(classOf[StartTickSub])
-    messages(1) should be(classOf[StopTickSub])
-  }
-
-  @Test
-  def testReceivedSimpleTicks() {
-    val tickReceiver = TestActorRef[ByProcessTickReceiver]
+  def testClockBehavior() {
+    val tickReceiver = TestActorRef[ByClockTickReceiver]
     system.eventStream.subscribe(tickReceiver, classOf[Tick])
 
-    clock ! StartTickSub(TickSubscription(Process(123), 500.milliseconds))
-    clock ! StartTickSub(TickSubscription(Process(124), 1000.milliseconds))
-    clock ! StartTickSub(TickSubscription(Process(125), 1500.milliseconds))
-    Thread.sleep(3200)
+    val clockMonitoring1 = Await.result(clock ? StartClock(Array(Process(123)), 500.milliseconds), 5.seconds).asInstanceOf[ActorRef]
+    val clockMonitoring2 = Await.result(clock ? StartClock(Array(Process(124)), 1000.milliseconds), 5.seconds).asInstanceOf[ActorRef]
+    val clockMonitoring3 = Await.result(clock ? StartClock(Array(Process(125)), 1500.milliseconds), 5.seconds).asInstanceOf[ActorRef]
 
-    clock ! StopTickSub(TickSubscription(Process(123), 500.milliseconds))
-    Thread.sleep(2200)
+    val monitoring1ending = Await.result(clockMonitoring1 ? WaitFor(3200.milliseconds), (3200.milliseconds + 1.seconds))
+    monitoring1ending should equal(ClockStopped)
 
-    clock ! StopTickSub(TickSubscription(Process(124), 500.milliseconds))
-    clock ! StopTickSub(TickSubscription(Process(125), 1500.milliseconds))
+    val monitoring2ending = Await.result(clockMonitoring3 ? WaitFor(2200.milliseconds), (2200.milliseconds + 1.seconds))
+    monitoring2ending should equal(ClockStopped)
 
-    Thread.sleep(1200)
+    val monitoring3ending  = Await.result(clockMonitoring2 ? WaitFor(1200.milliseconds), (1200.milliseconds + 1.seconds))
+    monitoring3ending should equal(ClockStopped)
 
-    clock ! StopTickSub(TickSubscription(Process(124), 1000.milliseconds))
-
-    // There are not any more tick on the bus, waiting to do the assertions
-    Thread.sleep(1000)
+    Await.result(clock ? StopClocks, 5.seconds) should equal(ClocksStopped)
 
     val receivedTicks = tickReceiver.underlyingActor.receivedTicks
-    receivedTicks getOrElse(TickSubscription(Process(123), 500.milliseconds), 0) should {
+    
+    receivedTicks getOrElse(clockMonitoring1, 0) should {
       equal(7) or equal(7 + 1)
     }
-    receivedTicks getOrElse(TickSubscription(Process(124), 1000.milliseconds), 0) should {
+    receivedTicks getOrElse(clockMonitoring2, 0) should {
       equal(6) or equal(6 + 1)
     }
-    receivedTicks getOrElse(TickSubscription(Process(125), 1500.milliseconds), 0) should {
+    receivedTicks getOrElse(clockMonitoring3, 0) should {
       equal(4) or equal(4 + 1)
     }
   }
