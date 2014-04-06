@@ -20,7 +20,7 @@
  */
 package fr.inria.powerapi.library
 
-import fr.inria.powerapi.core.{ Listener, Process, Reporter, ProcessedMessage }
+import fr.inria.powerapi.core.{ Process, Reporter, ProcessedMessage }
 import fr.inria.powerapi.formula.cpu.api.CpuFormulaMessage
 import fr.inria.powerapi.sensor.cpu.proc.CpuSensor
 import fr.inria.powerapi.formula.cpu.max.CpuFormula
@@ -44,62 +44,79 @@ class SimpleCpuReporter extends Reporter {
 
 class PowerAPISuite extends JUnitSuite {
   implicit val timeout = Duration.Inf
-  val duration = 10.seconds
-  val awaitDuration = duration + 5.seconds
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
   @Test
-  def testPowerAPI() {
-    Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.startEnergyModule(_))
+  def test() {
+    var powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    powerapi.start(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({println(_)}).waitFor(10.seconds)
+    powerapi.stop()
 
-    PowerAPI.startMonitoring(
-      process = Process(currentPid),
-      duration = 500.milliseconds,
-      processor = classOf[TimestampAggregator],
-      listener = classOf[SimpleCpuReporter])
-    Thread.sleep((5.seconds).toMillis)
-    PowerAPI.stopMonitoring(
-      process = Process(currentPid),
-      duration = 500.milliseconds,
-      processor = classOf[TimestampAggregator],
-      listener = classOf[SimpleCpuReporter])
-
-    Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.stopEnergyModule(_))
+    // powerapi stop
+    //powerapi.start(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({println(_)})
+    //println("test:" + test)
+    //Thread.sleep((10.seconds).toMillis)
   }
 
-  @Test
-  def testAPIBakeryWithReporterComponent() {
-    var powerapi = new API("powerapi", duration) with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+  // @Test
+  // def testPowerAPI() {
+  //   Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.startEnergyModule(_))
 
-    powerapi.attachReporter(classOf[SimpleCpuReporter])
-    
-    powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 2.seconds)
-    
-    Await.result(powerapi.ack, awaitDuration)
-    powerapi.stop
-  }
+  //   PowerAPI.startMonitoring(
+  //     process = Process(currentPid),
+  //     duration = 500.milliseconds,
+  //     processor = classOf[TimestampAggregator],
+  //     listener = classOf[SimpleCpuReporter])
+  //   Thread.sleep((5.seconds).toMillis)
+  //   PowerAPI.stopMonitoring(
+  //     process = Process(currentPid),
+  //     duration = 500.milliseconds,
+  //     processor = classOf[TimestampAggregator],
+  //     listener = classOf[SimpleCpuReporter])
 
-  @Test
-  def testAPIBakeryWithActorRefAsReporter() {
-    var powerapi = new API("powerapi", duration) with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    val reporter = powerapi.system.actorOf(Props[SimpleCpuReporter])
+  //   Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.stopEnergyModule(_))
+  // }
 
-    powerapi.attachReporter(reporter)
-    
-    powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 500.milliseconds)
-    
-    Await.result(powerapi.ack, awaitDuration)
-    powerapi.stop
-  }
+  // @Test
+  // def testAPIBakeryWithReporterComponent() {
+  //   var powerapi = new API("powerapi", duration) with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
 
-  @Test
-  def testAPIBakeryWithFunctionAsReporter() {
-    var powerapi = new API("powerapi", duration) with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    powerapi.attachReporter({println(_)})
+  //   powerapi.attachReporter(classOf[SimpleCpuReporter])
     
-    powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds)
+  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 2.seconds)
     
-    Await.result(powerapi.ack, awaitDuration)
-    powerapi.stop
-  }
+  //   Await.result(powerapi.ack, awaitDuration)
+  //   powerapi.stop
+  // }
+
+  // @Test
+  // def testAPIBakeryWithActorRefAsReporter() {
+  //   var powerapi = new API("powerapi", duration) with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+  //   val reporter = powerapi.system.actorOf(Props[SimpleCpuReporter])
+
+  //   powerapi.attachReporter(reporter)
+    
+  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 500.milliseconds)
+    
+  //   Await.result(powerapi.ack, awaitDuration)
+  //   powerapi.stop
+  // }
+
+  // @Test
+  // def testAPIBakeryWithFunctionAsReporter() {
+  //   var powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    
+  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({println(_)})
+  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds).waitFor(duration)
+  //   powerapi.stop
+  // }
+
+    // @Test
+  // def testAPIBakeryWithFunctionAsReporter() {
+  //   var powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    
+  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({println(_)})
+  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds).waitFor(duration)
+  //   powerapi.stop
+  // }
 }

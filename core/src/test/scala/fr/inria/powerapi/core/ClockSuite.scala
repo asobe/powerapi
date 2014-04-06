@@ -40,22 +40,21 @@ import akka.util.Timeout
 case object Result
 
 class ByClockTickReceiver extends akka.actor.Actor with ActorLogging {
-  val receivedTicks = new HashMap[ActorRef, Int] with SynchronizedMap[ActorRef, Int]
+  val receivedTicks = new HashMap[Long, Int] with SynchronizedMap[Long, Int]
 
-  private def increment(clockRef: ActorRef) {
-    val currentTick = receivedTicks getOrElse(clockRef, 0)
-    receivedTicks += (clockRef -> (currentTick + 1))
+  private def increment(clockid: Long) {
+    val currentTick = receivedTicks getOrElse(clockid, 0)
+    receivedTicks += (clockid -> (currentTick + 1))
   }
 
   def receive = {
-    case tick: Tick => increment(tick.clockRef)
+    case tick: Tick => increment(tick.clockid)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 }
 
 class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
-  import ClockSupervisor._
-  import ClockWorker._
+  import ClockMessages._
 
   implicit val system = ActorSystem("ClockTest")
   val clock = TestActorRef[ClockSupervisor]
@@ -66,30 +65,29 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
     val tickReceiver = TestActorRef[ByClockTickReceiver]
     system.eventStream.subscribe(tickReceiver, classOf[Tick])
 
-    val clockMonitoring1 = Await.result(clock ? StartClock(Array(Process(123)), 500.milliseconds), 5.seconds).asInstanceOf[ActorRef]
-    val clockMonitoring2 = Await.result(clock ? StartClock(Array(Process(124)), 1000.milliseconds), 5.seconds).asInstanceOf[ActorRef]
-    val clockMonitoring3 = Await.result(clock ? StartClock(Array(Process(125)), 1500.milliseconds), 5.seconds).asInstanceOf[ActorRef]
+    val clock1 = Await.result(clock ? StartClock(Array(Process(123)), 500.milliseconds), 5.seconds).asInstanceOf[Long]
+    val clock2 = Await.result(clock ? StartClock(Array(Process(124)), 1000.milliseconds), 5.seconds).asInstanceOf[Long]
+    val clock3 = Await.result(clock ? StartClock(Array(Process(125)), 1500.milliseconds), 5.seconds).asInstanceOf[Long]
 
-    val monitoring1ending = Await.result(clockMonitoring1 ? WaitFor(3200.milliseconds), (3200.milliseconds + 1.seconds))
-    monitoring1ending should equal(ClockStopped)
+    val clock2ending = Await.result(clock ? WaitFor(clock3, 5400.milliseconds), (5400.milliseconds + 1.seconds))
+    clock2ending should equal(ClockStoppedAck)
 
-    val monitoring2ending = Await.result(clockMonitoring3 ? WaitFor(2200.milliseconds), (2200.milliseconds + 1.seconds))
-    monitoring2ending should equal(ClockStopped)
+    val clock3ending  = Await.result(clock ? WaitFor(clock2, 1200.milliseconds), (1200.milliseconds + 1.seconds))
+    clock3ending should equal(ClockStoppedAck)
 
-    val monitoring3ending  = Await.result(clockMonitoring2 ? WaitFor(1200.milliseconds), (1200.milliseconds + 1.seconds))
-    monitoring3ending should equal(ClockStopped)
+    Await.result(clock ? StopAllClocks, 5.seconds) should equal(AllClocksStoppedAck)
 
-    Await.result(clock ? StopClocks, 5.seconds) should equal(ClocksStopped)
+    Thread.sleep((5.seconds).toMillis)
 
     val receivedTicks = tickReceiver.underlyingActor.receivedTicks
     
-    receivedTicks getOrElse(clockMonitoring1, 0) should {
-      equal(7) or equal(7 + 1)
+    receivedTicks getOrElse(clock1, 0) should {
+      equal(13) or equal(13 + 1)
     }
-    receivedTicks getOrElse(clockMonitoring2, 0) should {
+    receivedTicks getOrElse(clock2, 0) should {
       equal(6) or equal(6 + 1)
     }
-    receivedTicks getOrElse(clockMonitoring3, 0) should {
+    receivedTicks getOrElse(clock3, 0) should {
       equal(4) or equal(4 + 1)
     }
   }

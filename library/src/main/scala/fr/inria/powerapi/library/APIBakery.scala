@@ -27,19 +27,82 @@ import scala.concurrent.Await
 import akka.util.Timeout
 import scala.collection
 
+
 /**
- * Actors factory, used to create an actor inside an actor context (keep the same hierarchy) or get one which is already created
- * TODO: add control for the creation (only one actor for this kind of component), and change it to a class (one per API)
+ * Component factories + main factory (used in the API, shortcuts)
+ * TODO: Move the code
  */
 object ActorsFactory {
-  def createActor(componentType: Class[_ <: Component], args: Any*)(implicit context: ActorContext): ActorRef = {
-    val prop = Props(componentType, args:_*)
-    context.actorOf(prop)
+  def apply(api: ActorRef, name: String, componentType: Class[_ <: Component], args: Any*)(implicit context: ActorContext): ActorRef = {
+    componentType match {
+      case _ if componentType == classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor] => SensorCpuProc(api, name, args: _*)
+      case _ if componentType == classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula] => FormulaCpuMax(api, name, args: _*)
+      case _ if componentType == classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator] => AggregatorTimestamp(api, name, args: _*)
+      case _ => throw new UnsupportedOperationException("component non identified.")
+    }
   }
+}
 
-  def findActor(path: String)(implicit timeout: Timeout, context: ActorContext): ActorRef = {
-    val futureActorRef = context.actorSelection(path).resolveOne()
-    Await.result(futureActorRef, timeout.duration)
+object SensorCpuProc {
+  val singleton = true
+  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
+
+  def apply(api: ActorRef, actorName: String, args: Any*)(implicit context: ActorContext): ActorRef = {
+    if(!references.contains(api) || !singleton) {
+      val prop = Props(classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor], args: _*)
+      
+      val actorRef = if(actorName == "") {
+        context.actorOf(prop)
+      }
+      else context.actorOf(prop, name = actorName)
+
+      references += api
+      return actorRef
+    }
+
+    null
+  }
+}
+
+object FormulaCpuMax {
+  val singleton = true
+  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
+
+  def apply(api: ActorRef, actorName: String, args: Any*)(implicit context: ActorContext): ActorRef = {
+    if(!references.contains(api) || !singleton) {
+      val prop = Props(classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula], args: _*)
+
+      val actorRef = if(actorName == "") {
+        context.actorOf(prop)
+      }
+      else context.actorOf(prop, name = actorName)
+
+      references += api
+      return actorRef
+    }
+
+    null
+  }
+}
+
+object AggregatorTimestamp {
+  val singleton = true
+  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
+
+  def apply(api: ActorRef, actorName: String, args: Any*)(implicit context: ActorContext): ActorRef = {
+    if(!references.contains(api) || !singleton) {
+      val prop = Props(classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator], args: _*)
+
+      val actorRef = if(actorName == "") {
+        context.actorOf(prop)
+      }
+      else context.actorOf(prop, name = actorName)
+
+      references += api
+      return actorRef
+    }
+
+    null
   }
 }
 
@@ -49,17 +112,15 @@ object ActorsFactory {
  */
 trait SensorCpuProc {
   self: API =>
-  startComponent(classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor])
+  configure(classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor])
 }
 
 trait FormulaCpuMax {
   self: API =>
-  
-  startComponent(classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula])
+  configure(classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula])
 }
 
 trait AggregatorTimestamp {
   self: API =>
-
-  startComponent(classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator])
+  configure(classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator])
 }

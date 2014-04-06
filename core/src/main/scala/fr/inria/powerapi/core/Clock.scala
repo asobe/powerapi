@@ -48,23 +48,19 @@ trait ClockSupervisorConfiguration extends Configuration {
 }
 
 /**
- * Define messages for the clock components
+ * Define messages for the clock components.
  */
-object ClockSupervisor {
+object ClockMessages {
   case class StartClock(processes: Array[Process], frequency: FiniteDuration)
-  case class RemoveClock(clockRef: ActorRef)
-  case object StopWorker
-  case object StopClocks
-
-  case object ClocksStopped
-}
-
-object ClockWorker {
+  case class StopClock(clockid: Long)
+  case class WaitFor(clockid: Long, duration: FiniteDuration)
+  
   case object TickIt
   case object UnTickIt
-  case class WaitFor(duration: FiniteDuration)
-
-  case object ClockStopped
+  case object ClockStoppedAck
+  case object AllClocksStoppedAck
+  case object StopWorker
+  case object StopAllClocks
 }
 
 /**
@@ -73,26 +69,25 @@ object ClockWorker {
  * Thus, each component is in a passive state and only run its business part following the sent message.
  *
  * At the bottom of this architecture, the ClockSupervisor component manages a pool of ClockWorkers to handle the several monitorings. 
-
- * It creates workers per monitoring to cut down the load.
- * Each worker schedules the Ticks' publishing on the event bus.
+ * One clock is created per monitoring with an unique ID to identify it. Each clock schedules the Ticks publishing for its given frequency
+ * on the event bus.
  */
 class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfiguration {
-  import ClockSupervisor._
-  import ClockWorker.{ TickIt, UnTickIt }
+  import ClockMessages._
   implicit val timeout = Timeout(5.seconds)
 
   override def receive = LoggingReceive {
     case startClock: StartClock => startClockWorker(sender, startClock)
-    case removeClock: RemoveClock => removeClockWorker(removeClock)
-    case StopClocks => stopClockWorkers(sender)
+    case stopClock: StopClock => stopClockWorker(sender, stopClock)
+    case waitFor: WaitFor => runningForDuration(sender, waitFor)
+    case StopAllClocks => stopAllClocks(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message yes " + unknown)
   }
 
-  val workers = new mutable.ArrayBuffer[ActorRef] with mutable.SynchronizedBuffer[ActorRef]
+  val workers = new mutable.HashMap[Long, ActorRef] with mutable.SynchronizedMap[Long, ActorRef]
 
   /**
-   * Starts a clock worker.
+   * Start a clock worker.
    */
   def startClockWorker(sender: ActorRef, startClock: StartClock) {
     val duration = if (startClock.frequency < minimumTickDuration) {
@@ -101,48 +96,79 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
     } else {
       startClock.frequency
     }
-
-    if(log.isDebugEnabled) log.debug("New clock will be created.")
     
-    val clockRef = context.actorOf(Props(classOf[ClockWorker], context.system.eventStream, startClock.processes, startClock.frequency))
-    workers += clockRef
+    val clockid = System.nanoTime
+    val clockRef = context.actorOf(Props(classOf[ClockWorker], clockid, context.system.eventStream, startClock.processes, startClock.frequency))
+    workers += (clockid -> clockRef)
+    // Send the clockid
+    sender ! clockid
     clockRef ! TickIt
-    sender ! clockRef
+    if(log.isDebugEnabled) log.debug("A clock is started, referenced by " + clockid + ".")
   }
 
   /**
-   * Allows to refresh the workers buffer when a clock is shuts down itself.
+   * Stop a clock worker, references inside the internal buffer
    */
-  def removeClockWorker(removeClock: RemoveClock) {
-    workers -= removeClock.clockRef
+  def stopClockWorker(sender: ActorRef, stopClock: StopClock) {
+    // Check if the clockid exists, else there is a problem with clock workers
+    if(workers.contains(stopClock.clockid)) {
+      val clockRef = workers(stopClock.clockid)
+      val ack = Await.result(clockRef ? UnTickIt, timeout.duration)
+
+      if(ack == ClockStoppedAck) { 
+        workers -= stopClock.clockid
+        context.stop(clockRef)
+        sender ! ClockStoppedAck
+        if(log.isDebugEnabled) log.debug("Clock referenced by " + stopClock.clockid + " is now stopped and destroyed.")
+      }
+      else if(log.isDebugEnabled) log.debug("Clock referenced by " + stopClock.clockid + " sends an wrong ack.")
+    }
+    else if(log.isDebugEnabled) log.debug("Clock does not exist, we can't stop it.")
   }
 
   /**
-   * Stop all the remaining clocks.
+   * Stop all the clock workers
    */
-  def stopClockWorkers(sender: ActorRef) {
-    workers.foreach(clock => {
-      Await.result(clock ? StopWorker, timeout.duration)
-      context.stop(clock)
-    })
+  def stopAllClocks(sender: ActorRef) {
+    workers.foreach { 
+      case (clockid, clockRef) => {
+        val ack = Await.result(clockRef ? UnTickIt, timeout.duration)
 
+        if(ack == ClockStoppedAck) { 
+          context.stop(clockRef)
+          if(log.isDebugEnabled) log.debug("Clock referenced by " + clockid + " is now stopped and destroyed.")
+        }
+      }
+    }
+
+    // Delete all the workers
     workers.clear
-    sender ! ClocksStopped
+    // Send an ack when all the clocks are stopped
+    sender ! AllClocksStoppedAck
+  }
+
+  /**
+   * Used to specify a clock's lifespan with a timer.
+   * When the timer is over, the clock shuts down itself.
+   */
+  def runningForDuration(sender: ActorRef, waitFor: WaitFor) {
+    if(waitFor.duration != Duration.Zero) {
+      context.system.scheduler.scheduleOnce(waitFor.duration) {
+        stopClockWorker(sender, StopClock(waitFor.clockid))
+      }(context.system.dispatcher)
+    }
   }
 }
 
 /**
- * ClockWorker is used to cut down the load.
- * We use one ClockWorker per monitoring to cut down the load.
+ * ClockWorker is used to cut down the load. One clock is created per monitoring and works at its frequency.
  */
-class ClockWorker(eventBus: EventStream, processes: Array[Process], frequency: FiniteDuration) extends Actor with ActorLogging {
-  import ClockSupervisor.{ RemoveClock, StopWorker }
-  import ClockWorker.{ TickIt, ClockStopped, UnTickIt, WaitFor }
+class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process], frequency: FiniteDuration) extends Actor with ActorLogging {
+  import ClockMessages._
 
   def receive = LoggingReceive {
     case TickIt => makeItTick
-    case StopWorker => stop(sender)
-    case waitFor: WaitFor => runningForDuration(sender, waitFor)
+    case UnTickIt => unmakeItTick(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 
@@ -162,8 +188,8 @@ class ClockWorker(eventBus: EventStream, processes: Array[Process], frequency: F
     def schedule() {
       if (scheduler == null) {
         scheduler = context.system.scheduler.schedule(Duration.Zero, frequency)({
-          val timestamp = System.currentTimeMillis
-          subscriptions.foreach(subscription => eventBus.publish(Tick(self, subscription, timestamp)))
+          val timestamp = System.nanoTime
+          subscriptions.foreach(subscription => eventBus.publish(Tick(clockid, subscription, timestamp)))
         })(context.system.dispatcher)
       }
     }
@@ -172,32 +198,10 @@ class ClockWorker(eventBus: EventStream, processes: Array[Process], frequency: F
     schedule
   }
 
-  /**
-   * Used to stop a clock from the outside (no timer defined)
+  /*
+   * Remove all the susbcriptions, in the aim to stop the clock
    */
-  def stop(sender: ActorRef) {
-    unmakeItTick
-    sender ! ClockStopped
-  }
-
-  /**
-   * Used to specify a clock's lifespan with a timer.
-   * When the timer is over, the clock shuts down itself.
-   */
-  def runningForDuration(sender: ActorRef, waitFor: WaitFor) {
-    if(waitFor.duration != Duration.Zero) {
-      context.system.scheduler.scheduleOnce(waitFor.duration) {
-        unmakeItTick
-        context.parent ! RemoveClock(self)
-        sender ! ClockStopped
-      }(context.system.dispatcher)
-    }
-  }
-
-  /**
-   * Remove all the subscriptions.
-   */
-  private def unmakeItTick() {
+  def unmakeItTick(sender: ActorRef) {
     def unsubscribe() {
       if (!subscriptions.isEmpty) {
         processes.foreach(process => {
@@ -216,5 +220,8 @@ class ClockWorker(eventBus: EventStream, processes: Array[Process], frequency: F
 
     unsubscribe
     unschedule
+
+    // Sends an ack message
+    sender ! ClockStoppedAck
   }
 }

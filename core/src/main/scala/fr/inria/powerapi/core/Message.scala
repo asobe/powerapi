@@ -51,7 +51,7 @@ case class TickSubscription(process: Process, duration: FiniteDuration)
  * Each time period is "ticked", as a clock "tick", according to a specific timestamp.
  * A Tick is a wrapper of this specific timestamp, according a given TickSubscription for a specific monitoring.
  */
-case class Tick(clockRef: ActorRef, subscription: TickSubscription, timestamp: Long = System.currentTimeMillis) extends Message with Ordering[Tick] {
+case class Tick(clockid: Long, subscription: TickSubscription, timestamp: Long = System.currentTimeMillis) extends Message with Ordering[Tick] {
   def compare(a: Tick, b: Tick) = a.timestamp compare b.timestamp
 }
 

@@ -120,18 +120,10 @@ trait Processor extends Component {
 }
 
 /**
- * Base trait for each PowerAPI listener.
- *
- * TODO: stop using the Listener type in favor of the Reporter type which listen to Processor's messages.
- */
-trait Listener extends Component
-
-/**
  * Base trait for each PowerAPI reporter.
- *
- * TODO: stop Listener inheritance (now kept for compatibility issues).
+ * New type of message
  */
-trait Reporter extends Listener {
+trait Reporter extends Component {
   def messagesToListen = Array(classOf[ProcessedMessage])
 
   def process(processedMessage: ProcessedMessage)

@@ -20,218 +20,429 @@
  */
 package fr.inria.powerapi.library
 
-import scala.concurrent.Await
+
+
+import fr.inria.powerapi.core.{ Ack, ClockMessages, ClockSupervisor, Component, Message, MessagesToListen }
+import fr.inria.powerapi.core.{ Process, ProcessedMessage, Reporter, TickSubscription }
+
+import collection.mutable
+
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.{FiniteDuration, Duration, DurationInt}
 
-import akka.actor.{ Props, ActorSystem, ActorPath }
+import akka.actor.{ Actor, ActorContext, ActorLogging, ActorRef, ActorSystem, Props }
+import akka.event.LoggingReceive
 import akka.pattern.ask
 import akka.util.Timeout
-import akka.actor.Status.Success
-import fr.inria.powerapi.core.ClockSupervisor
-import fr.inria.powerapi.core.EnergyModule
-import fr.inria.powerapi.core.{ Message, MessagesToListen, Listener, Component, TickSubscription, Process }
-import fr.inria.powerapi.core.Processor
-import fr.inria.powerapi.core.Reporter
-
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
- * PowerAPI's messages definition
- *
- * @author abourdon
+ * Default reporter used to process the messages with a callbacK.
  */
-case class StartComponent(componentType: Class[_ <: Component]) extends Message
-case class StopComponent(componentType: Class[_ <: Component]) extends Message
-case class StartMonitoring(
-  process: Process = Process(-1),
-  duration: FiniteDuration = Duration.Zero,
-  processor: Class[_ <: Processor] = null,
-  listener: Class[_ <: Listener] = null) extends Message
-case class StopMonitoring(
-  process: Process = Process(-1),
-  duration: FiniteDuration = Duration.Zero,
-  processor: Class[_ <: Processor] = null,
-  listener: Class[_ <: Listener] = null) extends Message
-
-/**
- * PowerAPI engine which start/stop every PowerAPI components such as Listener or Energy Module.
- *
- * Current implementation start/stop component in giving the component type.
- * This restriction helps to instantiate only one implementation of a given component.
- *
- * @author abourdon
- */
-class PowerAPI extends Component {
-  val components = collection.mutable.HashMap[Class[_ <: Component], ActorPath]()
-  implicit val timeout = Timeout(5.seconds)
-
-  def messagesToListen = Array(classOf[StartComponent], classOf[StopComponent], classOf[StartMonitoring], classOf[StopMonitoring])
-
-  def acquire = {
-    case startComponent: StartComponent => process(startComponent)
-    case stopComponent: StopComponent => process(stopComponent)
-    case startMonitoring: StartMonitoring => process(startMonitoring)
-    case stopMonitoring: StopMonitoring => process(stopMonitoring)
-  }
-
-  def process(startComponent: StartComponent) {
-    /**
-     * Starts a component to work into the PowerAPI system.
-     *
-     * @param componentType: component type that have to be started.
-     */
-    def start(componentType: Class[_ <: Component]) {
-      if (components.contains(componentType)) {
-        if (log.isWarningEnabled) log.warning("component " + componentType.getCanonicalName + " already started")
-      } else {
-        val component = context.actorOf(Props(componentType.newInstance), name = componentType.getCanonicalName)
-        val messages = Await.result(component ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
-        messages.foreach(message => context.system.eventStream.subscribe(component, message))
-        components += (componentType -> component.path)
-      }
-    }
-
-    start(startComponent.componentType)
-
-    // Be aware to start the ClockSupervisor if a component has been started
-    if (components.size > 0 && !components.contains(classOf[ClockSupervisor])) {
-      start(classOf[ClockSupervisor])
-      if (log.isDebugEnabled) log.debug("ClockSupervisor started")
-    }
-  }
-
-  def process(stopComponent: StopComponent) {
-    /**
-     * Stops a component from the PowerAPI system.
-     *
-     * @param componentType: component type that have to be stopped.
-     */
-    def stop(componentType: Class[_ <: Component]) {
-      if (components.contains(componentType)) {
-        val futureComponent = context.actorSelection(components(componentType)).resolveOne()
-        val component = Await.result(futureComponent, timeout.duration)
-
-        val messages = Await.result(component ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
-        messages.foreach(message => context.system.eventStream.unsubscribe(component, message))
-        context.stop(component)
-        components -= componentType
-      } else {
-        if (log.isWarningEnabled) log.warning("Component " + componentType.getCanonicalName + " is not started")
-      }
-    }
-
-    stop(stopComponent.componentType)
-
-    // Be aware to stop the ClockSupervisor if all other components has been stopped.
-    if (components.size == 1 && components.contains(classOf[ClockSupervisor])) {
-      stop(classOf[ClockSupervisor])
-      if (log.isDebugEnabled) log.debug("ClockSupervisor stopped")
-    }
-  }
-
-  def process(startMonitoring: StartMonitoring) {
-    import fr.inria.powerapi.core.ClockSupervisor.StartTickSub
-
-    /**
-     * Starts the monitoring of a process during a certain duration a listened by a given listener.
-     *
-     * @param process: process to monitor.
-     * @param duration: duration period monitoring.
-     * @param processor: processor type which will be aware by monitoring results.
-     * @param listener: listener type which will be aware by processor messages and display final results.
-     */
-    def start(proc: Process, duration: FiniteDuration, processor: Class[_ <: Processor], listener: Class[_ <: Listener]) {
-      if (processor != null) {
-        process(StartComponent(processor))
-      }
-      if (listener != null) {
-        process(StartComponent(listener))
-      }
-      if (proc != Process(-1) && duration != Duration.Zero) {
-        context.system.eventStream.publish(StartTickSub(TickSubscription(proc, duration)))
-      }
-    }
-
-    start(startMonitoring.process, startMonitoring.duration, startMonitoring.processor, startMonitoring.listener)
-  }
-
-  def process(stopMonitoring: StopMonitoring) {
-    import fr.inria.powerapi.core.ClockSupervisor.StopTickSub
-
-    /**
-     * Stops the monitoring of a process during a certain duration and listened by a given listener.
-     *
-     * @param process: process to stop to monitor.
-     * @param duration: duration period monitoring.
-     * @param processor : processor type which will be unaware by monitoring results.
-     * @param listener: listener type which will be unaware by processor messages.
-     */
-    def stop(proc: Process, duration: FiniteDuration, processor: Class[_ <: Processor], listener: Class[_ <: Listener]) {
-      if (processor != null) {
-        process(StopComponent(processor))
-      }
-      if (listener != null) {
-        process(StopComponent(listener))
-      }
-      if (proc != Process(-1) && duration != Duration.Zero) {
-        context.system.eventStream.publish(StopTickSub(TickSubscription(proc, duration)))
-      }
-    }
-
-    stop(stopMonitoring.process, stopMonitoring.duration, stopMonitoring.processor, stopMonitoring.listener)
+class CallbackReporter(callback: (ProcessedMessage) => Unit)  extends Reporter {
+  def process(processedMessage: ProcessedMessage) {
+    callback(processedMessage)
   }
 }
 
 /**
- * PowerAPI companion object that provide an API to use PowerAPI library.
- *
- * @author abourdon
+ * PowerAPI object encapsulates all the messages.
  */
-object PowerAPI {
-  implicit lazy val system = ActorSystem("PowerAPI")
-  lazy val engine = system.actorOf(Props[PowerAPI])
+object PowerAPIMessages {
+  case class StartComponent(name: String, componentType: Class[_ <: Component], args: Any*)
+  case class StartSubscription(actorRef: ActorRef)
+  case class StartMonitoring(processes: Array[Process], frequency: FiniteDuration)
+  case class StartReporterComponent(name: String, componentType: Class[_ <: Reporter], args: Any*)
+  case class AttachReporterRef(reporterRef: ActorRef)
+  case class StartMonitoringRepr(clockid: Long)
+  case class StopMonitoringRepr(clockid: Long)
+
+  case object StopMonitoringWorker
+  case object AllReportersStopped
+  case object MonitoringWorkerStopped
+  case object StopAll
+  case object PowerAPIStopped
+  case object AllMonitoringsStopped
+  case object StopAllMonitorings
+}
+
+class PowerAPI extends Actor with ActorLogging {
+  import PowerAPIMessages._
+  import ClockMessages.StopAllClocks
+
+  implicit val timeout = Timeout(5.seconds)
+  // Stores the actor references for all the components (excepts the ClockSupervisor).
+  val components = new mutable.ArrayBuffer[ActorRef] with mutable.SynchronizedBuffer[ActorRef]
+  var clockSupervisor: ActorRef = null
+  var monitoringSupervisor: ActorRef = null
+
+  override def preStart(): Unit = {
+    clockSupervisor = context.actorOf(Props[ClockSupervisor])
+    monitoringSupervisor = context.actorOf(Props(classOf[MonitoringSupervisor], clockSupervisor))
+  }
+
+  def receive = LoggingReceive {
+    case startComponent: StartComponent => process(startComponent)
+    case startSubscription: StartSubscription => process(startSubscription)
+    case startMonitoring: StartMonitoring => process(sender, startMonitoring)
+    case StopAll => stopAll(sender)
+    case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
+  }
+
+  def process(startComponent: StartComponent) {
+    /**
+     * Starts a component with its class.
+     * @param name: name of the component (used to retrieve it from actorSelection).
+     * @param componentType: class of the component.
+     * @param args: varargs for the component argument.
+     */
+    def start(name: String, componentType: Class[_ <: Component], args: Any*): ActorRef = {
+      ActorsFactory(self, name, componentType, args:_*)
+    }
+
+    val actorRef = start(startComponent.name, startComponent.componentType, startComponent.args:_*)
+    
+    // It is maybe null if the component is a singleton and already started, or component does not exist
+    if(actorRef != null) {
+      // Also, do the actor's subscription on the event bus.
+      process(StartSubscription(actorRef))
+    }
+
+    else if(log.isDebugEnabled) log.debug(startComponent.componentType + " is a singleton and already started.")
+  }
+
+  def process(startSubscription: StartSubscription) {
+    /**
+     * Subscription of the actor on the event bus and register the actor reference inside a buffer.
+     * to stop them when the monitoring will be done.
+     * @param actorRef: Reference of the given actor.
+     */
+    def subscribe(actorRef: ActorRef) {
+      val messages = Await.result(actorRef ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
+      messages.foreach(message => context.system.eventStream.subscribe(actorRef, message))
+      components += actorRef
+    }
+
+    subscribe(startSubscription.actorRef)
+  }
+
+  def process(sender: ActorRef, startMonitoring: StartMonitoring) {
+    import ClockMessages.StartClock
+
+    /**
+     * Starts the monitoring of an processes array for a given clock frequency.
+     * @param processes: processes to monitor.
+     * @param frequency: duration period monitoring.
+     */
+    def start(sender: ActorRef, processes: Array[Process], frequency: FiniteDuration) {
+      // Starts a monitoring actor, retrieves the representative of the monitoring and sends it to the API.
+      val clockid = Await.result(clockSupervisor ? StartClock(processes, frequency), timeout.duration).asInstanceOf[Long]
+      val monitoringRepr = Await.result(monitoringSupervisor ? StartMonitoringRepr(clockid), timeout.duration).asInstanceOf[Monitoring]
+      sender ! monitoringRepr
+    }
+
+    start(sender, startMonitoring.processes, startMonitoring.frequency)
+  }
+
+  def stopAll(sender: ActorRef) {  
+    // Stop all the attached components
+    components.foreach(component => {
+      val messages = Await.result(component ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
+      messages.foreach(message => context.system.eventStream.unsubscribe(component, message))
+      context.stop(component)
+      if(log.isDebugEnabled) log.debug("component stopped.")
+    })
+    components.clear()
+    
+    Await.result(clockSupervisor ? StopAllClocks, timeout.duration)
+    context.stop(clockSupervisor)
+    Await.result(monitoringSupervisor ? StopAllMonitorings, timeout.duration)
+    context.stop(monitoringSupervisor)
+    sender ! PowerAPIStopped
+  }
+
+  // def process(stopMonitoring: StopMonitoring) {
+  //   import ClockSupervisor.StopTickSub
+
+  //   /**
+  //    * Stops the monitoring of the processes array with the given clock frequency.
+  //    * @param processes: processes to monitor.
+  //    * @param frequency: duration period monitoring.
+  //    */
+  //   def stop(processes: Array[Process], frequency: FiniteDuration) {
+  //     processes.foreach(process => context.system.eventStream.publish(StopTickSub(TickSubscription(process, frequency))))
+  //   }
+
+  //   stop(stopMonitoring.processes, stopMonitoring.frequency)
+  // }
+  // }
 
   /**
-   * Starts the energy module associated to the given type.
-   *
-   * @param energyModuleType: energy module type to start.
+   * Stops all the components (safety).
+   * Only used when you specified a duration for the monitoring.
+   * @param sender: sender's actor reference
    */
-  def startEnergyModule(energyModuleType: Class[_ <: EnergyModule]) {
-    engine ! StartComponent(energyModuleType)
+  /*def stopComponents(sender: ActorRef) = {
+    components.foreach(actorRef => {
+      val messages = Await.result(actorRef ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
+      messages.foreach(message => context.system.eventStream.unsubscribe(actorRef, message))
+      context.stop(actorRef)
+      if(log.isDebugEnabled) log.debug("component stopped.")
+    })
+
+    components.clear()
+    sender ! Ack
+  }*/
+}
+
+// Monitoring supervisor
+// Subscription: ProcessedMessages on the event bus, reacts to dispatch to the right monitoring for the reporting
+class MonitoringSupervisor(clockSupervisor: ActorRef) extends Actor with ActorLogging {
+  import PowerAPIMessages._
+  import ClockMessages.StartClock
+
+  implicit val timeout = Timeout(5.seconds)
+  // [clockid, monitoringRef]
+  val monitorings = new mutable.HashMap[Long, ActorRef] with mutable.SynchronizedMap[Long, ActorRef]
+
+  def receive = LoggingReceive {
+    case startMonitoringRepr: StartMonitoringRepr => startMonitoring(sender, startMonitoringRepr)
+    case stopMonitoringRepr: StopMonitoringRepr => stopMonitoring(sender, stopMonitoringRepr)
+    case StopAllMonitorings => stopAllMonitorings(sender)
+    case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
+  }
+
+  // Allows to create an actor for a specified monitoring
+  def startMonitoring(sender: ActorRef, startMonitoringRepr: StartMonitoringRepr) = {
+    // create a monitoring  
+    val monitoringRef = context.actorOf(Props(classOf[MonitoringWorker], clockSupervisor))
+    monitorings += (startMonitoringRepr.clockid -> monitoringRef)
+    sender ! new Monitoring(startMonitoringRepr.clockid, self, monitoringRef)
+  }
+
+  // Allows to stop a specified monitoring and stop all these referenced reporters.
+  def stopMonitoring(sender: ActorRef, stopMonitoringRepr: StopMonitoringRepr) = {
+    val monitoringRef = monitorings(stopMonitoringRepr.clockid)
+    monitorings -= stopMonitoringRepr.clockid
+    Await.result(monitoringRef ? StopMonitoringWorker, timeout.duration)
+    context.stop(monitoringRef)
+    sender ! MonitoringWorkerStopped
+  }
+
+  def stopAllMonitorings(sender: ActorRef) = {
+    monitorings.foreach {
+      case (_, monitoringRef) => {
+        Await.result(monitoringRef ? StopMonitoringWorker, timeout.duration)
+        context.stop(monitoringRef)
+      }
+    }
+
+    monitorings.clear
+    sender ! AllMonitoringsStopped
+  }
+}
+
+class MonitoringWorker(clockSupervisor: ActorRef) extends Actor with ActorLogging {
+  import PowerAPIMessages._
+  import ClockMessages.WaitFor
+
+  implicit val timeout = Timeout(5.seconds)
+  // Buffer of reporter references, only used to store all of them when the monitoring stop is asked.
+  val reporters = new mutable.ArrayBuffer[ActorRef] with mutable.SynchronizedBuffer[ActorRef]
+
+  def receive = LoggingReceive {
+    case startReporterComponent: StartReporterComponent => process(startReporterComponent)
+    case attachReporterRef: AttachReporterRef => process(attachReporterRef)
+    case waitFor: WaitFor => process(sender, waitFor)
+    case StopMonitoringWorker => stopMonitoringWorker(sender)
+    case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
+  }
+
+  def process(startReporterComponent: StartReporterComponent) {
+    /**
+     * Starts a reporter with its class.
+     * @param componentType: class of the component.
+     * @param args: varargs for the component argument.
+     */
+    def start(actorName: String, componentType: Class[_ <: Component], args: Any*): ActorRef = {
+      val prop = Props(componentType, args: _*)
+
+      if(actorName == "") {
+        context.actorOf(prop)
+      }
+      else context.actorOf(prop, name = actorName)
+    }
+
+    val reporterRef = start(startReporterComponent.name, startReporterComponent.componentType, startReporterComponent.args:_*)
+
+    process(AttachReporterRef(reporterRef))
+  }
+
+  def process(attachReporterRef: AttachReporterRef) {
+    /**
+     * Starts a reporter with its actor reference
+     * @param actorRef: actor reference of the reporter which will be attach to this monitoring
+     */
+    def start(reporterRef: ActorRef) {
+      // Do the subscription on the bus
+      val messages = Await.result(reporterRef ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
+      messages.foreach(message => context.system.eventStream.subscribe(reporterRef, message))
+      // Store its reference inside the buffer. Used when the given monitoring is stopped.
+      reporters += reporterRef
+    }
+
+     start(attachReporterRef.reporterRef)
+  }
+
+  def process(sender: ActorRef, waitFor: WaitFor) {
+    def runningForDuration(clockid: Long, duration: FiniteDuration): Future[Any] = {
+      implicit val timeout = Timeout(duration + 1.seconds)
+      clockSupervisor ? WaitFor(clockid, duration)
+    }
+
+    val futureAck = runningForDuration(waitFor.clockid, waitFor.duration)
+    sender ! futureAck
   }
 
   /**
-   * Stops the energy module associated to the given type.
-   *
-   * @param energyModuleType: energy module type to stop.
+   * Stop all the reporters for this given monitoring.
    */
-  def stopEnergyModule(energyModuleType: Class[_ <: EnergyModule]) {
-    engine ! StopComponent(energyModuleType)
+  def stopMonitoringWorker(sender: ActorRef) = {
+    reporters.foreach(reporter => context.stop(reporter))
+    reporters.clear()
+    sender ! AllReportersStopped
+  }
+}
+
+class Monitoring(clockid: Long, monitoringSupervisor: ActorRef, monitoringRef: ActorRef) {
+  import PowerAPIMessages._
+  import ClockMessages.WaitFor
+
+  /**
+   * Allows to attach a reporter with its component type.
+   * @param reporterType: Type of the reporter.
+   */
+  def attachReporter(reporterType: Class[_ <: Reporter]): Monitoring = {
+    monitoringRef ! StartReporterComponent("", reporterType)
+    this
   }
 
   /**
-   * Starts the monitoring of the given process during the given duration period.
-   * Results are then processed by the given processor and displayed by the given listener.
-   *
-   * @param process: process to monitor.
-   * @param duration: duration period monitoring.
-   * @param processor: processor type which will be aware by monitoring results.
-   * @param reporter: reporter type which will be aware by processor messages and display final results.
+   * Allows to attach a reporter with a function to process the messages display.
+   * @param reporterProcessing: Function used by a callback reporter to process the messages.
    */
-  def startMonitoring(process: Process = Process(-1), duration: FiniteDuration = Duration.Zero, processor: Class[_ <: Processor] = null, listener: Class[_ <: Listener] = null) {
-    engine ! StartMonitoring(process, duration, processor, listener)
+  def attachReporter(reporterProcessing: (ProcessedMessage => Unit)): Monitoring = {
+    monitoringRef ! StartReporterComponent("", classOf[CallbackReporter], reporterProcessing)
+    this
   }
 
   /**
-   * Stops the monitoring of the given process during the given duration period.
-   * Processors and listeners can also be stopped.
-   *
-   * @param process: process to stop to monitor.
-   * @param duration: duration period monitoring.
-   * @param processor : processor type which will be unaware by monitoring results.
-   * @param reporter: reporter type which will be unaware by processor messages.
+   * Allows to attach a reporter represented by an ActorRef.
+   * @param reporterRef: reference of the actor.
    */
-  def stopMonitoring(process: Process = Process(-1), duration: FiniteDuration = Duration.Zero, processor: Class[_ <: Processor] = null, listener: Class[_ <: Listener] = null) {
-    engine ! StopMonitoring(process, duration, processor, listener)
+  def attachReporter(reporterRef: ActorRef): Monitoring = {
+    monitoringRef ! AttachReporterRef(reporterRef)
+    this
   }
+
+  def waitFor(duration: FiniteDuration) = {
+    implicit val timeout = Timeout(duration + 1.seconds)
+    // Wait for the clock ending
+    val futureAck = Await.result(monitoringRef ? WaitFor(clockid, duration), timeout.duration).asInstanceOf[Future[Object]]
+    Await.result(futureAck, duration + 1.seconds)
+    // Now, we can stop this monitoring
+    Await.result(monitoringSupervisor ? StopMonitoringRepr(clockid), timeout.duration)
+  }
+}
+
+/**
+ * Main API used as a dependency for each trait component. It's the main entry to
+ * interact with the main API actor.
+ */
+class API {
+  import PowerAPIMessages._
+  //import ClockSupervisor.Running
+
+  implicit lazy val system = ActorSystem(System.currentTimeMillis + "")
+  lazy val engine = system.actorOf(Props[PowerAPI], "powerapi")
+  implicit val timeout = Timeout(5.seconds)
+
+  /**
+   * Starts the clock supervisor, main component of the API (mandatory).
+   */
+  //engine ! StartComponent("clock-supervisor", classOf[ClockSupervisor])
+
+  /** 
+   * Create a monitoring supervisor, used to create the monitoring representatives
+   */
+
+   
+  //val clockRef = Await.result(engine ? StartClock, timeout.duration).asInstanceOf[ActorRef]
+
+  // If a monitoring duration is fixed, we asked the ClockSupervisor to stay alive during this period.
+  // Timeout fixed because it's needed. We add 5.seconds to handle possible latency problems.
+  //val ack = clockRef.ask(Running(duration))(Timeout(duration + 5.seconds))
+  
+  /**
+   * Starts the component associated to the given type.
+   * @param componentType: component type to start.
+   */
+  def configure(componentType: Class[_ <: Component]) {
+    engine ! StartComponent("", componentType)
+  }
+
+  /**
+   * Stops all the components.
+   * If you use a duration for the monitoring, you could call this method after ack.
+   * Else, you have to stop the monitoring for each process.
+   */
+  // def stop() {
+  //   Await.result(engine ? StopComponents, timeout.duration)
+  // }
+
+  // /**
+  //  * Allows to attach a reporter with its component type.
+  //  * @param reporterType: Type of the reporter.
+  //  */
+  // def attachReporter(reporterType: Class[_ <: Reporter]) = {
+  //   engine ! StartComponent(reporterType)
+  // }
+
+  // /**
+  //  * Allows to attach a reporter with a function to process the messages display.
+  //  * @param reporterProcessing: Function used by a callback reporter to process the messages.
+  //  */
+  // def attachReporter(reporterProcessing: (ProcessedMessage => Unit)) {
+  //   engine ! StartComponent(classOf[CallbackReporter], reporterProcessing)
+  // }
+
+  // /**
+  //  * Allows to attach a reporter represented by an ActorRef.
+  //  * @param reporterRef: reference of the actor.
+  //  */
+  // def attachReporter(reporterRef: ActorRef) {
+  //   engine ! StartSubscription(reporterRef)
+  // }
+
+  /**
+   * Starts the monitoring of an processes array for a given clock frequency.
+   * @param processes: processes to monitor.
+   * @param frequency: duration period monitoring.
+   */
+  def start(processes: Array[Process], frequency: FiniteDuration): Monitoring = {
+    Await.result(engine ? StartMonitoring(processes, frequency), timeout.duration).asInstanceOf[Monitoring]
+  }
+
+  def stop() = {
+    Await.result(engine ? StopAll, timeout.duration)
+    system.shutdown()
+  }
+
+  // /**
+  //  * Stops the monitoring of the processes array with the given clock frequency.
+  //  * @param processes: processes to monitor.
+  //  * @param frequency: duration period monitoring.
+  //  */
+  // def stopMonitoring(processes: Array[Process], frequency: FiniteDuration) {
+  //   engine ! stopMonitoring(processes, frequency)
+  // }
 }

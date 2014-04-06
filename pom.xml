@@ -91,8 +91,8 @@
         <module>sensors</module>
         <module>formulae</module>
         <module>library</module>
-        <module>processors</module>
-        <module>reporters</module>
+        <!-- <module>processors</module> -->
+        <!-- <module>reporters</module> -->
         <!-- <module>tools</module> -->
     </modules>
 
