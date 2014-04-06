@@ -25,6 +25,8 @@ import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 
+import scala.collection
+
 /**
  * Aggregates FormulaMessages by their timestamps and processes.
  *
@@ -33,11 +35,19 @@ import fr.inria.powerapi.core.TickSubscription
 class ProcessAggregator extends TimestampAggregator {
   def byProcesses(implicit timestamp: Long): Iterable[AggregatedMessage] = {
     val base = cache(timestamp)
-    for (byProcess <- base.messages.groupBy(_.tick.subscription.process)) yield (AggregatedMessage(
-      tick = Tick(TickSubscription(byProcess._1, base.tick.subscription.duration), timestamp),
-      device = "all",
-      messages = byProcess._2)
-    )
+    val messages = collection.mutable.ArrayBuffer.empty[AggregatedMessage]
+    
+    for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) {
+      for (byProcess <- byMonitoring._2.groupBy(_.tick.subscription.process)) {
+        messages += AggregatedMessage(
+          tick = Tick(byMonitoring._1, TickSubscription(byProcess._1, base.tick.subscription.duration), timestamp),
+          device = "all",
+          messages = byProcess._2
+        )
+      }
+    }
+
+    messages
   }
 
   override def send(implicit timestamp: Long) {
