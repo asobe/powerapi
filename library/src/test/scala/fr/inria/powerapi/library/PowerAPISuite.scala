@@ -46,16 +46,33 @@ class PowerAPISuite extends JUnitSuite {
   implicit val timeout = Duration.Inf
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
+  def reporterConsoleTest1(processedMessage: ProcessedMessage) = {
+    val test = "TEST1 => clockid=" + processedMessage.tick.clockid + ";" +
+    "timestamp=" + processedMessage.tick.timestamp + ";" +
+    "process=" + processedMessage.tick.subscription.process + ";" +
+    "power=" + processedMessage.energy.power
+
+    println(test)
+  }
+
+  def reporterConsoleTest2(processedMessage: ProcessedMessage) = {
+    val test = "TEST2 => clockid=" + processedMessage.tick.clockid + ";" +
+    "timestamp=" + processedMessage.tick.timestamp + ";" +
+    "process=" + processedMessage.tick.subscription.process + ";" +
+    "power=" + processedMessage.energy.power
+
+    println(test)
+
+  }
+
   @Test
   def test() {
     var powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    powerapi.start(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({println(_)}).waitFor(10.seconds)
-    powerapi.stop()
+    powerapi.start(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({reporterConsoleTest1(_)})
+    powerapi.start(processes = Array(Process(8063)), frequency = 500.milliseconds).attachReporter({reporterConsoleTest2(_)}).waitFor(10.seconds)
 
-    // powerapi stop
-    //powerapi.start(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({println(_)})
-    //println("test:" + test)
-    //Thread.sleep((10.seconds).toMillis)
+    Thread.sleep((10.seconds).toMillis)
+    powerapi.stop()
   }
 
   // @Test

@@ -16,8 +16,8 @@
 
 	<modules>
 		<module>timestamp-aggregator</module>
-		<module>device-aggregator</module>
-		<module>process-aggregator</module>
+		<!-- <module>device-aggregator</module>
+		<module>process-aggregator</module> -->
 	</modules>
 
 </project>

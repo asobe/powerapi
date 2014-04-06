@@ -28,7 +28,6 @@ import org.scalatest.junit.JUnitRunner
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.pattern.ask
-import fr.inria.powerapi.core.Listener
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.core.Process

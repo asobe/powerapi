@@ -28,7 +28,6 @@ import fr.inria.powerapi.library.PowerAPI
 import fr.inria.powerapi.core.Process
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import fr.inria.powerapi.core.Listener
 import fr.inria.powerapi.formula.mem.api.MemFormulaMessage
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef

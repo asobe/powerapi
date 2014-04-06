@@ -18,23 +18,22 @@
 	</properties>
 
 	<dependencies>
-<dependency>
-<groupId>org.zeromq</groupId>
-<artifactId>zeromq-scala-binding_2.9.1</artifactId>
-<version>0.0.6</version>
-</dependency>
-
-<dependency>
-  <groupId>org.apache.thrift</groupId>
-  <artifactId>libthrift</artifactId>
-  <version>0.9.0</version>
-</dependency>
-<dependency>
-  <groupId>org.slf4j</groupId>
-  <artifactId>slf4j-log4j12</artifactId>
-  <version>1.7.5</version>
-  <scope>test</scope>
-</dependency>
+		<dependency>
+			<groupId>org.zeromq</groupId>
+			<artifactId>zeromq-scala-binding_2.9.1</artifactId>
+			<version>0.0.6</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.thrift</groupId>
+			<artifactId>libthrift</artifactId>
+			<version>0.9.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-log4j12</artifactId>
+			<version>1.7.5</version>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>fr.inria.powerapi</groupId>
 			<artifactId>core</artifactId>
@@ -44,40 +43,6 @@
 			<groupId>fr.inria.powerapi</groupId>
 			<artifactId>library</artifactId>
 			<version>${project.version}</version>
-		</dependency>
-
-
-		<!-- Test scope -->
-
-		<dependency>
-			<groupId>fr.inria.powerapi.sensor</groupId>
-			<artifactId>sensor-cpu-sigar</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.formula</groupId>
-			<artifactId>formula-cpu-max</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.sensor</groupId>
-			<artifactId>sensor-mem-sigar</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.formula</groupId>
-			<artifactId>formula-mem-single</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.processor</groupId>
-			<artifactId>device-aggregator</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
 		</dependency>
 	</dependencies>
 </project>

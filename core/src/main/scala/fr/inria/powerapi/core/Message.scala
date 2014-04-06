@@ -93,8 +93,3 @@ trait FormulaMessage extends TickedMessage with DevicedMessage {
 trait ProcessedMessage extends TickedMessage with DevicedMessage {
   def energy: Energy
 }
-
-/**
- * Message used for the Ack (when it's needed)
- */
-case object Ack

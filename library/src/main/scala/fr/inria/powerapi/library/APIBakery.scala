@@ -33,7 +33,7 @@ import scala.collection
  * TODO: Move the code
  */
 object ActorsFactory {
-  def apply(api: ActorRef, name: String, componentType: Class[_ <: Component], args: Any*)(implicit context: ActorContext): ActorRef = {
+  def apply(api: ActorRef, name: String, componentType: Class[_ <: Any], args: Any*)(implicit context: ActorContext): ActorRef = {
     componentType match {
       case _ if componentType == classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor] => SensorCpuProc(api, name, args: _*)
       case _ if componentType == classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula] => FormulaCpuMax(api, name, args: _*)

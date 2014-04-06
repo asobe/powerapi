@@ -19,10 +19,10 @@
 		<module>formula-cpu-max</module>
 		<module>formula-cpu-maxvm</module>
 		<module>formula-cpu-reg</module>
-		<module>formula-mem-api</module>
+<!-- 		<module>formula-mem-api</module>
 		<module>formula-mem-single</module>
 		<module>formula-disk-api</module>
-		<module>formula-disk-single</module>
+		<module>formula-disk-single</module> -->
 		<module>formula-powerspy</module>
 	</modules>
 
