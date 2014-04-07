@@ -27,21 +27,27 @@ import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.core.Process
 
 /**
- * Aggregates FormulaMessages by their timestamps and devices.
+ * Aggregates FormulaMessages by their clockids (which represent the monitorings), timestamps and devices.
  *
  * By default, DeviceAggregator builds new AggregatedMessage with process = Process(-1).
  * Note that Process(-1) means "all processes".
- *
- * @author abourdon
  */
 class DeviceAggregator extends TimestampAggregator {
   def byDevices(implicit timestamp: Long): Iterable[AggregatedMessage] = {
     val base = cache(timestamp)
-    for (byDevice <- base.messages.groupBy(_.device)) yield (AggregatedMessage(
-      tick = Tick(TickSubscription(Process(-1), duration = base.tick.subscription.duration), timestamp),
-      device = byDevice._1,
-      messages = byDevice._2)
-    )
+    val messages = collection.mutable.ArrayBuffer.empty[AggregatedMessage]
+
+    for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) {
+      for (byDevice <- byMonitoring._2.groupBy(_.device)) {
+        messages += AggregatedMessage(
+          tick = Tick(byMonitoring._1, TickSubscription(Process(-1), base.tick.subscription.duration), timestamp),
+          device = byDevice._1,
+          messages = byDevice._2
+        )
+      }
+    }
+
+    messages
   }
 
   override def send(implicit timestamp: Long) {

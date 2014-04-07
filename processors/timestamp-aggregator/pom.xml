@@ -4,8 +4,8 @@
     <groupId>fr.inria.powerapi.processor</groupId>
     <artifactId>timestamp-aggregator</artifactId>
     <name>${project.artifactId}</name>
-    <description>Aggregates Formula messages by their timestamp.</description>
-    <inceptionYear>2013</inceptionYear>
+    <description>Aggregates Formula messages by their clockids (which represent the monitorings) and timestamps.</description>
+    <inceptionYear>2014</inceptionYear>
 
     <parent>
         <groupId>fr.inria.powerapi</groupId>
@@ -20,27 +20,4 @@
             <version>${project.version}</version>
         </dependency>
     </dependencies>
-    
-    <build>
-		<plugins>
-			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>build-helper-maven-plugin</artifactId>
-				<version>1.8</version>
-				<executions>
-					<execution>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>add-source</goal>
-						</goals>
-						<configuration>
-							<sources>
-								<source>src/main/java</source>
-							</sources>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
-	</build>
 </project>

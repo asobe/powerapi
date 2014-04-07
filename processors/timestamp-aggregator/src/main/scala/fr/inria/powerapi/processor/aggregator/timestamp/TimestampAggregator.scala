@@ -47,12 +47,10 @@ case class AggregatedMessage(tick: Tick, device: String, messages: collection.mu
 }
 
 /**
-* Aggregates FormulaMessages by their timestamp.
+* Aggregates FormulaMessages by their clockids (which represent the different monitorings) and timestamp.
 *
 * By default, TimestampAggregator builds new AggregatedMessage with process = Process(-1) and device = "all".
-* Note that Process(-1) means "all processes" and -1 for the first parameters in TickSubscriptions means all clocks.
-*
-* @author abourdon
+* Note that Process(-1) means "all processes".
 */
 class TimestampAggregator extends Processor {
   // Cache has to be created during the instance creation in order to limit overhead
@@ -74,19 +72,25 @@ class TimestampAggregator extends Processor {
     cache -= timestamp
   }
 
-  def send(implicit timestamp: Long) {
+  def byClocks(implicit timestamp: Long): Iterable[AggregatedMessage] = {
     val base = cache(timestamp)
+    // Group by timestamp (which is represented by one entry in the cache) and clockid
     val messages = for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) yield (AggregatedMessage(
       tick = Tick(byMonitoring._1, TickSubscription(Process(-1), base.tick.subscription.duration), timestamp),
       device = "all",
       messages = byMonitoring._2)
     )
 
-    messages foreach publish
+    messages
+  }
+
+  def send(implicit timestamp: Long) {
+    byClocks foreach publish
   }
 
   def process(formulaMessage: FormulaMessage) {
     if (!cache.isEmpty && !cache.contains(formulaMessage.tick.timestamp)) {
+      // Get first timestamp to inject it in each method
       implicit val toDisplay = cache.minBy(_._1)._1
       send
       dropFromCache

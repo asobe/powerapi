@@ -12,4 +12,4 @@ Send `ProcessedMessage`, and more particularly `AggregatedMessage`, gathering ea
 
 ## Configuration part
 
-No configuration.
+No configuration part.

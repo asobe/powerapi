@@ -4,8 +4,8 @@
     <groupId>fr.inria.powerapi.processor</groupId>
     <artifactId>process-aggregator</artifactId>
     <name>${project.artifactId}</name>
-    <description>Aggregates Formula messages by their timestamps and processes.</description>
-    <inceptionYear>2013</inceptionYear>
+    <description>Aggregates Formula messages by their clockids (which represent the monitorings), timestamps and processes.</description>
+    <inceptionYear>2014</inceptionYear>
 
     <parent>
         <groupId>fr.inria.powerapi</groupId>

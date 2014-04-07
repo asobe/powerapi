@@ -28,9 +28,7 @@ import fr.inria.powerapi.core.TickSubscription
 import scala.collection
 
 /**
- * Aggregates FormulaMessages by their timestamps and processes.
- *
- * @author abourdon
+ * Aggregates FormulaMessages by their clockids (which represent the different monitorings), timestamps and processes.
  */
 class ProcessAggregator extends TimestampAggregator {
   def byProcesses(implicit timestamp: Long): Iterable[AggregatedMessage] = {
