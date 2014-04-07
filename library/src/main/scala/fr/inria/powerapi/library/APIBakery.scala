@@ -33,11 +33,13 @@ import scala.collection
  * TODO: Move the code
  */
 object ActorsFactory {
-  def apply(api: ActorRef, name: String, componentType: Class[_ <: Any], args: Any*)(implicit context: ActorContext): ActorRef = {
+  def apply(api: ActorRef, componentType: Class[_ <: Component], args: Any*)(implicit context: ActorContext): ActorRef = {
     componentType match {
-      case _ if componentType == classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor] => SensorCpuProc(api, name, args: _*)
-      case _ if componentType == classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula] => FormulaCpuMax(api, name, args: _*)
-      case _ if componentType == classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator] => AggregatorTimestamp(api, name, args: _*)
+      case _ if componentType == classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor] => SensorCpuProc(api, args: _*)
+      case _ if componentType == classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula] => FormulaCpuMax(api, args: _*)
+      case _ if componentType == classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor] => SensorPowerspy(api, args: _*)
+      case _ if componentType == classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula] => FormulaPowerspy(api, args: _*)
+      case _ if componentType == classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator] => AggregatorTimestamp(api, args: _*)
       case _ => throw new UnsupportedOperationException("component non identified.")
     }
   }
@@ -47,15 +49,26 @@ object SensorCpuProc {
   val singleton = true
   val references = collection.mutable.ArrayBuffer.empty[ActorRef]
 
-  def apply(api: ActorRef, actorName: String, args: Any*)(implicit context: ActorContext): ActorRef = {
+  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
     if(!references.contains(api) || !singleton) {
       val prop = Props(classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor], args: _*)
-      
-      val actorRef = if(actorName == "") {
-        context.actorOf(prop)
-      }
-      else context.actorOf(prop, name = actorName)
+      val actorRef = context.actorOf(prop)
+      references += api
+      return actorRef
+    }
 
+    null
+  }
+}
+
+object SensorPowerspy {
+  val singleton = true
+  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
+
+  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
+    if(!references.contains(api) || !singleton) {
+      val prop = Props(classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor], args: _*)
+      val actorRef = context.actorOf(prop)
       references += api
       return actorRef
     }
@@ -68,15 +81,26 @@ object FormulaCpuMax {
   val singleton = true
   val references = collection.mutable.ArrayBuffer.empty[ActorRef]
 
-  def apply(api: ActorRef, actorName: String, args: Any*)(implicit context: ActorContext): ActorRef = {
+  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
     if(!references.contains(api) || !singleton) {
       val prop = Props(classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula], args: _*)
+      val actorRef = context.actorOf(prop)
+      references += api
+      return actorRef
+    }
 
-      val actorRef = if(actorName == "") {
-        context.actorOf(prop)
-      }
-      else context.actorOf(prop, name = actorName)
+    null
+  }
+}
 
+object FormulaPowerspy {
+  val singleton = true
+  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
+
+  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
+    if(!references.contains(api) || !singleton) {
+      val prop = Props(classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula], args: _*)
+      val actorRef = context.actorOf(prop)
       references += api
       return actorRef
     }
@@ -89,15 +113,10 @@ object AggregatorTimestamp {
   val singleton = true
   val references = collection.mutable.ArrayBuffer.empty[ActorRef]
 
-  def apply(api: ActorRef, actorName: String, args: Any*)(implicit context: ActorContext): ActorRef = {
+  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
     if(!references.contains(api) || !singleton) {
       val prop = Props(classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator], args: _*)
-
-      val actorRef = if(actorName == "") {
-        context.actorOf(prop)
-      }
-      else context.actorOf(prop, name = actorName)
-
+      val actorRef = context.actorOf(prop)
       references += api
       return actorRef
     }
@@ -107,17 +126,26 @@ object AggregatorTimestamp {
 }
 
 /**
- * Shortcuts to use the API with the Cake Pattern (depedencies injection)
- * @author mcolmant
+ * Shortcuts to use the API with the Cake Pattern (dependencies injection)
  */
 trait SensorCpuProc {
   self: API =>
   configure(classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor])
 }
 
+trait SensorPowerspy {
+  self: API =>
+  configure(classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor])
+}
+
 trait FormulaCpuMax {
   self: API =>
   configure(classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula])
+}
+
+trait FormulaPowerspy {
+  self: API =>
+  configure(classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula])
 }
 
 trait AggregatorTimestamp {

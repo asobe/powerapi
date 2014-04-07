@@ -183,7 +183,7 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
     def schedule() {
       if (scheduler == null) {
         scheduler = context.system.scheduler.schedule(Duration.Zero, frequency)({
-          val timestamp = System.nanoTime
+          val timestamp = System.currentTimeMillis
           subscriptions.foreach(subscription => eventBus.publish(Tick(clockid, subscription, timestamp)))
         })(context.system.dispatcher)
       }
