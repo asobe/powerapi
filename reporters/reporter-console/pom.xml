@@ -24,38 +24,10 @@
 			<artifactId>library</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-
-		<!-- Test scope -->
-
-		<dependency>
-			<groupId>fr.inria.powerapi.sensor</groupId>
-			<artifactId>sensor-cpu-sigar</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.formula</groupId>
-			<artifactId>formula-cpu-max</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.sensor</groupId>
-			<artifactId>sensor-mem-sigar</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.formula</groupId>
-			<artifactId>formula-mem-single</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
 		<dependency>
 			<groupId>fr.inria.powerapi.processor</groupId>
-			<artifactId>device-aggregator</artifactId>
+			<artifactId>timestamp-aggregator</artifactId>
 			<version>${project.version}</version>
-			<scope>test</scope>
 		</dependency>
 	</dependencies>
 </project>

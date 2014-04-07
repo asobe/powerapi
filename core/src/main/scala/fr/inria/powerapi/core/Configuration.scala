@@ -22,39 +22,18 @@ package fr.inria.powerapi.core
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigException
 import com.typesafe.config.Config
-import org.apache.log4j.Logger
-import akka.event.LoggingAdapter
- 
-/*trait Logging {
-  def logger: Logger
+import org.apache.log4j.{ Level, Logger }
 
-  trait Logger {
-    def isWarningEnabled: Boolean
-    def isInfoEnabled: Boolean
-    def warning(msg: String)
-    def info(msg: String)
-  }
+trait Log {
+    lazy val logger = Logger.getLogger(this.getClass.getName)
 }
-
-trait AkkaLogging extends Logging {
-  override val logger = new AkkaLogger
-
-  class AkkaLogger extends Logger with akka.actor.Actor with akka.actor.ActorLogging {
-    def isWarningEnabled = log.isWarningEnabled
-    def isInfoEnabled = log.isInfoEnabled
-    def warning(msg: String) = log.warning(msg)
-    def info(msg: String) = log.info(msg)
-  }
-}*/
 
 /**
  * Base trait dealing with configuration files using the Typesafe Config library.
  *
  * @see https://github.com/typesafehub/config
- *
- * @author abourdon
  */
-trait Configuration extends Component {
+trait Configuration extends Log {
   /**
    * Link to get information from configuration files.
    */
@@ -74,37 +53,7 @@ trait Configuration extends Component {
       request(conf)
     } catch {
       case ce: ConfigException => {
-        if (required && log.isWarningEnabled) log.warning(ce.getMessage + " (using " + default + " as default value)")
-        default
-      }
-    }
-}
-
-/**
- * Base trait dealing with configuration files for simple object which needs to be configured
- */
-trait SimpleConfiguration {
-  /**
-   * Link to get information from configuration files.
-   */
-  private lazy val conf = ConfigFactory.load
-  lazy val logger: Logger = Logger.getLogger(classOf[SimpleConfiguration]);
-
-  /**
-   * Default pattern to get information from configuration file.
-   *
-   * @param request: request to get information from configuration file.
-   * @param required: if the configuration entry is required or not.
-   * @param default: default value returned in case of ConfigException.
-   *
-   * @see http://typesafehub.github.com/config/latest/api/com/typesafe/config/ConfigException.html
-   */
-  def load[T](request: Config => T, required: Boolean = true)(default: T): T =
-    try {
-      request(conf)
-    } catch {
-      case ce: ConfigException => {
-        if (required) logger.warn(ce.getMessage + " (using " + default + " as default value)")
+        if (required && logger.isEnabledFor(Level.WARN)) logger.warn(ce.getMessage + " (using " + default + " as default value)")
         default
       }
     }

@@ -49,7 +49,7 @@ case class TickSubscription(process: Process, duration: FiniteDuration)
 /**
  * Each PowerAPI's request is created according to a specific time period.
  * Each time period is "ticked", as a clock "tick", according to a specific timestamp.
- * A Tick is a wrapper of this specific timestamp, according a given TickSubscription for a specific monitoring.
+ * A Tick is a wrapper of this specific clockid (so, a specific monitoring) and timestamp, according a given TickSubscription.
  */
 case class Tick(clockid: Long, subscription: TickSubscription, timestamp: Long = System.currentTimeMillis) extends Message with Ordering[Tick] {
   def compare(a: Tick, b: Tick) = a.timestamp compare b.timestamp

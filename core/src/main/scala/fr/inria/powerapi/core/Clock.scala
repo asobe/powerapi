@@ -40,11 +40,6 @@ trait ClockSupervisorConfiguration extends Configuration {
       case Duration(length, unit) => FiniteDuration(length, unit)
     }
   }(10.milliseconds)
-
-  def acquire = {
-    case _ => ()
-  }
-  def messagesToListen = Array()
 }
 
 /**

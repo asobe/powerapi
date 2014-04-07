@@ -6,8 +6,7 @@
     <description>As its name indicates, Core module gather all "kernel" functionalities that will be use by other
         modules. More precisely, this module defines the whole types used by PowerAPI to define its architecture.
 
-        This module also defines the essential ClockSupervisor and ClockWorker classes, responsible of the periodically sending of the Tick message,
-        itself responsible of the process of the PowerAPI business part.
+        This module also defines the essential ClockSupervisor and ClockWorker classes, responsible of the periodically sending of the Tick message, itself responsible of the process of the PowerAPI business part.
     </description>
     <inceptionYear>2012</inceptionYear>
 
@@ -21,7 +20,7 @@
         <dependency>
             <groupId>log4j</groupId>
             <artifactId>log4j</artifactId>
-            <version>1.2.16</version>
+            <version>1.2.17</version>
         </dependency>
     </dependencies>
 </project>

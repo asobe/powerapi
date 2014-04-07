@@ -209,8 +209,10 @@ class MonitoringSupervisor(clockSupervisor: ActorRef) extends Actor with ActorLo
 
   def process(processedMessage: ProcessedMessage) = {
     val clockid = processedMessage.tick.clockid
-    val monitoringRef = monitorings(clockid)
-    monitoringRef ! processedMessage
+    if(monitorings.contains(clockid)) {
+      val monitoringRef = monitorings(clockid)
+      monitoringRef ! processedMessage
+    }
   }
 
   def stopAllMonitorings(sender: ActorRef) = {

@@ -19,6 +19,7 @@
 		<module>formula-cpu-max</module>
 		<module>formula-cpu-maxvm</module>
 		<module>formula-cpu-reg</module>
+		<!-- TODO: update the formulae for memory and disk -->
 <!-- 		<module>formula-mem-api</module>
 		<module>formula-mem-single</module>
 		<module>formula-disk-api</module>

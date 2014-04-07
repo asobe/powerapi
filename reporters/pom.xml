@@ -19,7 +19,7 @@
 	</properties>
 
 	<modules>
-		<!-- <module>reporter-console</module> -->
+		<module>reporter-console</module>
 		<module>reporter-virtio</module>
 		<module>reporter-file</module>
 		<module>reporter-gnuplot</module>

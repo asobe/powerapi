@@ -58,7 +58,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 
 /**
  * Listen to AggregatedMessage and display its content into a given gnuplot file.
- *
+ * TODO: Rewrite the GnuplotReporter, too many dependencies with the too module (just write the values in a file ..)
  * @author lhuertas
  */
 class GnuplotReporter extends Reporter with Configuration {

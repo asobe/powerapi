@@ -20,8 +20,6 @@
  */
 package fr.inria.powerapi.core
 
-import akka.actor.ActorSystem
-import akka.testkit.TestActorRef
 import com.typesafe.config.Config
 import org.junit.Test
 import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
@@ -56,52 +54,14 @@ class ConfigurationMock extends Configuration {
   lazy val notFound = load {
     _.getBoolean("not-found") || true
   }(false)
-
-  def messagesToListen = Array()
-
-  def acquire = {
-    case _ => ()
-  }
-}
-
-class SimpleConfigurationMock extends SimpleConfiguration {
-  lazy val key = load {
-    _.getString("powerapi.key")
-  }("error")
-
-  lazy val strings = for (
-    config <- JavaConversions.asScalaBuffer(load {
-      _.getConfigList("powerapi.strings")
-    }(new java.util.ArrayList()))
-  ) yield (config.asInstanceOf[Config].getString("string"))
-
-  lazy val ints = for (
-    config <- JavaConversions.asScalaBuffer(load {
-      _.getConfigList("powerapi.ints")
-    }(new java.util.ArrayList()))
-  ) yield (config.asInstanceOf[Config].getInt("int"))
-
-  lazy val items = for (
-    config <- JavaConversions.asScalaBuffer(load {
-      _.getConfigList("powerapi.items")
-    }(new java.util.ArrayList()))
-  ) yield (Item(config.asInstanceOf[Config].getInt("id"), config.asInstanceOf[Config].getDouble("value")))
-
-  lazy val notFound = load {
-    _.getBoolean("not-found") || true
-  }(false)
 }
 
 class ConfigurationSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
-  implicit val system = ActorSystem("configuration-suite")
-  val configuration = TestActorRef[ConfigurationMock].underlyingActor
-
-  val simpleConfiguration = new SimpleConfigurationMock
+  val configuration = new ConfigurationMock
 
   @Test
   def testKeyFromConf() {
     configuration.key should equal("value")
-    simpleConfiguration.key should equal("value")
   }
 
   @Test
@@ -110,18 +70,11 @@ class ConfigurationSuite extends JUnitSuite with Matchers with AssertionsForJUni
     configuration.strings(0) should equal("string1")
     configuration.strings(1) should equal("string2")
     configuration.strings(2) should equal("string3")
-
-    simpleConfiguration.strings should have size (3)
-    simpleConfiguration.strings(0) should equal("string1")
-    simpleConfiguration.strings(1) should equal("string2")
-    simpleConfiguration.strings(2) should equal("string3")
   }
 
   @Test
   def testIntsFromConf() {
     configuration.ints.reduceLeft((acc, x) => acc + x) should equal(6)
-    
-    simpleConfiguration.ints.reduceLeft((acc, x) => acc + x) should equal(6)
   }
 
   @Test
@@ -129,15 +82,10 @@ class ConfigurationSuite extends JUnitSuite with Matchers with AssertionsForJUni
     configuration.items should have size (2)
     configuration.items(0) should equal(Item(1, 1.5))
     configuration.items(1) should equal(Item(2, 2.0))
-
-    simpleConfiguration.items should have size (2)
-    simpleConfiguration.items(0) should equal(Item(1, 1.5))
-    simpleConfiguration.items(1) should equal(Item(2, 2.0))
   }
 
   @Test
   def testNotFound() {
     configuration.notFound should be(false)
-    simpleConfiguration.notFound should be(false)
   }
 }

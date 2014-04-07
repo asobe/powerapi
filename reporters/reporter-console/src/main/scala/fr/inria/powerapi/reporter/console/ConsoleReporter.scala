@@ -33,9 +33,9 @@ class ConsoleReporter extends Reporter {
   case class Line(processedMessage: ProcessedMessage) {
     override def toString() =
       "timestamp=" + processedMessage.tick.timestamp + ";" +
-        "process=" + processedMessage.tick.subscription.process + ";" +
-        "device=" + processedMessage.device + ";" +
-        "power=" + processedMessage.energy.power
+      "process=" + processedMessage.tick.subscription.process + ";" +
+      "device=" + processedMessage.device + ";" +
+      "power=" + processedMessage.energy.power
   }
 
   def process(processedMessage: ProcessedMessage) {

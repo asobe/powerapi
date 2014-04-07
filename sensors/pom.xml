@@ -15,7 +15,7 @@
 	</parent>
 
 	<modules>
-		<module>sensor-sigar</module>
+		<module>sensor-sigar</module>	
 		<module>sensor-cpu-api</module>
 		<module>sensor-cpu-proc</module>
 		<module>sensor-cpu-proc-reg</module>
@@ -23,6 +23,7 @@
 		<module>sensor-cpu-proc-virtio</module>
 		<module>sensor-cpu-sigar</module>
 		<module>sensor-cpu-sigar-times</module>
+		<!-- TODO: update sensors for memory and disk -->
 <!-- 		<module>sensor-mem-api</module>
 		<module>sensor-mem-proc</module>
 		<module>sensor-mem-sigar</module>

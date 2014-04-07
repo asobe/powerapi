@@ -21,7 +21,7 @@
 package fr.inria.powerapi.core
 
 import akka.event.LoggingReceive
-import akka.actor.Props
+import akka.actor.{ Actor, ActorLogging }
 
 /**
  * Base types used to describe PowerAPI architecture.
@@ -44,7 +44,7 @@ object MessagesToListen extends Message
 /**
  * Base trait for each PowerAPI module, also called Component.
  */
-trait Component extends akka.actor.Actor with akka.actor.ActorLogging {
+trait Component extends akka.actor.Actor with ActorLogging {
   /**
    * Akka's receive() wrapper.
    *
@@ -79,17 +79,11 @@ trait Component extends akka.actor.Actor with akka.actor.ActorLogging {
 }
 
 /**
- * Base trait for each PowerAPI energy module,
- * typically composed by a sensor and a formula.
- */
-trait EnergyModule extends Component
-
-/**
  * Base trait for each PowerAPI sensor.
  *
  * Each of them should listen to a Tick message and so process it.
  */
-trait Sensor extends EnergyModule {
+trait Sensor extends Component {
   def messagesToListen = Array(classOf[Tick])
 
   def process(tick: Tick)
@@ -101,8 +95,9 @@ trait Sensor extends EnergyModule {
 
 /**
  * Base trait for each PowerAPI formula.
+ * 
  */
-trait Formula extends EnergyModule
+trait Formula extends Component
 
 /**
  * Base trait for each PowerAPI processor.
@@ -120,15 +115,13 @@ trait Processor extends Component {
 }
 
 /**
- * Base trait for each PowerAPI reporter.
- * New type of message
+ * Base trait for each PowerAPI reporter
  */
-trait Reporter extends Component {
-  def messagesToListen = Array(classOf[ProcessedMessage])
-
+trait Reporter extends Actor with ActorLogging {
   def process(processedMessage: ProcessedMessage)
 
-  def acquire = {
+  def receive = LoggingReceive {
     case processedMessage: ProcessedMessage => process(processedMessage)
+    case unknown => throw new UnsupportedOperationException("unable to process message" + unknown)
   }
 }

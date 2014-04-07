@@ -1,6 +1,0 @@
-#!/bin/bash
-
-source ~/.bash_variables
-
-cd ~/dev/powerapi/powerapi-akka/examples/adam-demo/demo-oneprocess
-mvn scala:run

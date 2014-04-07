@@ -46,5 +46,4 @@ class JFreeChartReporter extends Reporter {
     else
       Chart.process(Map(processedMessage.tick.subscription.process.toString -> processedMessage.energy.power), processedMessage.tick.timestamp)
   }
-
 }

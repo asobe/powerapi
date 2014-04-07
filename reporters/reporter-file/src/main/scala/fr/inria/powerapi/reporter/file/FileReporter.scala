@@ -50,9 +50,9 @@ class FileReporter extends Reporter with Configuration {
   case class Line(processedMessage: ProcessedMessage) {
     override def toString() =
       "timestamp=" + processedMessage.tick.timestamp + ";" +
-        "process=" + processedMessage.tick.subscription.process + ";" +
-        "device=" + processedMessage.device + ";" +
-        "power=" + processedMessage.energy.power + scalax.io.Line.Terminators.NewLine.sep
+      "process=" + processedMessage.tick.subscription.process + ";" +
+      "device=" + processedMessage.device + ";" +
+      "power=" + processedMessage.energy.power + scalax.io.Line.Terminators.NewLine.sep
   }
 
   lazy val output = {
@@ -63,5 +63,4 @@ class FileReporter extends Reporter with Configuration {
   def process(processedMessage: ProcessedMessage) {
     output.append(Line(processedMessage).toString)
   }
-
 }
