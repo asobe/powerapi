@@ -37,22 +37,13 @@ import akka.util.Timeout
  * PowerAPI object encapsulates all the messages.
  */
 object PowerAPIMessages {
-  case class StartComponent(componentType: Class[_ <: Component], args: Any*)
+  case class StartComponent[U <: BakeryComponent](companion: U)
   case class StartSubscription(actorRef: ActorRef)
   case class StartMonitoring(processes: Array[Process], frequency: FiniteDuration)
 
   case object StopAll
   case object PowerAPIStopped
   case object StopAllMonitorings
-}
-
-/**
- * Default reporter used to process the messages with a callback function.
- */
-private class CallbackReporter(callback: (ProcessedMessage) => Unit) extends Reporter {
-  def process(processedMessage: ProcessedMessage) {
-    callback(processedMessage)
-  }
 }
 
 /**
@@ -75,32 +66,11 @@ class PowerAPI extends Actor with ActorLogging {
   }
 
   def receive = LoggingReceive {
-    case startComponent: StartComponent => process(startComponent)
+    case StartComponent(companion) => startComponent(companion)
     case startSubscription: StartSubscription => process(startSubscription)
     case startMonitoring: StartMonitoring => process(sender, startMonitoring)
     case StopAll => stopAll(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
-  }
-
-  def process(startComponent: StartComponent) {
-    /**
-     * Starts a component with its class.
-     * @param componentType: class of the component.
-     * @param args: varargs for the component argument.
-     */
-    def start(componentType: Class[_ <: Component], args: Any*): ActorRef = {
-      ActorsFactory(self, componentType, args:_*)
-    }
-
-    val actorRef = start(startComponent.componentType, startComponent.args:_*)
-    
-    // It is maybe null if the component is a singleton and already started, or component does not exist
-    if(actorRef != null) {
-      // Also, do the actor's subscription on the event bus.
-      process(StartSubscription(actorRef))
-    }
-
-    else if(log.isDebugEnabled) log.debug(startComponent.componentType + " is a singleton and already started.")
   }
 
   def process(startSubscription: StartSubscription) {
@@ -136,6 +106,19 @@ class PowerAPI extends Actor with ActorLogging {
     start(sender, startMonitoring.processes, startMonitoring.frequency)
   }
 
+  /**
+   * Allows to start a component with its companion obect.
+   */
+  def startComponent[U <: BakeryComponent](companion: U) = {
+    val actorRef = companion.apply(self)
+    // It is maybe None if the component is a singleton and already started
+    actorRef match {
+      // Do the actor's subscription on the event bus.
+      case Some(actorRef) => process(StartSubscription(actorRef))
+      case None => if(log.isDebugEnabled) log.debug(companion.getClass + " is already started and is a singleton component.")
+    }
+  }
+
   def stopAll(sender: ActorRef) {  
     // Stop all the attached components
     components.foreach(component => {
@@ -169,8 +152,8 @@ class API {
    * Starts the component associated to the given type.
    * @param componentType: component type to start.
    */
-  def configure(componentType: Class[_ <: Component]) {
-    engine ! StartComponent(componentType)
+  def configure[U <: BakeryComponent](companion: U) {
+    engine ! StartComponent(companion)
   }
 
   /**

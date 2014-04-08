@@ -20,135 +20,90 @@
 */
 package fr.inria.powerapi.library
 
-import fr.inria.powerapi.core.{Component, Reporter, ProcessedMessage}
+import fr.inria.powerapi.core.Component
 
 import akka.actor.{ ActorContext, ActorRef, Props }
-import scala.concurrent.Await
-import akka.util.Timeout
 import scala.collection
 
-
 /**
- * Component factories + main factory (used in the API, shortcuts)
- * TODO: Move the code
+ * Represents a component inside the bakery, used like a factory.
  */
-object ActorsFactory {
-  def apply(api: ActorRef, componentType: Class[_ <: Component], args: Any*)(implicit context: ActorContext): ActorRef = {
-    componentType match {
-      case _ if componentType == classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor] => SensorCpuProc(api, args: _*)
-      case _ if componentType == classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula] => FormulaCpuMax(api, args: _*)
-      case _ if componentType == classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor] => SensorPowerspy(api, args: _*)
-      case _ if componentType == classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula] => FormulaPowerspy(api, args: _*)
-      case _ if componentType == classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator] => AggregatorTimestamp(api, args: _*)
-      case _ => throw new UnsupportedOperationException("component non identified.")
-    }
+trait BakeryComponent {
+  lazy val references = collection.mutable.ArrayBuffer.empty[ActorRef]
+
+  // By default, a component is a singleton.
+  def singleton: Boolean = {
+    true
   }
-}
 
-object SensorCpuProc {
-  val singleton = true
-  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
+  // Underlying class, used to create the actor.
+  def underlyingClass: Class[_ <: Component]
+  // List of the arguments passed to the actor when it's created (default, no parameters).
+  def args: List[Any] = List()
 
-  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
+  /**
+   * Creates the actor (attached to the api) with the implicit actor context (which comes from an Actor)
+   * @param api: Reference of the api, used to check for possibility to have several instances.
+   */
+  def apply(api: ActorRef)(implicit context: ActorContext): Option[ActorRef] = {
     if(!references.contains(api) || !singleton) {
-      val prop = Props(classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor], args: _*)
+      val prop = Props(underlyingClass, args: _*)
       val actorRef = context.actorOf(prop)
       references += api
-      return actorRef
+      Some(actorRef)
     }
 
-    null
-  }
-}
-
-object SensorPowerspy {
-  val singleton = true
-  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
-
-  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
-    if(!references.contains(api) || !singleton) {
-      val prop = Props(classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor], args: _*)
-      val actorRef = context.actorOf(prop)
-      references += api
-      return actorRef
-    }
-
-    null
-  }
-}
-
-object FormulaCpuMax {
-  val singleton = true
-  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
-
-  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
-    if(!references.contains(api) || !singleton) {
-      val prop = Props(classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula], args: _*)
-      val actorRef = context.actorOf(prop)
-      references += api
-      return actorRef
-    }
-
-    null
-  }
-}
-
-object FormulaPowerspy {
-  val singleton = true
-  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
-
-  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
-    if(!references.contains(api) || !singleton) {
-      val prop = Props(classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula], args: _*)
-      val actorRef = context.actorOf(prop)
-      references += api
-      return actorRef
-    }
-
-    null
-  }
-}
-
-object AggregatorTimestamp {
-  val singleton = true
-  val references = collection.mutable.ArrayBuffer.empty[ActorRef]
-
-  def apply(api: ActorRef, args: Any*)(implicit context: ActorContext): ActorRef = {
-    if(!references.contains(api) || !singleton) {
-      val prop = Props(classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator], args: _*)
-      val actorRef = context.actorOf(prop)
-      references += api
-      return actorRef
-    }
-
-    null
+    else None
   }
 }
 
 /**
- * Shortcuts to use the API with the Cake Pattern (dependencies injection)
+ * Objects use to map PowerAPI and Bakery components.
+ */
+object SensorCpuProc extends BakeryComponent {
+  val underlyingClass = classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor]
+}
+
+object SensorPowerspy extends BakeryComponent {
+  val underlyingClass = classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor]
+}
+
+object FormulaCpuMax extends BakeryComponent {
+  val underlyingClass = classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
+}
+
+object FormulaPowerspy extends BakeryComponent {
+  val underlyingClass = classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula]
+}
+
+object AggregatorTimestamp extends BakeryComponent {
+  val underlyingClass = classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator]
+}
+
+/**
+ * Shortcuts to use the API with the Cake Pattern.
  */
 trait SensorCpuProc {
   self: API =>
-  configure(classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor])
+  configure(SensorCpuProc)
 }
 
 trait SensorPowerspy {
   self: API =>
-  configure(classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor])
+  configure(SensorPowerspy)
 }
 
 trait FormulaCpuMax {
   self: API =>
-  configure(classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula])
+  configure(FormulaCpuMax)
 }
 
 trait FormulaPowerspy {
   self: API =>
-  configure(classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula])
+  configure(FormulaPowerspy)
 }
 
 trait AggregatorTimestamp {
   self: API =>
-  configure(classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator])
+  configure(AggregatorTimestamp)
 }

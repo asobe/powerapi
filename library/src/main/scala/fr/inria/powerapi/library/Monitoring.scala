@@ -262,3 +262,12 @@ class Monitoring(clockid: Long, monitoringSupervisor: ActorRef, monitoringRef: A
     Await.result(monitoringSupervisor ? StopMonitoringRepr(clockid), timeout.duration)
   }
 }
+
+/**
+ * Default reporter used to process the messages with a callback function.
+ */
+private class CallbackReporter(callback: (ProcessedMessage) => Unit) extends Reporter {
+  def process(processedMessage: ProcessedMessage) {
+    callback(processedMessage)
+  }
+}
