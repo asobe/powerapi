@@ -42,7 +42,7 @@ import akka.actor.{ Actor, ActorLogging }
 object MessagesToListen extends Message
 
 /**
- * Base trait for each PowerAPI module, also called Component.
+ * Base trait for the components which listen on the event bus, also called Component.
  */
 trait Component extends akka.actor.Actor with ActorLogging {
   /**
@@ -115,7 +115,7 @@ trait Processor extends Component {
 }
 
 /**
- * Base trait for each PowerAPI reporter
+ * Base trait for each PowerAPI reporter.
  */
 trait Reporter extends Actor with ActorLogging {
   def process(processedMessage: ProcessedMessage)

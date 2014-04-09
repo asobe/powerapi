@@ -21,119 +21,157 @@
 package fr.inria.powerapi.library
 
 import fr.inria.powerapi.core.{ Process, Reporter, ProcessedMessage }
-import fr.inria.powerapi.formula.cpu.api.CpuFormulaMessage
-import fr.inria.powerapi.sensor.cpu.proc.CpuSensor
-import fr.inria.powerapi.formula.cpu.max.CpuFormula
-import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
+import fr.inria.powerapi.reporter.file.FileReporter
 
 import scala.concurrent.duration.DurationInt
-import akka.actor.{ ActorLogging, Props }
 import org.scalatest.junit.JUnitSuite
 import org.scalatest.Matchers
 import java.lang.management.ManagementFactory
 import org.junit.Test
-import akka.util.Timeout
-import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class SimpleCpuReporter extends Reporter {
-  def process(processedMessage: ProcessedMessage) {
-    println(processedMessage)
-  }
+import akka.actor.{ ActorSystem, Props }
+import akka.testkit.TestActorRef
+import scalax.io.Resource
+import scalax.file.Path
+
+object ConfigurationMock1 {
+  lazy val testPath = "powerapi-reporter-file-test-monitoring1"
 }
 
-class PowerAPISuite extends JUnitSuite {
-  implicit val timeout = Duration.Inf
+object ConfigurationMock2 {
+  lazy val testPath = "powerapi-reporter-file-test-monitoring2"
+}
+
+trait ConfigurationMock1 extends fr.inria.powerapi.reporter.file.Configuration {
+  override lazy val filePath = ConfigurationMock1.testPath
+}
+
+trait ConfigurationMock2 extends fr.inria.powerapi.reporter.file.Configuration {
+  override lazy val filePath = ConfigurationMock2.testPath
+}
+
+class FileReporterMock1 extends FileReporter with ConfigurationMock1
+class FileReporterMock2 extends FileReporter with ConfigurationMock2
+
+case class LineMock(processedMessage: ProcessedMessage) {
+  override def toString() =
+    "timestamp=" + processedMessage.tick.timestamp + ";" +
+    "process=" + processedMessage.tick.subscription.process + ";" +
+    "device=" + processedMessage.device + ";" +
+    "power=" + processedMessage.energy.power + scalax.io.Line.Terminators.NewLine.sep
+}
+
+class PowerAPISuite extends JUnitSuite with Matchers {
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
-  def reporterConsoleTest1(processedMessage: ProcessedMessage) = {
-    val test = "TEST1 => clockid=" + processedMessage.tick.clockid + ";" +
-    "timestamp=" + processedMessage.tick.timestamp + ";" +
-    "process=" + processedMessage.tick.subscription.process + ";" +
-    "power=" + processedMessage.energy.power
+  @Test
+  def testOneAPIWithReporter {
+    val powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    powerapi.start(processes = Array(Process(1), Process(2)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock1])
+    powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
+    powerapi.stop
 
-    println(test)
-  }
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+    val testFileM2 = Path.fromString(ConfigurationMock2.testPath)
+    testFileM1.isFile should be (true)
+    testFileM2.isFile should be (true)
+    testFileM1.size.get should be > 0L
+    testFileM2.size.get should be > 0L
 
-  def reporterConsoleTest2(processedMessage: ProcessedMessage) = {
-    val test = "TEST2 => clockid=" + processedMessage.tick.clockid + ";" +
-    "timestamp=" + processedMessage.tick.timestamp + ";" +
-    "process=" + processedMessage.tick.subscription.process + ";" +
-    "power=" + processedMessage.energy.power
+    testFileM1.lines().size should (be >= 9 and be <= 11)
+    testFileM2.lines().size should (be >= 9 and be <= 11)
 
-    println(test)
+    val testProcess1 = "Process(1)"
+    val testProcess2 = "Process(2)"
+    val testCurrentPid = "Process(" + currentPid + ")"
+    testFileM1.lines().foreach(line => 
+      line should (
+        not include(testCurrentPid) and
+        (include(testProcess1) or include(testProcess2))
+      )
+    )
+    testFileM2.lines().foreach(line => 
+      line should (
+        not include(testProcess1) and
+        not include(testProcess2) and
+        include(testCurrentPid)
+      )
+    )
 
+    testFileM1.delete(true)
+    testFileM2.delete(true)
   }
 
   @Test
-  def test() {
-    var powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    powerapi.start(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({reporterConsoleTest1(_)})
-    powerapi.start(processes = Array(Process(8063)), frequency = 500.milliseconds).attachReporter({reporterConsoleTest2(_)}).waitFor(10.seconds)
+  def testOneAPIWithRefAsReporter {
+    implicit val system = ActorSystem("api-test")
+    val reporter = system.actorOf(Props[FileReporterMock1])
+    val powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(reporter).waitFor(5.seconds)
+    powerapi.stop
 
-    Thread.sleep((10.seconds).toMillis)
-    powerapi.stop()
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+    testFileM1.isFile should be (true)
+    testFileM1.size.get should be > 0L
+
+    testFileM1.lines().size should (be >= 9 and be <= 11)
+    testFileM1.delete(true)
   }
 
-  // @Test
-  // def testPowerAPI() {
-  //   Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.startEnergyModule(_))
-
-  //   PowerAPI.startMonitoring(
-  //     process = Process(currentPid),
-  //     duration = 500.milliseconds,
-  //     processor = classOf[TimestampAggregator],
-  //     listener = classOf[SimpleCpuReporter])
-  //   Thread.sleep((5.seconds).toMillis)
-  //   PowerAPI.stopMonitoring(
-  //     process = Process(currentPid),
-  //     duration = 500.milliseconds,
-  //     processor = classOf[TimestampAggregator],
-  //     listener = classOf[SimpleCpuReporter])
-
-  //   Array(classOf[CpuSensor], classOf[CpuFormula]).foreach(PowerAPI.stopEnergyModule(_))
-  // }
-
-  // @Test
-  // def testAPIBakeryWithReporterComponent() {
-  //   var powerapi = new API("powerapi", duration) with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-
-  //   powerapi.attachReporter(classOf[SimpleCpuReporter])
+  @Test
+  def testOneAPIWithFunctionAsReporter {
+    val powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
     
-  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 2.seconds)
+    powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(processedMessage => {
+      lazy val output = Resource.fromFile(ConfigurationMock1.testPath)
+      output.append(LineMock(processedMessage).toString)
+    }).waitFor(5.seconds)
     
-  //   Await.result(powerapi.ack, awaitDuration)
-  //   powerapi.stop
-  // }
+    powerapi.stop
 
-  // @Test
-  // def testAPIBakeryWithActorRefAsReporter() {
-  //   var powerapi = new API("powerapi", duration) with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-  //   val reporter = powerapi.system.actorOf(Props[SimpleCpuReporter])
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+    testFileM1.isFile should be (true)
+    testFileM1.size.get should be > 0L
 
-  //   powerapi.attachReporter(reporter)
-    
-  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 500.milliseconds)
-    
-  //   Await.result(powerapi.ack, awaitDuration)
-  //   powerapi.stop
-  // }
+    testFileM1.lines().size should (be >= 9 and be <= 11)
+    testFileM1.delete(true)
+  }
 
-  // @Test
-  // def testAPIBakeryWithFunctionAsReporter() {
-  //   var powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    
-  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({println(_)})
-  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds).waitFor(duration)
-  //   powerapi.stop
-  // }
+  @Test
+  def testTwoAPI {
+    val powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    powerapi.start(processes = Array(Process(1)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock1]).waitFor(3.seconds)
+    powerapi.stop
 
-    // @Test
-  // def testAPIBakeryWithFunctionAsReporter() {
-  //   var powerapi = new API("powerapi") with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    
-  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds).attachReporter({println(_)})
-  //   powerapi.startMonitoring(processes = Array(Process(currentPid)), frequency = 1.seconds).waitFor(duration)
-  //   powerapi.stop
-  // }
+    val powerapi2 = new API with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    powerapi2.start(processes = Array(Process(2)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
+    powerapi2.stop
+
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+    val testFileM2 = Path.fromString(ConfigurationMock2.testPath)
+    testFileM1.isFile should be (true)
+    testFileM2.isFile should be (true)
+    testFileM1.size.get should be > 0L
+    testFileM2.size.get should be > 0L
+
+    testFileM1.lines().size should (be >= 2 and be <= 4)
+    testFileM2.lines().size should (be >= 4 and be <= 6)
+
+    val testProcess1 = "Process(1)"
+    val testProcess2 = "Process(2)"
+    testFileM1.lines().foreach(line => 
+      line should (
+        not include(testProcess2) and include(testProcess1)
+      )
+    )
+    testFileM2.lines().foreach(line => 
+      line should (
+        not include(testProcess1) and include(testProcess2)
+      )
+    )
+
+    testFileM1.delete(true)
+    testFileM2.delete(true)
+  }
 }

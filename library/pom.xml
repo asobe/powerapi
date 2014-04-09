@@ -24,8 +24,18 @@
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>fr.inria.powerapi.sensor</groupId>
+			<artifactId>sensor-powerspy</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>fr.inria.powerapi.formula</groupId>
 			<artifactId>formula-cpu-max</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>fr.inria.powerapi.formula</groupId>
+			<artifactId>formula-powerspy</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -34,14 +44,20 @@
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>fr.inria.powerapi.sensor</groupId>
-			<artifactId>sensor-powerspy</artifactId>
+			<groupId>fr.inria.powerapi.processor</groupId>
+			<artifactId>process-aggregator</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>fr.inria.powerapi.formula</groupId>
-			<artifactId>formula-powerspy</artifactId>
+			<groupId>fr.inria.powerapi.processor</groupId>
+			<artifactId>device-aggregator</artifactId>
 			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>fr.inria.powerapi.reporter</groupId>
+			<artifactId>reporter-file</artifactId>
+			<version>${project.version}</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 

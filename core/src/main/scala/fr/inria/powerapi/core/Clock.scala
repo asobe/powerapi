@@ -114,7 +114,7 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
         workers -= stopClock.clockid
         context.stop(clockRef)
         sender ! ClockStoppedAck
-        if(log.isDebugEnabled) log.debug("Clock referenced by " + stopClock.clockid + " is now stopped and destroyed.")
+        if(log.isDebugEnabled) log.debug("Clock referenced by " + stopClock.clockid + " is now stopped and killed.")
       }
       else if(log.isDebugEnabled) log.debug("Clock referenced by " + stopClock.clockid + " sends an wrong ack.")
     }
@@ -131,7 +131,7 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
 
         if(ack == ClockStoppedAck) { 
           context.stop(clockRef)
-          if(log.isDebugEnabled) log.debug("Clock referenced by " + clockid + " is now stopped and destroyed.")
+          if(log.isDebugEnabled) log.debug("Clock referenced by " + clockid + " is now stopped and killed.")
         }
       }
     }

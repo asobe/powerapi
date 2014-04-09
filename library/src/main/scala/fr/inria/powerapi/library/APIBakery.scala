@@ -26,17 +26,17 @@ import akka.actor.{ ActorContext, ActorRef, Props }
 import scala.collection
 
 /**
- * Represents a component inside the bakery, used like a factory.
+ * Trait which acts like a factory, each component can create it itself with the apply method.
  */
-trait BakeryComponent {
-  lazy val references = collection.mutable.ArrayBuffer.empty[ActorRef]
+trait APIComponent {
+  val apisRegistered = new collection.mutable.ArrayBuffer[ActorRef] with collection.mutable.SynchronizedBuffer[ActorRef]
 
   // By default, a component is a singleton.
   def singleton: Boolean = {
     true
   }
 
-  // Underlying class, used to create the actor.
+  // Underlying class of a module component, used to create the actor.
   def underlyingClass: Class[_ <: Component]
   // List of the arguments passed to the actor when it's created (default, no parameters).
   def args: List[Any] = List()
@@ -46,10 +46,10 @@ trait BakeryComponent {
    * @param api: Reference of the api, used to check for possibility to have several instances.
    */
   def apply(api: ActorRef)(implicit context: ActorContext): Option[ActorRef] = {
-    if(!references.contains(api) || !singleton) {
+    if(!apisRegistered.contains(api) || !singleton) {
       val prop = Props(underlyingClass, args: _*)
       val actorRef = context.actorOf(prop)
-      references += api
+      if(!apisRegistered.contains(api)) apisRegistered += api
       Some(actorRef)
     }
 
@@ -60,24 +60,32 @@ trait BakeryComponent {
 /**
  * Objects use to map PowerAPI and Bakery components.
  */
-object SensorCpuProc extends BakeryComponent {
+object SensorCpuProc extends APIComponent {
   val underlyingClass = classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor]
 }
 
-object SensorPowerspy extends BakeryComponent {
+object SensorPowerspy extends APIComponent {
   val underlyingClass = classOf[fr.inria.powerapi.sensor.powerspy.PowerSpySensor]
 }
 
-object FormulaCpuMax extends BakeryComponent {
+object FormulaCpuMax extends APIComponent {
   val underlyingClass = classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
 }
 
-object FormulaPowerspy extends BakeryComponent {
+object FormulaPowerspy extends APIComponent {
   val underlyingClass = classOf[fr.inria.powerapi.formula.powerspy.PowerSpyFormula]
 }
 
-object AggregatorTimestamp extends BakeryComponent {
+object AggregatorTimestamp extends APIComponent {
   val underlyingClass = classOf[fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator]
+}
+
+object AggregatorProcess extends APIComponent {
+  val underlyingClass = classOf[fr.inria.powerapi.processor.aggregator.process.ProcessAggregator]
+}
+
+object AggregatorDevice extends APIComponent {
+  val underlyingClass = classOf[fr.inria.powerapi.processor.aggregator.device.DeviceAggregator]
 }
 
 /**
@@ -106,4 +114,14 @@ trait FormulaPowerspy {
 trait AggregatorTimestamp {
   self: API =>
   configure(AggregatorTimestamp)
+}
+
+trait AggregatorProcess {
+  self: API =>
+  configure(AggregatorProcess)
+}
+
+trait AggregatorDevice {
+  self: API =>
+  configure(AggregatorDevice)
 }

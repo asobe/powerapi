@@ -20,15 +20,14 @@
  */
 package fr.inria.powerapi.library
 
-import fr.inria.powerapi.core.{ ClockMessages, ClockSupervisor, Component, Message, MessagesToListen }
-import fr.inria.powerapi.core.{ Process, ProcessedMessage, Reporter, TickSubscription }
+import fr.inria.powerapi.core.{ ClockMessages, ClockSupervisor, Message, MessagesToListen, Process }
 
 import collection.mutable
 
-import scala.concurrent.{ Await, Future }
-import scala.concurrent.duration.{FiniteDuration, Duration, DurationInt}
+import scala.concurrent.Await
+import scala.concurrent.duration.{FiniteDuration, DurationInt}
 
-import akka.actor.{ Actor, ActorContext, ActorLogging, ActorRef, ActorSystem, Props }
+import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, Props }
 import akka.event.LoggingReceive
 import akka.pattern.ask
 import akka.util.Timeout
@@ -37,7 +36,7 @@ import akka.util.Timeout
  * PowerAPI object encapsulates all the messages.
  */
 object PowerAPIMessages {
-  case class StartComponent[U <: BakeryComponent](companion: U)
+  case class StartComponent[U <: APIComponent](companion: U)
   case class StartSubscription(actorRef: ActorRef)
   case class StartMonitoring(processes: Array[Process], frequency: FiniteDuration)
 
@@ -60,6 +59,7 @@ class PowerAPI extends Actor with ActorLogging {
   var clockSupervisor: ActorRef = null
   var monitoringSupervisor: ActorRef = null
 
+  // Starts the mandatory supervisors.
   override def preStart(): Unit = {
     clockSupervisor = context.actorOf(Props[ClockSupervisor])
     monitoringSupervisor = context.actorOf(Props(classOf[MonitoringSupervisor], clockSupervisor))
@@ -109,7 +109,7 @@ class PowerAPI extends Actor with ActorLogging {
   /**
    * Allows to start a component with its companion obect.
    */
-  def startComponent[U <: BakeryComponent](companion: U) = {
+  def startComponent[U <: APIComponent](companion: U) = {
     val actorRef = companion.apply(self)
     // It is maybe None if the component is a singleton and already started
     actorRef match {
@@ -152,7 +152,7 @@ class API {
    * Starts the component associated to the given type.
    * @param componentType: component type to start.
    */
-  def configure[U <: BakeryComponent](companion: U) {
+  def configure[U <: APIComponent](companion: U) {
     engine ! StartComponent(companion)
   }
 

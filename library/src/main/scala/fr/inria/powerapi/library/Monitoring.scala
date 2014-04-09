@@ -226,8 +226,8 @@ class Monitoring(clockid: Long, monitoringSupervisor: ActorRef, monitoringRef: A
    * Allows to attach a reporter with its component type.
    * @param reporterType: Type of the reporter.
    */
-  def attachReporter(reporterType: Class[_ <: Reporter]): Monitoring = {
-    monitoringRef ! StartReporterComponent(reporterType)
+  def attachReporter(reporterType: Class[_ <: Reporter], args: Any*): Monitoring = {
+    monitoringRef ! StartReporterComponent(reporterType, args: _*)
     this
   }
 
