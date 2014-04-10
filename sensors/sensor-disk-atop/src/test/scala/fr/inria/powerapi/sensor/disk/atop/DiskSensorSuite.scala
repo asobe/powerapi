@@ -25,8 +25,7 @@ import java.io.IOException
 import fr.inria.powerapi.sensor.disk.api.DiskSensorMessage
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.core.Tick
-import fr.inria.powerapi.core.Listener
-import fr.inria.powerapi.core.ClockSupervisor
+import fr.inria.powerapi.core.{ ClockMessages, ClockSupervisor }
 import fr.inria.powerapi.core.TickSubscription
 import scalax.io.Resource
 import java.io.FileInputStream
@@ -38,6 +37,10 @@ import org.junit.Test
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.actor.Props
+import scala.concurrent.Await
+import akka.util.Timeout
+import akka.pattern.ask
+import akka.actor.Actor
 
 trait ConfigurationMock extends Configuration {
   lazy val basedir = new URL("file", Properties.propOrEmpty("basedir"), "")
@@ -46,12 +49,10 @@ trait ConfigurationMock extends Configuration {
 
 class DiskSensorMock extends DiskSensor with ConfigurationMock
 
-class DiskSensorReceiver extends Listener {
+class DiskSensorReceiver extends Actor {
   val receivedData = collection.mutable.Map[String, (Long, Long)]()
 
-  def messagesToListen = Array(classOf[DiskSensorMessage])
-
-  def acquire = {
+  def receive = {
     case diskSensorMessage: DiskSensorMessage => process(diskSensorMessage)
   }
 
@@ -71,7 +72,8 @@ class DiskSensorSuite extends JUnitSuite with Matchers {
 
   @Test
   def testTick() {
-    import ClockSupervisor.{ StartTickSub, StopTickSub }
+    import ClockMessages.{ StartClock, StopClock }
+    implicit val timeout = Timeout(5.seconds)
 
     implicit val system = ActorSystem("DiskSensorSuite")
     val diskSensor = system.actorOf(Props[DiskSensorMock])
@@ -80,9 +82,9 @@ class DiskSensorSuite extends JUnitSuite with Matchers {
     system.eventStream.subscribe(diskSensor, classOf[Tick])
     system.eventStream.subscribe(diskSensorReceiver, classOf[DiskSensorMessage])
 
-    clock ! StartTickSub(TickSubscription(Process(123), 10.seconds))
+    val clockid = Await.result(clock ? StartClock(Array(Process(123)), 10.seconds), timeout.duration).asInstanceOf[Long]
     Thread.sleep(1000)
-    clock ! StopTickSub(TickSubscription(Process(123), 10.seconds))
+    Await.result(clock ? StopClock(clockid), timeout.duration)
 
     diskSensorReceiver.underlyingActor.receivedData should have size 1
     diskSensorReceiver.underlyingActor.receivedData("n/a") should equal((1.0, 3.0))

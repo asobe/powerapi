@@ -21,7 +21,6 @@
 package fr.inria.powerapi.reporter.file
 
 import fr.inria.powerapi.core.Energy
-import fr.inria.powerapi.library.PowerAPI
 import scalax.io.Resource
 import scalax.file.Path
 import fr.inria.powerapi.core.ProcessedMessage

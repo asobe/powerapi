@@ -35,7 +35,7 @@
             <id>mcolmant</id>
             <name>Maxime Colmant</name>
             <email>maxime.colmant@inria.fr</email>
-            <organization>University Lille 1 / ADEME</organization>
+            <organization>ADEME / University Lille 1 / INRIA</organization>
             <organizationUrl>http://www.ademe.fr</organizationUrl>
             <roles>
                 <role>Architect</role>

@@ -33,7 +33,11 @@ import akka.actor.Actor
 import akka.actor.ActorSystem
 import akka.actor.Props
 import akka.testkit.TestActorRef
-import fr.inria.powerapi.core.ClockSupervisor
+import scala.concurrent.Await
+import akka.util.Timeout
+import akka.pattern.ask
+
+import fr.inria.powerapi.core.{ ClockMessages, ClockSupervisor }
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
@@ -54,7 +58,7 @@ class DiskSensorSuite extends JUnitSuite with Matchers {
   }
 
   implicit val system = ActorSystem("DiskSensorSuite")
-  implicit val tick = Tick(TickSubscription(Process(123), 1.second))
+  implicit val tick = Tick(1, TickSubscription(Process(123), 1.second))
   val diskSensor = TestActorRef(new DiskSensor with ConfigurationMock)
 
   @Test
@@ -68,16 +72,17 @@ class DiskSensorSuite extends JUnitSuite with Matchers {
 
   @Test
   def testTick() {
-    import ClockSupervisor.{ StartTickSub, StopTickSub }
+    import ClockMessages.{ StartClock, StopClock }
+    implicit val timeout = Timeout(5.seconds)
     
     val diskReceiver = TestActorRef[DiskReceiverMock]
     val clock = system.actorOf(Props[ClockSupervisor])
     system.eventStream.subscribe(diskSensor, classOf[Tick])
     system.eventStream.subscribe(diskReceiver, classOf[DiskSensorMessage])
 
-    clock ! StartTickSub(TickSubscription(Process(123), 10.seconds))
+    val clockid = Await.result(clock ? StartClock(Array(Process(123)), 10.seconds), timeout.duration).asInstanceOf[Long]
     Thread.sleep(1000)
-    clock ! StopTickSub(TickSubscription(Process(123), 10.seconds))
+    Await.result(clock ? StopClock(clockid), timeout.duration)
 
     diskReceiver.underlyingActor.receivedValues match {
       case None => fail()

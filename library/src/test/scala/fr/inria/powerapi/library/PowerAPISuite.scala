@@ -21,6 +21,10 @@
 package fr.inria.powerapi.library
 
 import fr.inria.powerapi.core.{ Process, Reporter, ProcessedMessage }
+import fr.inria.powerapi.sensor.cpu.proc.SensorCpuProc
+import fr.inria.powerapi.formula.cpu.max.FormulaCpuMax
+import fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
+import fr.inria.powerapi.processor.aggregator.process.AggregatorProcess
 import fr.inria.powerapi.reporter.file.FileReporter
 
 import scala.concurrent.duration.DurationInt
@@ -67,7 +71,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
 
   @Test
   def testOneAPIWithReporter {
-    val powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
     powerapi.start(processes = Array(Process(1), Process(2)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock1])
     powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
     powerapi.stop
@@ -107,7 +111,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
   def testOneAPIWithRefAsReporter {
     implicit val system = ActorSystem("api-test")
     val reporter = system.actorOf(Props[FileReporterMock1])
-    val powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
     powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(reporter).waitFor(5.seconds)
     powerapi.stop
 
@@ -121,7 +125,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
 
   @Test
   def testOneAPIWithFunctionAsReporter {
-    val powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
     
     powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(processedMessage => {
       lazy val output = Resource.fromFile(ConfigurationMock1.testPath)
@@ -140,11 +144,11 @@ class PowerAPISuite extends JUnitSuite with Matchers {
 
   @Test
   def testTwoAPI {
-    val powerapi = new API with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
     powerapi.start(processes = Array(Process(1)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock1]).waitFor(3.seconds)
     powerapi.stop
 
-    val powerapi2 = new API with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    val powerapi2 = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
     powerapi2.start(processes = Array(Process(2)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
     powerapi2.stop
 

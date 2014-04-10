@@ -47,5 +47,4 @@ trait MemFormula extends Formula {
   def acquire = {
     case memSensorMessage: MemSensorMessage => process(memSensorMessage)
   }
-
 }

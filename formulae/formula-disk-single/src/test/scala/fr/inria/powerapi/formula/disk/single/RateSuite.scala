@@ -25,51 +25,27 @@ import org.scalatest.Matchers
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 
-class RateSuiteWrapper extends JUnitSuite with Configuration with Matchers with AssertionsForJUnit {
+class RateSuite extends JUnitSuite with Configuration with Matchers with AssertionsForJUnit{
   val megaByte = 1000000.0
   val gigaByte = 1000000000.0
 
-  def messagesToListen = null
-  def acquire = null
-
+  @Test
   def testFromRateToDoubleSimpleNumber() {
     "1GB/s".fromRateToDouble should equal(1 * gigaByte)
   }
 
+  @Test
   def testFromRateToDoubleRealNumberWithDot() {
     "2.3GB/s".fromRateToDouble should equal(2.3 * gigaByte)
   }
 
+  @Test
   def testFromRateToDoubleRealNumberWithComma() {
     "2,3GB/s".fromRateToDouble should equal(2.3 * gigaByte)
   }
 
+  @Test
   def testFromRateToDoubleWithMegaMultiplier() {
     "2,3MB/s".fromRateToDouble should equal(2.3 * megaByte)
-  }
-}
-
-class RateSuite extends JUnitSuite {
-  implicit val system = ActorSystem("RateSuite")
-  val rateSuite = TestActorRef[RateSuiteWrapper].underlyingActor
-
-  @Test
-  def testFromRateToDoubleSimpleNumber() {
-    rateSuite.testFromRateToDoubleSimpleNumber()
-  }
-
-  @Test
-  def testFromRateToDoubleRealNumberWithDot() {
-    rateSuite.testFromRateToDoubleRealNumberWithDot()
-  }
-
-  @Test
-  def testFromRateToDoubleRealNumberWithComma() {
-    rateSuite.testFromRateToDoubleRealNumberWithComma()
-  }
-
-  @Test
-  def testFromRateToDoubleWithMegaMultiplier() {
-    rateSuite.testFromRateToDoubleWithMegaMultiplier()
   }
 }

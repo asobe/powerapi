@@ -49,3 +49,19 @@ class CpuFormula extends Formula {
     case cpuVirtioSensorMessage: CpuVirtioSensorMessage => process(cpuVirtioSensorMessage)
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object FormulaCpuMaxVM extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[CpuFormula]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait FormulaCpuMaxVM {
+  self: fr.inria.powerapi.core.API =>
+  configure(FormulaCpuMaxVM)
+}

@@ -58,16 +58,16 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   implicit val system = ActorSystem("ClockTest")
   val clock = TestActorRef[ClockSupervisor]
-  implicit val timeout = Timeout(1.minutes)
+  implicit val timeout = Timeout(10.seconds)
 
   @Test
   def testClockBehavior() {
     val tickReceiver = TestActorRef[ByClockTickReceiver]
     system.eventStream.subscribe(tickReceiver, classOf[Tick])
 
-    val clock1 = Await.result(clock ? StartClock(Array(Process(123)), 500.milliseconds), 5.seconds).asInstanceOf[Long]
-    val clock2 = Await.result(clock ? StartClock(Array(Process(124)), 1000.milliseconds), 5.seconds).asInstanceOf[Long]
-    val clock3 = Await.result(clock ? StartClock(Array(Process(125)), 1500.milliseconds), 5.seconds).asInstanceOf[Long]
+    val clock1 = Await.result(clock ? StartClock(Array(Process(123)), 500.milliseconds), timeout.duration).asInstanceOf[Long]
+    val clock2 = Await.result(clock ? StartClock(Array(Process(124)), 1000.milliseconds), timeout.duration).asInstanceOf[Long]
+    val clock3 = Await.result(clock ? StartClock(Array(Process(125)), 1500.milliseconds), timeout.duration).asInstanceOf[Long]
 
     val clock2ending = Await.result(clock ? WaitFor(clock3, 5400.milliseconds), (5400.milliseconds + 1.seconds))
     clock2ending should equal(ClockStoppedAck)
@@ -75,7 +75,7 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
     val clock3ending  = Await.result(clock ? WaitFor(clock2, 1200.milliseconds), (1200.milliseconds + 1.seconds))
     clock3ending should equal(ClockStoppedAck)
 
-    Await.result(clock ? StopAllClocks, 5.seconds) should equal(AllClocksStoppedAck)
+    Await.result(clock ? StopAllClocks, timeout.duration) should equal(AllClocksStoppedAck)
 
     Thread.sleep((5.seconds).toMillis)
 

@@ -56,5 +56,20 @@ class MemSensor extends fr.inria.powerapi.sensor.mem.api.MemSensor with SigarSen
   def process(tick: Tick) {
     publish(MemSensorMessage(residentPerc = residentPerc(tick.subscription.process), tick))
   }
+}
 
+/**
+ * Companion object used to create this given component.
+ */
+object SensorMemSigar extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[MemSensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorMemSigar {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorMemSigar)
 }

@@ -23,6 +23,7 @@ import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.formula.disk.api.DiskFormulaMessage
 import fr.inria.powerapi.sensor.disk.api.DiskSensorMessage
+import org.apache.log4j.Level
 
 /**
  * Disk formula configuration.
@@ -49,12 +50,12 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
         })
       } catch {
         case nfe: NumberFormatException => {
-          if (log.isWarningEnabled) log.warning("number format exception: " + nfe.getMessage)
+          if (logger.isEnabledFor(Level.WARN)) logger.warn("number format exception: " + nfe.getMessage)
           0: Double
         }
       }
       case _ => {
-        if (log.isWarningEnabled) log.warning("unable to parse " + str + " as a Rate format")
+        if (logger.isEnabledFor(Level.WARN)) logger.warn("unable to parse " + str + " as a Rate format")
         0: Double
       }
     }
@@ -118,4 +119,20 @@ class DiskFormula extends fr.inria.powerapi.formula.disk.api.DiskFormula with Co
     publish(compute(diskSensorMessage))
     refreshCache(diskSensorMessage)
   }
+}
+
+/**
+ * Companion object used to create this given component.
+ */
+object FormulaDiskSingle extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[DiskFormula]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait FormulaDiskSingle {
+  self: fr.inria.powerapi.core.API =>
+  configure(FormulaDiskSingle)
 }

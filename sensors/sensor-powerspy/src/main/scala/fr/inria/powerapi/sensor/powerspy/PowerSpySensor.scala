@@ -137,3 +137,19 @@ class PowerSpySensor extends Sensor with Configuration {
   override def acquire: Receive = super.acquire orElse acquireDelegate
 
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object SensorPowerspy extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[PowerSpySensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorPowerspy {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorPowerspy)
+}

@@ -98,3 +98,19 @@ class TimestampAggregator extends Processor {
     addToCache(formulaMessage)
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object AggregatorTimestamp extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[TimestampAggregator]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait AggregatorTimestamp {
+  self: fr.inria.powerapi.core.API =>
+  configure(AggregatorTimestamp)
+}

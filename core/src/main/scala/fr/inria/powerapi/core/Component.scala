@@ -21,7 +21,7 @@
 package fr.inria.powerapi.core
 
 import akka.event.LoggingReceive
-import akka.actor.{ Actor, ActorLogging }
+import akka.actor.{ Actor, ActorContext, ActorLogging, ActorRef, Props }
 
 /**
  * Base types used to describe PowerAPI architecture.
@@ -124,4 +124,44 @@ trait Reporter extends Actor with ActorLogging {
     case processedMessage: ProcessedMessage => process(processedMessage)
     case unknown => throw new UnsupportedOperationException("unable to process message" + unknown)
   }
+}
+
+/**
+ * Trait which acts like a factory, used by the companion of each component.
+ */
+trait APIComponent {
+  val apisRegistered = new collection.mutable.ArrayBuffer[ActorRef] with collection.mutable.SynchronizedBuffer[ActorRef]
+
+  // Allows to define if the component is a singleton or not.
+  def singleton: Boolean
+  // Underlying class of a module component, used to create the actor.
+  def underlyingClass: Class[_ <: Component]
+  // List of the arguments passed to the actor when it's created (default, no parameters).
+  def args: List[Any] = List()
+
+  /**
+   * Creates the actor (attached to the api) with the implicit actor context (which comes from an Actor)
+   * @param api: Reference of the api, used to check for possibility to have several instances.
+   */
+  def apply(api: ActorRef)(implicit context: ActorContext): Option[ActorRef] = {
+    if(!apisRegistered.contains(api) || !singleton) {
+      val prop = Props(underlyingClass, args: _*)
+      val actorRef = context.actorOf(prop)
+      if(!apisRegistered.contains(api)) apisRegistered += api
+      Some(actorRef)
+    }
+
+    else None
+  }
+}
+
+/**
+ * There is at least a configure method for an API.
+ */
+trait API {
+  /**
+   * Starts the component associated to the given type.
+   * @param componentType: component type to start.
+   */
+  def configure[U <: APIComponent](companion: U): Unit
 }

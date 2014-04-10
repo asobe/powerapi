@@ -20,7 +20,7 @@
  */
 package fr.inria.powerapi.library
 
-import fr.inria.powerapi.core.{ ClockMessages, ClockSupervisor, Message, MessagesToListen, Process }
+import fr.inria.powerapi.core.{ APIComponent, ClockMessages, ClockSupervisor, Message, MessagesToListen, Process }
 
 import collection.mutable
 
@@ -141,7 +141,7 @@ class PowerAPI extends Actor with ActorLogging {
  * Main API used as a dependency for each trait component. It's the main entry to
  * interact with the main API actor.
  */
-class API {
+class PAPI extends fr.inria.powerapi.core.API {
   import PowerAPIMessages._
 
   implicit lazy val system = ActorSystem(System.currentTimeMillis + "")

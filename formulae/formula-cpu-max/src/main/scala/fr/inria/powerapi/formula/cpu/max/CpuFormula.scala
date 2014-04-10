@@ -65,5 +65,20 @@ class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Confi
   def process(cpuSensorMessage: CpuSensorMessage) {
     publish(CpuFormulaMessage(compute(cpuSensorMessage), cpuSensorMessage.tick))
   }
+}
 
+/**
+ * Companion object used to create this given component.
+ */
+object FormulaCpuMax extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[CpuFormula]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait FormulaCpuMax {
+  self: fr.inria.powerapi.core.API =>
+  configure(FormulaCpuMax)
 }

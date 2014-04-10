@@ -113,3 +113,19 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor with Con
         tick = tick))
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object SensorCpuProcVirtio extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[CpuSensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorCpuProcVirtio {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorCpuProcVirtio)
+}

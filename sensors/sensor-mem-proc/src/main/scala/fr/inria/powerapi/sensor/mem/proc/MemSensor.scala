@@ -104,5 +104,20 @@ class MemSensor extends fr.inria.powerapi.sensor.mem.api.MemSensor with Configur
   def process(tick: Tick) {
     publish(MemSensorMessage(resident.perc(tick), tick))
   }
+}
 
+/**
+ * Companion object used to create this given component.
+ */
+object SensorMemProc extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[MemSensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorMemProc {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorMemProc)
 }

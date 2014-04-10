@@ -20,17 +20,18 @@
  */
 package fr.inria.powerapi.sensor.cpu.proc
 
-import java.io.FileInputStream
-import java.io.IOException
-import java.net.URL
-
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.core.Sensor
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.sensor.cpu.api.CpuSensorMessage
 import fr.inria.powerapi.sensor.cpu.api.ProcessPercent
+
 import scalax.io.Resource
+import java.io.FileInputStream
+import java.io.IOException
+import java.net.URL
+
 
 /**
  * CPU sensor configuration.
@@ -56,9 +57,6 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * which are typically presents under a Linux platform.
  *
  * @see http://www.kernel.org/doc/man-pages/online/pages/man5/proc.5.html
- *
- * @author abourdon
- * @author mcolmant
  */
 class CpuSensor extends fr.inria.powerapi.sensor.cpu.api.CpuSensor with Configuration {
 
@@ -66,7 +64,7 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.api.CpuSensor with Configur
    * Delegate class collecting time information contained into both globalStatPath and processStatPath files
    * and providing the process CPU percent usage.
    */
-class ProcessPercent {
+  class ProcessPercent {
     lazy val GlobalStatFormat = """cpu\s+([\d\s]+)""".r
 
     def splittedTimes: Array[Long] = {
@@ -138,4 +136,20 @@ class ProcessPercent {
         processPercent = processPercent.process(tick.subscription),
         tick = tick))
   }
+}
+
+/**
+ * Companion object used to create this given component.
+ */
+object SensorCpuProc extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[CpuSensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorCpuProc {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorCpuProc)
 }

@@ -66,3 +66,19 @@ class DiskSensor extends fr.inria.powerapi.sensor.disk.api.DiskSensor with Confi
     publish(DiskSensorMessage(Map("n/a" -> readAndWrite(tick.subscription.process)), tick))
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object SensorDiskAtop extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[DiskSensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorDiskAtop {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorDiskAtop)
+}

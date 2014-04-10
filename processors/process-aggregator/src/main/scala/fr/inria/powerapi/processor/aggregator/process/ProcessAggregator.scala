@@ -52,3 +52,19 @@ class ProcessAggregator extends TimestampAggregator {
     byProcesses foreach publish
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object AggregatorProcess extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[ProcessAggregator]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait AggregatorProcess {
+  self: fr.inria.powerapi.core.API =>
+  configure(AggregatorProcess)
+}
