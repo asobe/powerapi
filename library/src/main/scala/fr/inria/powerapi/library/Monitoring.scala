@@ -41,6 +41,8 @@ object MonitoringMessages {
   case class StopMonitoringRepr(clockid: Long)
   case class StartReporterComponent(reporterType: Class[_ <: Reporter], args: Any*)
   case class AttachReporterRef(reporterRef: ActorRef)
+  case class AttachProcess(clockid: Long, process: Process)
+  case class DetachProcess(clockid: Long, process: Process)
 
   case object AllMonitoringsStopped
   case object StopMonitoringWorker
@@ -138,7 +140,7 @@ class MonitoringSupervisor(clockSupervisor: ActorRef) extends Actor with ActorLo
  */
 class MonitoringWorker(clockSupervisor: ActorRef) extends Actor with ActorLogging {
   import MonitoringMessages._
-  import ClockMessages.WaitFor
+  import ClockMessages.{ ListProcesses, StartTick, StopTick, WaitFor }
 
   implicit val timeout = Timeout(5.seconds)
   // Buffer of reporter references.
@@ -148,6 +150,9 @@ class MonitoringWorker(clockSupervisor: ActorRef) extends Actor with ActorLoggin
     case startReporterComponent: StartReporterComponent => process(startReporterComponent)
     case attachReporterRef: AttachReporterRef => process(attachReporterRef)
     case processedMessage: ProcessedMessage => process(processedMessage)
+    case attachProcess: AttachProcess => process(attachProcess)
+    case detachProcess: DetachProcess => process(detachProcess)
+    case listProcesses: ListProcesses => process(sender, listProcesses)
     case waitFor: WaitFor => process(sender, waitFor)
     case StopMonitoringWorker => stopMonitoringWorker(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
@@ -189,6 +194,37 @@ class MonitoringWorker(clockSupervisor: ActorRef) extends Actor with ActorLoggin
     reporters.foreach(reporterRef => reporterRef ! processedMessage)
   }
 
+  /**
+   * Used to monitor a new process, dynamically.
+   * @param process: Process to attach.
+   */
+  def process(attachProcess: AttachProcess) = {
+    val clockid = attachProcess.clockid
+    val process = attachProcess.process
+    clockSupervisor ! StartTick(clockid, process)
+  }
+
+  /**
+   * Used to detach dynamically a process.
+   * @param process: Process to detach.
+   */
+  def process(detachProcess: DetachProcess) = {
+    val clockid = detachProcess.clockid
+    val process = detachProcess.process
+    clockSupervisor ! StopTick(clockid, process)
+  }
+
+  /**
+   * Allows to get the processes which are monitored by this monitoring.
+   * @param sender: actor reference of the sender.
+   * @param listProcesses: case class used to get the list of processes which are monitored.
+   */
+  def process(sender: ActorRef, listProcesses: ListProcesses) = {
+    val clockid = listProcesses.clockid
+    val futureProcessesList = Await.result(clockSupervisor ? listProcesses, timeout.duration).asInstanceOf[Future[List[Process]]]
+    sender ! futureProcessesList
+  }
+
   def process(sender: ActorRef, waitFor: WaitFor) {
     /**
      * Allows to block a monitoring during the given duration.
@@ -220,7 +256,7 @@ class MonitoringWorker(clockSupervisor: ActorRef) extends Actor with ActorLoggin
  */
 class Monitoring(clockid: Long, monitoringSupervisor: ActorRef, monitoringRef: ActorRef) {
   import MonitoringMessages._
-  import ClockMessages.WaitFor
+  import ClockMessages.{ ListProcesses, WaitFor }
 
   /**
    * Allows to attach a reporter with its component type.
@@ -247,6 +283,33 @@ class Monitoring(clockid: Long, monitoringSupervisor: ActorRef, monitoringRef: A
   def attachReporter(reporterRef: ActorRef): Monitoring = {
     monitoringRef ! AttachReporterRef(reporterRef)
     this
+  }
+
+  /**
+   * Used to monitor a new process, dynamically.
+   * @param process: Process to attach.
+   */
+  def attachProcess(process: Process): Monitoring = {
+    monitoringRef ! AttachProcess(clockid, process)
+    this
+  }
+
+  /**
+   * Used to detach dynamically a process.
+   * @param process: Process to detach.
+   */
+  def detachProcess(process: Process): Monitoring = {
+    monitoringRef ! DetachProcess(clockid, process)
+    this
+  }
+
+ /**
+  * Allows to get the processes which are monitored by this monitoring
+  */
+  def getMonitoredProcesses(): List[Process] = {
+    implicit val timeout = Timeout(5.seconds)
+    val futureProcessesList = Await.result(monitoringRef ? ListProcesses(clockid), timeout.duration).asInstanceOf[Future[List[Process]]]
+    Await.result(futureProcessesList, timeout.duration).asInstanceOf[List[Process]]
   }
 
   /**

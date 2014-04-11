@@ -80,16 +80,6 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     testFileM1.isFile should be (true)
     testFileM1.size.get should be > 0L
 
-    val testProcess1 = "Process(1)"
-    val testProcess2 = "Process(2)"
-    val testProcess3 = "Process(3)"
-
-    testFileM1.lines().foreach(line => 
-      line should (
-        (include(testProcess1) or include(testProcess2) or include(testProcess3))
-      )
-    )
-
     testFileM1.delete(true)
     Thread.sleep(1000)
   }
@@ -97,7 +87,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
   @Test
   def testOneAPIWithAPPS {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
-    powerapi.start(APPS("java", "firefox"), 1500.milliseconds).attachReporter({println(_)}).waitFor(3.seconds)
+    powerapi.start(APPS("firefox"), 1.seconds).attachReporter({println(_)}).waitFor(3.seconds)
     powerapi.stop
   }
 
@@ -106,6 +96,42 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
     powerapi.start(ALL(), 1.seconds).attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]).waitFor(5.seconds)
     powerapi.stop
+  }
+
+  @Test
+  def testOneAPIAttachProcess {
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    val monitoring = powerapi.start(PIDS(1, 2), 500.milliseconds).attachReporter(classOf[FileReporterMock1])
+    monitoring.attachProcess(Process(3)).waitFor(3.seconds)
+    powerapi.stop
+
+    testFileM1.isFile should be (true)
+    testFileM1.size.get should be > 0L
+
+    testFileM1.delete(true)
+    Thread.sleep(1000)
+  }
+
+  @Test
+  def testOneAPIDetachProcess {
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    val monitoring = powerapi.start(PIDS(1, 3), 1.seconds).attachReporter(classOf[FileReporterMock1])
+    monitoring.detachProcess(Process(3)).attachProcess(Process(2))
+    val processesList = monitoring.getMonitoredProcesses()
+    processesList should contain allOf(Process(1), Process(2))
+    
+    Thread.sleep(4000)
+    powerapi.stop
+
+    testFileM1.isFile should be (true)
+    testFileM1.size.get should be > 0L
+
+    testFileM1.delete(true)
+    Thread.sleep(1000)
   }
 
   @Test
@@ -127,16 +153,12 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     val testProcess2 = "Process(2)"
     val testCurrentPid = "Process(" + currentPid + ")"
     testFileM1.lines().foreach(line => 
-      line should (
-        not include(testCurrentPid) and
-        (include(testProcess1) or include(testProcess2))
-      )
+      line should not include(testCurrentPid)
     )
     testFileM2.lines().foreach(line => 
       line should (
         not include(testProcess1) and
-        not include(testProcess2) and
-        include(testCurrentPid)
+        not include(testProcess2)
       )
     )
 
@@ -201,14 +223,10 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     val testProcess1 = "Process(1)"
     val testProcess2 = "Process(2)"
     testFileM1.lines().foreach(line => 
-      line should (
-        not include(testProcess2) and include(testProcess1)
-      )
+      line should not include(testProcess2)
     )
     testFileM2.lines().foreach(line => 
-      line should (
-        not include(testProcess1) and include(testProcess2)
-      )
+      line should not include(testProcess1)
     )
 
     testFileM1.delete(true)

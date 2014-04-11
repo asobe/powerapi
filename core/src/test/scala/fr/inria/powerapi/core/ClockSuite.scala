@@ -22,7 +22,7 @@ package fr.inria.powerapi.core
 
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.SynchronizedMap
-import scala.concurrent.Await
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.DurationInt
 
 import org.junit.Test
@@ -86,6 +86,12 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
     val clock2ending  = Await.result(clock ? WaitFor(clock2, 1200.milliseconds), (1200.milliseconds + 1.seconds))
     clock2ending should equal(ClockStoppedAck)
+
+    val futureProcessesList = Await.result(clock ? ListProcesses(clock1), timeout.duration).asInstanceOf[Future[List[Process]]]
+    val processesList = Await.result(futureProcessesList, timeout.duration).asInstanceOf[List[Process]]
+
+    processesList.size should equal(1)
+    processesList(0) should equal(Process(123))
 
     Await.result(clock ? StopAllClocks, timeout.duration) should equal(AllClocksStoppedAck)
 

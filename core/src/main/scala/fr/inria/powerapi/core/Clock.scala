@@ -51,6 +51,7 @@ object ClockMessages {
   case class WaitFor(clockid: Long, duration: FiniteDuration)
   case class StartTick(clockid: Long, process: Process)
   case class StopTick(clockid: Long, process: Process)
+  case class ListProcesses(clockid: Long)
   case class Ping(clockid: Long)
 
   case object TickIt
@@ -79,6 +80,7 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
     case stopClock: StopClock => stopClockWorker(sender, stopClock)
     case startTick: StartTick => startTickProcess(startTick)
     case stopTick: StopTick => stopTickProcess(stopTick)
+    case listProcesses: ListProcesses => getListOfMonitoredProcesses(sender, listProcesses)
     case waitFor: WaitFor => runningForDuration(sender, waitFor)
     case ping: Ping => clockIsStillAlive(sender, ping)
     case StopAllClocks => stopAllClocks(sender)
@@ -152,6 +154,19 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
   }
 
   /**
+   * Get the list of monitored processes.
+   */
+  def getListOfMonitoredProcesses(sender: ActorRef, listProcesses: ListProcesses) = {
+    // clock exists ?
+    if(workers.contains(listProcesses.clockid)) {
+      val clockRef = workers(listProcesses.clockid)
+      val futureProcessesList = clockRef ? listProcesses
+      sender ! futureProcessesList
+    }
+    else sender ! List()
+  }
+
+  /**
    * Stop all the clock workers
    */
   def stopAllClocks(sender: ActorRef) {
@@ -206,6 +221,7 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
     case UnTickIt => unmakeItTick(sender)
     case startTick: StartTick => attachProcess(startTick)
     case stopTick: StopTick => detachProcess(stopTick)
+    case ListProcesses(_) => getListOfMonitoredProcesses(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 
@@ -285,5 +301,12 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
       handledProcesses -= stopTick.process
       subscriptions -= subscription
     }
+  }
+
+  /**
+   * Allows to get the list of monitored processes.
+   */
+  def getListOfMonitoredProcesses(sender: ActorRef) = {
+    sender ! handledProcesses.toList
   }
 }
