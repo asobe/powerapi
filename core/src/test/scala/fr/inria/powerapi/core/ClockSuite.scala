@@ -72,14 +72,20 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
     clock ? StartTick(clock1, Process(321))
     clock ? StartTick(clock1, Process(321))
 
-    val clock2ending = Await.result(clock ? WaitFor(clock3, 5400.milliseconds), (5400.milliseconds + 1.seconds))
-    clock2ending should equal(ClockStoppedAck)
+    val clock3ending = Await.result(clock ? WaitFor(clock3, 5400.milliseconds), (5400.milliseconds + 1.seconds))
+    clock3ending should equal(ClockStoppedAck)
+    
+    val isAliveClock3 = Await.result(clock ? Ping(clock3), 50.milliseconds).asInstanceOf[Boolean]
+    isAliveClock3 should equal(false)
+
+    val isAliveClock2 = Await.result(clock ? Ping(clock2), 50.milliseconds).asInstanceOf[Boolean]
+    isAliveClock2 should equal(true)
 
     clock ? StopTick(clock1, Process(321))
     clock ? StopTick(clock1, Process(421))
 
-    val clock3ending  = Await.result(clock ? WaitFor(clock2, 1200.milliseconds), (1200.milliseconds + 1.seconds))
-    clock3ending should equal(ClockStoppedAck)
+    val clock2ending  = Await.result(clock ? WaitFor(clock2, 1200.milliseconds), (1200.milliseconds + 1.seconds))
+    clock2ending should equal(ClockStoppedAck)
 
     Await.result(clock ? StopAllClocks, timeout.duration) should equal(AllClocksStoppedAck)
 

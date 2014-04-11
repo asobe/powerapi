@@ -71,15 +71,14 @@ class PowerAPISuite extends JUnitSuite with Matchers {
 
   @Test
   def testOneAPIWithPIDS {
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
     powerapi.start(PIDS(1, 2, 3), 1500.milliseconds).attachReporter(classOf[FileReporterMock1]).waitFor(7500.milliseconds)
     powerapi.stop
 
-    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
     testFileM1.isFile should be (true)
     testFileM1.size.get should be > 0L
-
-    testFileM1.lines().size should (be >= 14 and be <= 16)
 
     val testProcess1 = "Process(1)"
     val testProcess2 = "Process(2)"
@@ -92,24 +91,37 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     )
 
     testFileM1.delete(true)
+    Thread.sleep(1000)
+  }
+
+  @Test
+  def testOneAPIWithAPPS {
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    powerapi.start(APPS("java", "firefox"), 1500.milliseconds).attachReporter({println(_)}).waitFor(3.seconds)
+    powerapi.stop
+  }
+
+  @Test
+  def testOneAPIWithALL {
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    powerapi.start(ALL(), 1.seconds).attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]).waitFor(5.seconds)
+    powerapi.stop
   }
 
   @Test
   def testOneAPIWithReporter {
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+    val testFileM2 = Path.fromString(ConfigurationMock2.testPath)
+
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
     powerapi.start(processes = Array(Process(1), Process(2)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock1])
     powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
     powerapi.stop
 
-    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
-    val testFileM2 = Path.fromString(ConfigurationMock2.testPath)
     testFileM1.isFile should be (true)
     testFileM2.isFile should be (true)
     testFileM1.size.get should be > 0L
     testFileM2.size.get should be > 0L
-
-    testFileM1.lines().size should (be >= 9 and be <= 11)
-    testFileM2.lines().size should (be >= 9 and be <= 11)
 
     val testProcess1 = "Process(1)"
     val testProcess2 = "Process(2)"
@@ -130,22 +142,24 @@ class PowerAPISuite extends JUnitSuite with Matchers {
 
     testFileM1.delete(true)
     testFileM2.delete(true)
+    Thread.sleep(1000)
   }
 
   @Test
   def testOneAPIWithRefAsReporter {
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+
     implicit val system = ActorSystem("api-test")
     val reporter = system.actorOf(Props[FileReporterMock1])
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
     powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(reporter).waitFor(5.seconds)
     powerapi.stop
 
-    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
     testFileM1.isFile should be (true)
     testFileM1.size.get should be > 0L
 
-    testFileM1.lines().size should (be >= 9 and be <= 11)
     testFileM1.delete(true)
+    Thread.sleep(1000)
   }
 
   @Test
@@ -163,8 +177,8 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     testFileM1.isFile should be (true)
     testFileM1.size.get should be > 0L
 
-    testFileM1.lines().size should (be >= 9 and be <= 11)
     testFileM1.delete(true)
+    Thread.sleep(1000)
   }
 
   @Test
@@ -184,9 +198,6 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     testFileM1.size.get should be > 0L
     testFileM2.size.get should be > 0L
 
-    testFileM1.lines().size should (be >= 2 and be <= 4)
-    testFileM2.lines().size should (be >= 4 and be <= 6)
-
     val testProcess1 = "Process(1)"
     val testProcess2 = "Process(2)"
     testFileM1.lines().foreach(line => 
@@ -202,5 +213,6 @@ class PowerAPISuite extends JUnitSuite with Matchers {
 
     testFileM1.delete(true)
     testFileM2.delete(true)
+    Thread.sleep(1000)
   }
 }

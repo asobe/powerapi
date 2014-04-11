@@ -43,6 +43,8 @@ object PowerAPIMessages {
   case class StartSubscription(actorRef: ActorRef)
   case class StartMonitoringArray(processes: Array[Process], frequency: FiniteDuration)
   case class StartMonitoringPIDS(pids: PIDS, frequency: FiniteDuration)
+  case class StartMonitoringAPPS(apps: APPS, frequency: FiniteDuration)
+  case class StartMonitoringALL(all: ALL, frequency: FiniteDuration)
 
   case object StopAll
   case object PowerAPIStopped
@@ -64,34 +66,91 @@ case class APPS(names: String*) {
   // Get the pids of the processes hidden by the given names.
   def getPids() = {
     names.foreach(name => {
-      val cmd = Seq("ps", "-C", name, "ho", "pid")
-      if(cmd .! == 0) {
-        val results = cmd.lines.toArray
-        monitoredProcesses ++= (for(result <- results) yield Process(result.trim.toInt))
-      }
+      // Redirects errors or displaying
+      val results = Seq("ps", "-C", name, "ho", "pid") lines_! ProcessLogger(line => ())
+      monitoredProcesses.clear()
+      monitoredProcesses ++= (for(result <- results) yield Process(result.trim.toInt))
     })
   }
 
   // Update the pids every 250ms, and interacts with the clock to start/stop the subscriptions.
-  def update(clockid: Long)(implicit clockSupervisor: ActorRef) {
-    import ClockMessages.{ StartTick, StopTick }
+  def update(clockSupervisor: ActorRef, clockid: Long) {
+    import ClockMessages.{ Ping, StartTick, StopTick }
+    
+    implicit val frequency = Timeout(250.milliseconds)
+
     val timer = new Timer
 
     timer.scheduleAtFixedRate(new TimerTask() {
       def run() {
-        val currentProcesses = monitoredProcesses
-        getPids()
-        val oldProcesses = currentProcesses -- monitoredProcesses
-        val newProcesses = monitoredProcesses -- currentProcesses
-        oldProcesses.foreach(process => clockSupervisor ! StopTick(clockid, process))
-        newProcesses.foreach(process => clockSupervisor ! StartTick(clockid, process))
+        try {
+          // Used to know when it's necessary to stop the timer
+          // (i.e. when the clock is stopped or stop() was called on the API).
+          val isAlive = Await.result(clockSupervisor ? Ping(clockid), frequency.duration).asInstanceOf[Boolean]
+
+          if(isAlive) {
+            val currentProcesses = monitoredProcesses.clone()
+            getPids()
+            val oldProcesses = currentProcesses -- monitoredProcesses
+            val newProcesses = monitoredProcesses -- currentProcesses
+            oldProcesses.foreach(process => clockSupervisor ! StopTick(clockid, process))
+            newProcesses.foreach(process => clockSupervisor ! StartTick(clockid, process))
+            monitoredProcesses --= oldProcesses
+            monitoredProcesses ++= newProcesses
+          }
+        }
+        catch {
+          case _: Exception => timer.cancel
+        }
       }
-    }, Duration.Zero.toMillis, (250.milliseconds).toMillis)
+    }, Duration.Zero.toMillis, frequency.duration.toMillis)
   }
 }
 
-// TODO: code + tests
-case object ALL
+case class ALL() {
+  var monitoredProcesses = new mutable.HashSet[Process]
+  getPids()
+
+  // Get the pids of the processes hidden by the given names.
+  def getPids() = {
+    val results = Seq("ps", "-A", "ho", "pid").lines
+    monitoredProcesses.clear()
+    monitoredProcesses ++= (for(result <- results) yield Process(result.trim.toInt))
+  }
+
+   // Update the pids every 250ms, and interacts with the clock to start/stop the subscriptions.
+  def update(clockSupervisor: ActorRef, clockid: Long) {
+    import ClockMessages.{ Ping, StartTick, StopTick }
+    
+    implicit val frequency = Timeout(250.milliseconds)
+
+    val timer = new Timer
+
+    timer.scheduleAtFixedRate(new TimerTask() {
+      def run() {
+        try {
+          // Used to know when it's necessary to stop the timer
+          // (i.e. when the clock is stopped or stop() was called on the API).
+          val isAlive = Await.result(clockSupervisor ? Ping(clockid), frequency.duration).asInstanceOf[Boolean]
+
+          if(isAlive) {
+            val currentProcesses = monitoredProcesses.clone()
+            getPids()
+            val oldProcesses = currentProcesses -- monitoredProcesses
+            val newProcesses = monitoredProcesses -- currentProcesses
+            oldProcesses.foreach(process => clockSupervisor ! StopTick(clockid, process))
+            newProcesses.foreach(process => clockSupervisor ! StartTick(clockid, process))
+            monitoredProcesses --= oldProcesses
+            monitoredProcesses ++= newProcesses
+          }
+        }
+        catch {
+          case _: Exception => timer.cancel
+        }
+      }
+    }, Duration.Zero.toMillis, frequency.duration.toMillis)
+  }
+}
 
 /**
  * Represents the main actor of the API. Used to handle all the actors created for one API.
@@ -118,6 +177,8 @@ class PowerAPI extends Actor with ActorLogging {
     case startSubscription: StartSubscription => process(startSubscription)
     case startMonitoring: StartMonitoringArray => startMonitoringArray(sender, startMonitoring.processes, startMonitoring.frequency)
     case startMonitoring: StartMonitoringPIDS => startMonitoringPIDS(sender, startMonitoring.pids, startMonitoring.frequency)
+    case startMonitoring: StartMonitoringAPPS => startMonitoringAPPS(sender, startMonitoring.apps, startMonitoring.frequency)
+    case startMonitoring: StartMonitoringALL => startMonitoringALL(sender, startMonitoring.all, startMonitoring.frequency)
     case StopAll => stopAll(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
@@ -139,24 +200,50 @@ class PowerAPI extends Actor with ActorLogging {
 
   /**
    * Starts the monitoring of an processes array for a given clock frequency.
+   * @param sender: actor reference of the sender, used to send the monitoring representative.
    * @param processes: processes to monitor.
    * @param frequency: duration period monitoring.
    */
-  def startMonitoringArray(sender: ActorRef, processes: Array[Process], frequency: FiniteDuration) {
+  def startMonitoringArray(sender: ActorRef, processes: Array[Process], frequency: FiniteDuration): Long = {
     import ClockMessages.StartClock
     // Starts a monitoring actor, retrieves the representative of the monitoring and sends it to the API.
     val clockid = Await.result(clockSupervisor ? StartClock(processes, frequency), timeout.duration).asInstanceOf[Long]
     val monitoringRepr = Await.result(monitoringSupervisor ? StartMonitoringRepr(clockid), timeout.duration).asInstanceOf[Monitoring]
     sender ! monitoringRepr
+    clockid
   }
 
   /**
    * Starts the monitoring of pids (which are represented by a case class) for a given clock frequency.
+   * @param sender: actor reference of the sender, used to send the monitoring representative.
    * @param pids: case class used to represent the processes to monitor.
    * @param frequency: duration period monitoring.
    */
   def startMonitoringPIDS(sender: ActorRef, pids: PIDS, frequency: FiniteDuration) {
     startMonitoringArray(sender, pids.monitoredProcesses.toArray, frequency)
+  }
+
+  /**
+   * Starts the monitoring of apps (which are represented by a case class) for a given clock frequency.
+   * @param sender: actor reference of the sender, used to send the monitoring representative.
+   * @param apps: case class used to represent the apps to monitor.
+   * @param frequency: duration period monitoring.
+   */
+  def startMonitoringAPPS(sender: ActorRef, apps: APPS, frequency: FiniteDuration) {
+    val clockid = startMonitoringArray(sender, apps.monitoredProcesses.toArray, frequency)
+    // Launch the scheduler for update the underlying processes of each app.
+    apps.update(clockSupervisor, clockid)
+  }
+
+  /**
+   * Starts the monitoring for all the processes and a given clock frequency.
+   * @param sender: actor reference of the sender, used to send the monitoring representative.
+   * @param all: case class which represents all the processes. 
+   * @param frequency: duration period monitoring.
+   */
+  def startMonitoringALL(sender: ActorRef, all: ALL, frequency: FiniteDuration) {
+    val clockid = startMonitoringArray(sender, all.monitoredProcesses.toArray, frequency)
+    all.update(clockSupervisor, clockid)
   }
 
   /**
@@ -227,14 +314,23 @@ class PAPI extends fr.inria.powerapi.core.API {
     Await.result(engine ? StartMonitoringPIDS(pids, frequency), timeout.duration).asInstanceOf[Monitoring]
   }
 
-  // TODO
-  // def start(apps: APPS): Monitoring = {
-  //   null
-  // }
+  /**
+   * Starts the monitoring of apps (represents by a case class) for a given clock frequency.
+   * @param apps: case class which contains the name of the apps to monitor.
+   * @param frequency: duration period monitoring.
+   */
+  def start(apps: APPS, frequency: FiniteDuration): Monitoring = {
+    Await.result(engine ? StartMonitoringAPPS(apps, frequency), timeout.duration).asInstanceOf[Monitoring]
+  }
 
-  // def start(processes: PIDS, apps: APPS): Monitoring = {
-  //   null
-  // }
+  /**
+   * Starts the monitoring for all the processes and a given clock frequency.
+   * @param all: case class which represents all the processes.
+   * @param frequency: duration period monitoring.
+   */
+  def start(all: ALL, frequency: FiniteDuration): Monitoring = {
+    Await.result(engine ? StartMonitoringALL(all, frequency), timeout.duration).asInstanceOf[Monitoring]
+  }
 
   /**
    * Shutdown all the remaining actors.

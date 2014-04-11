@@ -51,6 +51,7 @@ object ClockMessages {
   case class WaitFor(clockid: Long, duration: FiniteDuration)
   case class StartTick(clockid: Long, process: Process)
   case class StopTick(clockid: Long, process: Process)
+  case class Ping(clockid: Long)
 
   case object TickIt
   case object UnTickIt
@@ -79,8 +80,9 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
     case startTick: StartTick => startTickProcess(startTick)
     case stopTick: StopTick => stopTickProcess(stopTick)
     case waitFor: WaitFor => runningForDuration(sender, waitFor)
+    case ping: Ping => clockIsStillAlive(sender, ping)
     case StopAllClocks => stopAllClocks(sender)
-    case unknown => throw new UnsupportedOperationException("unable to process message yes " + unknown)
+    case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 
   val workers = new mutable.HashMap[Long, ActorRef] with mutable.SynchronizedMap[Long, ActorRef]
@@ -180,6 +182,16 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
         stopClockWorker(sender, StopClock(waitFor.clockid))
       }(context.system.dispatcher)
     }
+  }
+
+  /**
+   * Used to know if a clock worker is still alive or not.
+   */
+  def clockIsStillAlive(sender: ActorRef, isAlive: Ping) {
+    if(workers.contains(isAlive.clockid)) {
+      sender ! true
+    }
+    else sender ! false
   }
 }
 
