@@ -69,8 +69,14 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
     val clock2 = Await.result(clock ? StartClock(Array(Process(124)), 1000.milliseconds), timeout.duration).asInstanceOf[Long]
     val clock3 = Await.result(clock ? StartClock(Array(Process(125)), 1500.milliseconds), timeout.duration).asInstanceOf[Long]
 
+    clock ? StartTick(clock1, Process(321))
+    clock ? StartTick(clock1, Process(321))
+
     val clock2ending = Await.result(clock ? WaitFor(clock3, 5400.milliseconds), (5400.milliseconds + 1.seconds))
     clock2ending should equal(ClockStoppedAck)
+
+    clock ? StopTick(clock1, Process(321))
+    clock ? StopTick(clock1, Process(421))
 
     val clock3ending  = Await.result(clock ? WaitFor(clock2, 1200.milliseconds), (1200.milliseconds + 1.seconds))
     clock3ending should equal(ClockStoppedAck)
@@ -82,7 +88,7 @@ class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
     val receivedTicks = tickReceiver.underlyingActor.receivedTicks
     
     receivedTicks getOrElse(clock1, 0) should {
-      equal(13) or equal(13 + 1)
+      equal(24) or equal(24 + 1)
     }
     receivedTicks getOrElse(clock2, 0) should {
       equal(6) or equal(6 + 1)

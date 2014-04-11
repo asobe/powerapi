@@ -70,6 +70,31 @@ class PowerAPISuite extends JUnitSuite with Matchers {
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
   @Test
+  def testOneAPIWithPIDS {
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    powerapi.start(PIDS(1, 2, 3), 1500.milliseconds).attachReporter(classOf[FileReporterMock1]).waitFor(7500.milliseconds)
+    powerapi.stop
+
+    val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
+    testFileM1.isFile should be (true)
+    testFileM1.size.get should be > 0L
+
+    testFileM1.lines().size should (be >= 14 and be <= 16)
+
+    val testProcess1 = "Process(1)"
+    val testProcess2 = "Process(2)"
+    val testProcess3 = "Process(3)"
+
+    testFileM1.lines().foreach(line => 
+      line should (
+        (include(testProcess1) or include(testProcess2) or include(testProcess3))
+      )
+    )
+
+    testFileM1.delete(true)
+  }
+
+  @Test
   def testOneAPIWithReporter {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
     powerapi.start(processes = Array(Process(1), Process(2)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock1])

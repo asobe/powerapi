@@ -49,7 +49,9 @@ object ClockMessages {
   case class StartClock(processes: Array[Process], frequency: FiniteDuration)
   case class StopClock(clockid: Long)
   case class WaitFor(clockid: Long, duration: FiniteDuration)
-  
+  case class StartTick(clockid: Long, process: Process)
+  case class StopTick(clockid: Long, process: Process)
+
   case object TickIt
   case object UnTickIt
   case object ClockStoppedAck
@@ -74,6 +76,8 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
   override def receive = LoggingReceive {
     case startClock: StartClock => startClockWorker(sender, startClock)
     case stopClock: StopClock => stopClockWorker(sender, stopClock)
+    case startTick: StartTick => startTickProcess(startTick)
+    case stopTick: StopTick => stopTickProcess(stopTick)
     case waitFor: WaitFor => runningForDuration(sender, waitFor)
     case StopAllClocks => stopAllClocks(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message yes " + unknown)
@@ -122,6 +126,30 @@ class ClockSupervisor extends Actor with ActorLogging with ClockSupervisorConfig
   }
 
   /**
+   * Allows to start the tick publishing for a given process and clock.
+   */
+  def startTickProcess(startTick: StartTick) {
+    // clock exists ?
+    if(workers.contains(startTick.clockid)) {
+      val clockRef = workers(startTick.clockid)
+      clockRef ! startTick
+    }
+    else if(log.isDebugEnabled) log.debug("Clock does not exist, we can't attach it a new process.")
+  }
+
+  /**
+   * Allows to stop the tick publishing for a given process and clock.
+   */
+  def stopTickProcess(stopTick: StopTick) {
+    // clock exists ?
+    if(workers.contains(stopTick.clockid)) {
+      val clockRef = workers(stopTick.clockid)
+      clockRef ! stopTick
+    }
+    else if(log.isDebugEnabled) log.debug("Clock does not exist, we can't detach the given process.")
+  }
+
+  /**
    * Stop all the clock workers
    */
   def stopAllClocks(sender: ActorRef) {
@@ -164,18 +192,23 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
   def receive = LoggingReceive {
     case TickIt => makeItTick
     case UnTickIt => unmakeItTick(sender)
+    case startTick: StartTick => attachProcess(startTick)
+    case stopTick: StopTick => detachProcess(stopTick)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 
-  val subscriptions = new mutable.ArrayBuffer[TickSubscription] with mutable.SynchronizedBuffer[TickSubscription]
+  val subscriptions = new mutable.HashSet[TickSubscription] with mutable.SynchronizedSet[TickSubscription]
+  var handledProcesses = new mutable.HashSet[Process] with mutable.SynchronizedSet[Process]
+  handledProcesses ++= processes
+
   var scheduler: Cancellable = null
 
   /**
-   * Publishes Tick for each Subscription.
+   * Publishes Tick for each subscription.
    */
   def makeItTick() {
     def subscribe() {
-      processes.foreach(process => {
+      handledProcesses.foreach(process => {
         subscriptions += TickSubscription(process, frequency)
       })
     }
@@ -199,7 +232,7 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
   def unmakeItTick(sender: ActorRef) {
     def unsubscribe() {
       if (!subscriptions.isEmpty) {
-        processes.foreach(process => {
+        handledProcesses.foreach(process => {
           subscriptions -= TickSubscription(process, frequency)
         })
       }
@@ -218,5 +251,27 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
 
     // Sends an ack message
     sender ! ClockStoppedAck
+  }
+
+  /**
+   * Allows to do the subscription for a new process.
+   */
+  def attachProcess(startTick: StartTick) = {
+    val subscription = TickSubscription(startTick.process, frequency)
+    if(!subscriptions.contains(subscription)) {
+      handledProcesses += startTick.process
+      subscriptions += subscription
+    }
+  }
+
+  /**
+   * Allows to stop a subscription for a given process.
+   */
+  def detachProcess(stopTick: StopTick) = {
+    val subscription = TickSubscription(stopTick.process, frequency)
+    if(subscriptions.contains(subscription)) {
+      handledProcesses -= stopTick.process
+      subscriptions -= subscription
+    }
   }
 }
