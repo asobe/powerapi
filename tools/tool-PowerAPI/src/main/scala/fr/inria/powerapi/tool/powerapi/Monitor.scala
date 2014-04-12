@@ -25,91 +25,91 @@ import scala.collection.JavaConversions
 import scalax.file.Path
 import scalax.io.Resource
 import com.typesafe.config.Config
+import scala.concurrent.duration.DurationInt
+
+import collection.mutable
+
+class ExtendFileReporter extends fr.inria.powerapi.reporter.file.FileReporter {
+  override lazy val output = {
+    if (log.isInfoEnabled) log.info("using " + Monitor.filePath + " as output file")
+    Path.fromString(Monitor.filePath+".dat").deleteIfExists()
+    Resource.fromFile(Monitor.filePath+".dat")
+  }
+}
+
+class ExtendGnuplotReporter extends fr.inria.powerapi.reporter.gnuplot.GnuplotReporter {
+  override lazy val output = {
+    if (log.isInfoEnabled) log.info("using " + Monitor.filePath + " as output file")
+    Path.fromString(Monitor.filePath+".dat").deleteIfExists()
+    Resource.fromFile(Monitor.filePath+".dat")
+  }
+  override lazy val pids    = Monitor.allPIDs.toList
+  override lazy val devices = Monitor.allDevs
+}
+
+class ExtendVirtioReporter extends fr.inria.powerapi.reporter.virtio.VirtioReporter {
+    override lazy val vmsConfiguration = load {
+    conf =>
+      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
+        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
+  } (Map[Int, Int]())
+}
 
 object Initializer {
-
   var devs = List[String]("cpu")
+  val powerapi = new fr.inria.powerapi.library.PAPI
 
-  def beforeStart(cpuSensor:String, cpuFormula:String,
-                  memSensor:String, memFormula:String,
-                  diskSensor:String, diskFormula:String) {
+  def start(cpuSensor:String, cpuFormula:String,
+            memSensor:String, memFormula:String,
+            diskSensor:String, diskFormula:String,
+            aggregator: String): fr.inria.powerapi.library.PAPI = {
     Array(
       cpuSensor match {
-	      case "cpu-proc"     => classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor]
-	      case "cpu-proc-reg" => classOf[fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor]
-        case "cpu-proc-virtio" => classOf[fr.inria.powerapi.sensor.cpu.proc.virtio.CpuSensor]  	
+	      case "cpu-proc"     => fr.inria.powerapi.sensor.cpu.proc.SensorCpuProc
+	      case "cpu-proc-reg" => fr.inria.powerapi.sensor.cpu.proc.reg.SensorCpuProcReg
+        case "cpu-proc-virtio" => fr.inria.powerapi.sensor.cpu.proc.virtio.SensorCpuProcVirtio 	
       },
       cpuFormula match {
-	      case "cpu-max"    => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	      case "cpu-maxvm"  => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
-	      case "cpu-reg"    => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
+	      case "cpu-max"    => fr.inria.powerapi.formula.cpu.max.FormulaCpuMax
+	      case "cpu-maxvm"  => fr.inria.powerapi.formula.cpu.maxvm.FormulaCpuMaxVM
+	      case "cpu-reg"    => fr.inria.powerapi.formula.cpu.reg.FormulaCpuReg
       }
-    ).foreach(PowerAPI.startEnergyModule(_))
+    ).foreach(powerapi.configure(_))
     
     if (memSensor != "" && memFormula != "") {
       Array(
         memSensor match {
-	        case "mem-proc"  => classOf[fr.inria.powerapi.sensor.mem.proc.MemSensor]
-	        case "mem-sigar" => classOf[fr.inria.powerapi.sensor.mem.sigar.MemSensor]
+	        case "mem-proc"  => fr.inria.powerapi.sensor.mem.proc.SensorMemProc
+	        case "mem-sigar" => fr.inria.powerapi.sensor.mem.sigar.SensorMemSigar
         },
         memFormula match {
-	        case "mem-single" => classOf[fr.inria.powerapi.formula.mem.single.MemFormula]
+	        case "mem-single" => fr.inria.powerapi.formula.mem.single.FormulaMemSingle
         }
-      ).foreach(PowerAPI.startEnergyModule(_))
+      ).foreach(powerapi.configure(_))
       devs +:= "memory"
     }
     
     if (diskSensor != "" && diskFormula != "") {
       Array(
         diskSensor match {
-	        case "disk-proc" => classOf[fr.inria.powerapi.sensor.disk.proc.DiskSensor]
-	        case "disk-atop" => classOf[fr.inria.powerapi.sensor.disk.atop.DiskSensor] 	
+	        case "disk-proc" => fr.inria.powerapi.sensor.disk.proc.SensorDiskProc
+	        case "disk-atop" => fr.inria.powerapi.sensor.disk.atop.SensorDiskAtop 	
         },
         diskFormula match {
-	        case "disk-single" => classOf[fr.inria.powerapi.formula.disk.single.DiskFormula]
+	        case "disk-single" => fr.inria.powerapi.formula.disk.single.FormulaDiskSingle
         }
-      ).foreach(PowerAPI.startEnergyModule(_))
+      ).foreach(powerapi.configure(_))
       devs +:= "disk"
     }
-  }
 
-  def beforeEnd(cpuSensor:String, cpuFormula:String,
-                memSensor:String, memFormula:String,
-                diskSensor:String, diskFormula:String) {
-    Array(
-      cpuSensor match {
-	      case "cpu-proc"     => classOf[fr.inria.powerapi.sensor.cpu.proc.CpuSensor]
-	      case "cpu-proc-reg" => classOf[fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor]
-        case "cpu-proc-virtio" => classOf[fr.inria.powerapi.sensor.cpu.proc.virtio.CpuSensor]	
-      },
-      cpuFormula match {
-	      case "cpu-max"    => classOf[fr.inria.powerapi.formula.cpu.max.CpuFormula]
-	      case "cpu-maxvm"  => classOf[fr.inria.powerapi.formula.cpu.maxvm.CpuFormula]
-	      case "cpu-reg"    => classOf[fr.inria.powerapi.formula.cpu.reg.CpuFormula]
-      }
-    ).foreach(PowerAPI.stopEnergyModule(_))
-    
-    if (memSensor != "" && memFormula != "")
-      Array(
-        memSensor match {
-	        case "mem-proc"  => classOf[fr.inria.powerapi.sensor.mem.proc.MemSensor]
-	        case "mem-sigar" => classOf[fr.inria.powerapi.sensor.mem.sigar.MemSensor]
-        },
-        memFormula match {
-	        case "mem-single" => classOf[fr.inria.powerapi.formula.mem.single.MemFormula]
-        }
-      ).foreach(PowerAPI.stopEnergyModule(_))
-    
-    if (diskSensor != "" && diskFormula != "")
-      Array(
-        diskSensor match {
-	        case "disk-proc" => classOf[fr.inria.powerapi.sensor.disk.proc.DiskSensor]
-	        case "disk-atop" => classOf[fr.inria.powerapi.sensor.disk.atop.DiskSensor] 	
-        },
-        diskFormula match {
-	        case "disk-single" => classOf[fr.inria.powerapi.formula.disk.single.DiskFormula]
-        }
-      ).foreach(PowerAPI.stopEnergyModule(_))
+    val agg = aggregator match {
+      case "timestamp" => fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
+      case "process" => fr.inria.powerapi.processor.aggregator.process.AggregatorProcess
+      case "device" => fr.inria.powerapi.processor.aggregator.device.AggregatorDevice
+    }
+
+    powerapi.configure(agg)
+    powerapi
   }
 }
 
@@ -117,8 +117,7 @@ object Monitor extends App {
   lazy val PidsFormat       = """-pid\s+(\d+[,\d]*)""".r
   lazy val VmsFormat        = """-vm\s+(\d+:\d+[,\d+:\d]*)""".r
   lazy val AppsFormat       = """-app\s+(.+[,.]*)""".r
-  lazy val AppsContFormat   = """-appscont\s+(1|0)""".r
-  lazy val AggregatorFormat = """-aggregator\s+(device|process)""".r
+  lazy val AggregatorFormat = """-aggregator\s+(timestamp|device|process)""".r
   lazy val OutputFormat     = """-output\s+(console|file|gnuplot|chart|virtio|thrift)""".r
   lazy val FileFormat       = """-filename\s+(\w+)""".r
   lazy val FreqFormat       = """-frequency\s+(\d+)""".r
@@ -129,30 +128,8 @@ object Monitor extends App {
   lazy val MemFormulaFormat  = """-memformula\s+(mem-single)""".r
   lazy val DiskSensorFormat  = """-disksensor\s+(disk-proc|disk-atop)""".r
   lazy val DiskFormulaFormat = """-diskformula\s+(disk-single)""".r
-  
-  val params =
-  (for (arg <- args) yield {
-    arg match {
-      case PidsFormat(pids)               => ("pids" -> pids)
-      case VmsFormat(vm)                  => ("vm" -> vm)
-      case AppsFormat(apps)               => ("apps" -> apps)
-      case AppsContFormat(appscont)       => ("appscont" -> appscont)
-      case AggregatorFormat(agg)          => ("agg" -> agg)
-      case OutputFormat(out)              => ("out" -> out)
-      case FileFormat(filePath)           => ("filePath" -> filePath)
-      case FreqFormat(freq)               => ("freq" -> freq)
-      case TimeFormat(time)               => ("time" -> time)
-      case CpuSensorFormat(cpuSensor)     => ("cpuSensor" -> cpuSensor)
-      case CpuFormulaFormat(cpuFormula)   => ("cpuFormula" -> cpuFormula)
-      case MemSensorFormat(memSensor)     => ("memSensor" -> memSensor)
-      case MemFormulaFormat(memFormula)   => ("memFormula" -> memFormula)
-      case DiskSensorFormat(diskSensor)   => ("diskSensor" -> diskSensor)
-      case DiskFormulaFormat(diskFormula) => ("diskFormula" -> diskFormula)
-      case _ => ("none" -> "")
-    }
-  }).toMap
-  
-  // Write a runtime configuration file for VMs
+
+    // Write a runtime configuration file for VMs
   def createVMCOnfiguration(vmParameter: String): Array[Int] = {
     lazy val output = {
       Path.fromString("src/main/resources/vm_configuration.conf").deleteIfExists()
@@ -176,31 +153,97 @@ object Monitor extends App {
     res.map(_.toInt).toArray
   }
 
-  var pids = params.getOrElse("pids", "-1": String).split(',').map(_.toInt)
+  def getReporter(reporter: String) = {
+    reporter match {
+      case "console" => classOf[fr.inria.powerapi.reporter.console.ConsoleReporter]
+      case "file" => classOf[ExtendFileReporter]
+      case "gnuplot" => classOf[ExtendGnuplotReporter]
+      case "chart" => classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]
+      case "virtio" => classOf[ExtendVirtioReporter]
+      case "thrift" => classOf[fr.inria.powerapi.reporter.thrift.ThriftReporter]
+      case _ => classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]
+    }
+  }
+  
+  val params =
+  (for (arg <- args) yield {
+    arg match {
+      case PidsFormat(pids)               => ("pids" -> pids)
+      case VmsFormat(vm)                  => ("vm" -> vm)
+      case AppsFormat(app)                => ("app" -> app)
+      case AggregatorFormat(agg)          => ("agg" -> agg)
+      case OutputFormat(out)              => ("out" -> out)
+      case FileFormat(filePath)           => ("filePath" -> filePath)
+      case FreqFormat(freq)               => ("freq" -> freq)
+      case TimeFormat(time)               => ("time" -> time)
+      case CpuSensorFormat(cpuSensor)     => ("cpuSensor" -> cpuSensor)
+      case CpuFormulaFormat(cpuFormula)   => ("cpuFormula" -> cpuFormula)
+      case MemSensorFormat(memSensor)     => ("memSensor" -> memSensor)
+      case MemFormulaFormat(memFormula)   => ("memFormula" -> memFormula)
+      case DiskSensorFormat(diskSensor)   => ("diskSensor" -> diskSensor)
+      case DiskFormulaFormat(diskFormula) => ("diskFormula" -> diskFormula)
+      case _ => ("none" -> "")
+    }
+  }).toMap
+  
+  val powerapi = Initializer.start(
+    params.getOrElse("cpuSensor", "cpu-proc"), params.getOrElse("cpuFormula", "cpu-max"),
+    params.getOrElse("memSensor", ""), params.getOrElse("memFormula", ""),
+    params.getOrElse("diskSensor", ""), params.getOrElse("diskFormula", ""),
+    params.getOrElse("agg", "timestamp")
+  )
+  
+  var pids = params.getOrElse("pids", "").split(",").filter(_ != "").map(_.toInt)
+  
   if(params.isDefinedAt("vm")) {
     pids = createVMCOnfiguration(params("vm"))
   }
+
+  val app = params.getOrElse("app", "")
+  val out  = params.getOrElse("out", "chart")
+  val freq = params.getOrElse("freq", "1000").toInt
+  val time = params.getOrElse("time", "5").toInt
+  val filePath = params.getOrElse("filePath", "powerapi-out")
+
+  var allPIDs = mutable.ListBuffer.empty[Int]
   
-  Initializer.beforeStart(
-    params.getOrElse("cpuSensor", "cpu-proc":String), params.getOrElse("cpuFormula", "cpu-max":String),
-    params.getOrElse("memSensor", "":String), params.getOrElse("memFormula", "":String),
-    params.getOrElse("diskSensor", "":String), params.getOrElse("diskFormula", "":String)
-  )
-  Processes.filePath = params.getOrElse("filePath", "powerapi-out": String)
-  Processes.start(
-    pids = pids.toList,
-    apps = params.getOrElse("apps", "": String),
-    agg  = params.getOrElse("agg", "timestamp": String),
-    out  = params.getOrElse("out", "chart": String),
-    freq = params.getOrElse("freq", "1000": String).toInt,
-    time = params.getOrElse("time", "5": String).toInt,
-    appscont = params.getOrElse("appscont","0": String).toInt,
-    devs = Initializer.devs
-  )
-  Initializer.beforeEnd(
-    params.getOrElse("cpuSensor", "cpu-proc":String), params.getOrElse("cpuFormula", "cpu-max":String),
-    params.getOrElse("memSensor", "":String), params.getOrElse("memFormula", "":String),
-    params.getOrElse("diskSensor", "":String), params.getOrElse("diskFormula", "":String)
-  )
+  val monitoring: fr.inria.powerapi.library.Monitoring = if(pids.isEmpty && app.isEmpty) {
+    val allC = fr.inria.powerapi.library.ALL()
+    allPIDs ++= (for(process <- allC.monitoredProcesses.toArray) yield process.pid)
+    powerapi.start(allC, freq.millis)
+  }
+
+  else if(!pids.isEmpty && app.isEmpty) {
+    val pidsC = fr.inria.powerapi.library.PIDS(pids: _*)
+    allPIDs ++= (for(process <- pidsC.monitoredProcesses.toArray) yield process.pid)
+    powerapi.start(pidsC, freq.millis)
+  }
+
+  else if(pids.isEmpty && !app.isEmpty) {
+    val appsC = fr.inria.powerapi.library.APPS(app)
+    println(appsC)
+    allPIDs ++= (for(process <- appsC.monitoredProcesses.toArray) yield process.pid)
+    powerapi.start(appsC, freq.millis)
+  }
+
+  else {
+    val pidsC = fr.inria.powerapi.library.PIDS(pids: _*)
+    val appsC = fr.inria.powerapi.library.APPS(app)
+    allPIDs ++= (for(process <- pidsC.monitoredProcesses.toArray) yield process.pid)
+    allPIDs ++= (for(process <- appsC.monitoredProcesses.toArray) yield process.pid)
+    powerapi.start(pidsC, appsC, freq.millis)
+  }
+
+  monitoring.attachReporter(getReporter(out)).waitFor(time.minute)
+  powerapi.stop
+
+  val allDevs = Initializer.devs.distinct.sortWith(_.compareTo(_) < 0)
+  
+  // Create the gnuplot script to generate the graph
+  if (out == "gnuplot") {
+    if (allPIDs.nonEmpty) GnuplotScript.create(allPIDs.map(_.toString).toList, filePath)
+    else GnuplotScript.create(allDevs, filePath)
+  }
+
   System.exit(0)
 }

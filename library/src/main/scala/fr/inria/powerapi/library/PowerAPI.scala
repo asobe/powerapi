@@ -44,6 +44,7 @@ object PowerAPIMessages {
   case class StartMonitoringArray(processes: Array[Process], frequency: FiniteDuration)
   case class StartMonitoringPIDS(pids: PIDS, frequency: FiniteDuration)
   case class StartMonitoringAPPS(apps: APPS, frequency: FiniteDuration)
+  case class StartMonitoringPIDSAPPS(pids: PIDS, apps: APPS, frequency: FiniteDuration)
   case class StartMonitoringALL(all: ALL, frequency: FiniteDuration)
 
   case object StopAll
@@ -178,6 +179,7 @@ class PowerAPI extends Actor with ActorLogging {
     case startMonitoring: StartMonitoringArray => startMonitoringArray(sender, startMonitoring.processes, startMonitoring.frequency)
     case startMonitoring: StartMonitoringPIDS => startMonitoringPIDS(sender, startMonitoring.pids, startMonitoring.frequency)
     case startMonitoring: StartMonitoringAPPS => startMonitoringAPPS(sender, startMonitoring.apps, startMonitoring.frequency)
+    case startMonitoring: StartMonitoringPIDSAPPS => startMonitoringPIDSAPPS(sender, startMonitoring.pids, startMonitoring.apps, startMonitoring.frequency)
     case startMonitoring: StartMonitoringALL => startMonitoringALL(sender, startMonitoring.all, startMonitoring.frequency)
     case StopAll => stopAll(sender)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
@@ -231,6 +233,21 @@ class PowerAPI extends Actor with ActorLogging {
    */
   def startMonitoringAPPS(sender: ActorRef, apps: APPS, frequency: FiniteDuration) {
     val clockid = startMonitoringArray(sender, apps.monitoredProcesses.toArray, frequency)
+    // Launch the scheduler for update the underlying processes of each app.
+    apps.update(clockSupervisor, clockid)
+  }
+
+  /**
+   * Starts the monitoring of pids (which are represented by a case class) and apps (also represented by a case class)
+   * for a given clock frequency.
+   * @param sender: actor reference of the sender, used to send the monitoring representative.
+   * @param pids: case class used to represent the processes to monitor.
+   * @param apps: case class used to represent the apps to monitor.
+   * @param frequency: duration period monitoring.
+   */
+  def startMonitoringPIDSAPPS(sender: ActorRef, pids: PIDS, apps: APPS, frequency: FiniteDuration) {
+    val allPids = pids.monitoredProcesses.toArray[Process] ++ apps.monitoredProcesses.toArray[Process]
+    val clockid = startMonitoringArray(sender, allPids, frequency)
     // Launch the scheduler for update the underlying processes of each app.
     apps.update(clockSupervisor, clockid)
   }
@@ -306,7 +323,7 @@ class PAPI extends fr.inria.powerapi.core.API {
   }
 
   /**
-   * Starts the monitoring of pids (represents by a case class) for a given clock frequency.
+   * Starts the monitoring of pids (represented by a case class) for a given clock frequency.
    * @param pids: case class which contains the pids to monitor.
    * @param frequency: duration period monitoring.
    */
@@ -315,12 +332,23 @@ class PAPI extends fr.inria.powerapi.core.API {
   }
 
   /**
-   * Starts the monitoring of apps (represents by a case class) for a given clock frequency.
+   * Starts the monitoring of apps (represented by a case class) for a given clock frequency.
    * @param apps: case class which contains the name of the apps to monitor.
    * @param frequency: duration period monitoring.
    */
   def start(apps: APPS, frequency: FiniteDuration): Monitoring = {
     Await.result(engine ? StartMonitoringAPPS(apps, frequency), timeout.duration).asInstanceOf[Monitoring]
+  }
+
+  /**
+   * Starts the monitoring of pids (represented by a case class) and apps (represented by a case class)
+   * for a given clock frequency.
+   * @param pids: case class which contains the pids to monitor.
+   * @param apps: case class which contains the name of the apps to monitor.
+   * @param frequency: duration period monitoring.
+   */
+  def start(pids: PIDS, apps: APPS, frequency: FiniteDuration): Monitoring = {
+    Await.result(engine ? StartMonitoringPIDSAPPS(pids, apps, frequency), timeout.duration).asInstanceOf[Monitoring]
   }
 
   /**

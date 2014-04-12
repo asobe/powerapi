@@ -94,7 +94,14 @@ class PowerAPISuite extends JUnitSuite with Matchers {
   @Test
   def testOneAPIWithALL {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    powerapi.start(ALL(), 1.seconds).attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]).waitFor(5.seconds)
+    powerapi.start(ALL(), 1.seconds).attachReporter({println(_)}).waitFor(5.seconds)
+    powerapi.stop
+  }
+
+  @Test
+  def testOneAPIWithPIDSAPPS {
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
+    powerapi.start(PIDS(currentPid), APPS("firefox"), 1.seconds).attachReporter({println(_)}).waitFor(3.seconds)
     powerapi.stop
   }
 

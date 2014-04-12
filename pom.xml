@@ -93,8 +93,7 @@
         <module>library</module>
         <module>processors</module>
         <module>reporters</module>
-        <!-- TODO: update tool module -->
-        <!-- <module>tools</module> -->
+        <module>tools</module>
     </modules>
 
     <properties>
