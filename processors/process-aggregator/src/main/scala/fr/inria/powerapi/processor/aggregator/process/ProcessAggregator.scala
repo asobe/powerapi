@@ -25,22 +25,46 @@ import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 
+import scala.collection
+
 /**
- * Aggregates FormulaMessages by their timestamps and processes.
- *
- * @author abourdon
+ * Aggregates FormulaMessages by their clockids (which represent the different monitorings), timestamps and processes.
  */
 class ProcessAggregator extends TimestampAggregator {
   def byProcesses(implicit timestamp: Long): Iterable[AggregatedMessage] = {
     val base = cache(timestamp)
-    for (byProcess <- base.messages.groupBy(_.tick.subscription.process)) yield (AggregatedMessage(
-      tick = Tick(TickSubscription(byProcess._1, base.tick.subscription.duration), timestamp),
-      device = "all",
-      messages = byProcess._2)
-    )
+    val messages = collection.mutable.ArrayBuffer.empty[AggregatedMessage]
+    
+    for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) {
+      for (byProcess <- byMonitoring._2.groupBy(_.tick.subscription.process)) {
+        messages += AggregatedMessage(
+          tick = Tick(byMonitoring._1, TickSubscription(byProcess._1, base.tick.subscription.duration), timestamp),
+          device = "all",
+          messages = byProcess._2
+        )
+      }
+    }
+
+    messages
   }
 
   override def send(implicit timestamp: Long) {
     byProcesses foreach publish
   }
+}
+
+/**
+ * Companion object used to create this given component.
+ */
+object AggregatorProcess extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[ProcessAggregator]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait AggregatorProcess {
+  self: fr.inria.powerapi.core.API =>
+  configure(AggregatorProcess)
 }

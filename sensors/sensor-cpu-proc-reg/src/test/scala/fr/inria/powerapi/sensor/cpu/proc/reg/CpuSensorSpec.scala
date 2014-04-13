@@ -28,9 +28,8 @@ import scala.util.Properties
 
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.Matchers
 import org.scalatest.FlatSpec
-
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import fr.inria.powerapi.core.Process
@@ -39,7 +38,7 @@ import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.sensor.cpu.api.ActivityPercent
 
 @RunWith(classOf[JUnitRunner])
-class CpuSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class CpuSensorSpec extends FlatSpec with Matchers {
 
   trait ConfigurationMock extends fr.inria.powerapi.sensor.cpu.proc.Configuration {
     lazy val basedir = new URL("file", Properties.propOrEmpty("basedir"), "")
@@ -48,7 +47,7 @@ class CpuSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
 
   implicit val system = ActorSystem("cpusensorsuite")
   val cpuSensor = TestActorRef(new CpuSensor with ConfigurationMock)
-  val tick = Tick(TickSubscription(Process(123), 1.second))
+  val tick = Tick(1, TickSubscription(Process(123), 1.second))
   val splittedTimes: Array[Long] = Array(441650, 65, 67586, 3473742, 31597, 0, 7703, 0, 23, 22)
   val globalElapsedTime   = 441650 + 65 + 67586 + 3473742 + 31597 + 0 + 7703 + 0
   val activityElapsedTime = 441650 + 65 + 67586                              + 0

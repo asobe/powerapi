@@ -22,15 +22,18 @@ package fr.inria.powerapi.core
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigException
 import com.typesafe.config.Config
+import org.apache.log4j.{ Level, Logger }
+
+trait Log {
+    lazy val logger = Logger.getLogger(this.getClass.getName)
+}
 
 /**
  * Base trait dealing with configuration files using the Typesafe Config library.
  *
  * @see https://github.com/typesafehub/config
- *
- * @author abourdon
  */
-trait Configuration extends Component {
+trait Configuration extends Log {
   /**
    * Link to get information from configuration files.
    */
@@ -50,7 +53,7 @@ trait Configuration extends Component {
       request(conf)
     } catch {
       case ce: ConfigException => {
-        if (required && log.isWarningEnabled) log.warning(ce.getMessage + " (using " + default + " as default value)")
+        if (required && logger.isEnabledFor(Level.WARN)) logger.warn(ce.getMessage + " (using " + default + " as default value)")
         default
       }
     }

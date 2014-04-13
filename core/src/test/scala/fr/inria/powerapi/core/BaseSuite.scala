@@ -26,7 +26,8 @@ import scala.concurrent.duration.DurationInt
 import akka.pattern.ask
 import akka.util.Timeout
 import org.junit.Test
-import org.scalatest.junit.{ShouldMatchersForJUnit, JUnitSuite}
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 
 case class FooMessage() extends Message
@@ -41,7 +42,7 @@ class SimpleActor extends Component {
   }
 }
 
-class BaseSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class BaseSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   val system = ActorSystem("base-suite")
   val simpleActor = system.actorOf(Props[SimpleActor])
   implicit val timeout = Timeout(5.seconds)

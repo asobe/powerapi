@@ -20,12 +20,10 @@
  */
 package fr.inria.powerapi.core
 
-import akka.actor.ActorSystem
-import akka.testkit.TestActorRef
 import com.typesafe.config.Config
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import scala.collection.JavaConversions
 
 case class Item(id: Int, value: Double)
@@ -56,17 +54,10 @@ class ConfigurationMock extends Configuration {
   lazy val notFound = load {
     _.getBoolean("not-found") || true
   }(false)
-
-  def messagesToListen = Array()
-
-  def acquire = {
-    case _ => ()
-  }
 }
 
-class ConfigurationSuite extends JUnitSuite with ShouldMatchersForJUnit {
-  implicit val system = ActorSystem("configuration-suite")
-  val configuration = TestActorRef[ConfigurationMock].underlyingActor
+class ConfigurationSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
+  val configuration = new ConfigurationMock
 
   @Test
   def testKeyFromConf() {

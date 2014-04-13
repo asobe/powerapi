@@ -21,8 +21,8 @@
 package fr.inria.powerapi.formula.cpu.dvfs
 
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{JUnitSuite, AssertionsForJUnit}
+import org.scalatest.Matchers
 
 import akka.actor.actorRef2Scala
 import akka.actor.Actor
@@ -54,7 +54,7 @@ class TickReceiver extends Actor with ActorLogging {
   }
 }
 
-class CpuFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class CpuFormulaSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("cpuformulasuite")
   val cpuformula = TestActorRef[CpuFormula]
 

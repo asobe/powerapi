@@ -25,12 +25,11 @@ import scala.concurrent.duration.DurationInt
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import org.junit.runner.RunWith
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite, JUnitRunner}
+import org.scalatest.Matchers
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatedMessage
-import fr.inria.powerapi.processor.aggregator.timestamp.SmoothingAggregator
 import org.scalatest.FlatSpec
 import fr.inria.powerapi.core.FormulaMessage
-import org.scalatest.junit.JUnitRunner
 import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
@@ -39,38 +38,37 @@ import fr.inria.powerapi.core.Process
 case class FormulaMessageMock(energy: Energy, tick: Tick, device: String = "mock") extends FormulaMessage
 
 class DeviceAggregatorMock extends DeviceAggregator {
-  val sent = collection.mutable.Map[String, AggregatedMessage]()
+  val sent = collection.mutable.Map[(Long, String), AggregatedMessage]()
 
   override def send(implicit timestamp: Long) {
-    byDevices foreach (msg => sent += msg.device -> msg)
+    byDevices foreach (msg => sent += (msg.tick.clockid, msg.device) -> msg)
   }
 }
 
 @RunWith(classOf[JUnitRunner])
-class DeviceAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
-
+class DeviceAggregatorSpec extends FlatSpec with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("device-aggregator-spec")
   val deviceAggregator = TestActorRef[DeviceAggregatorMock]
-  
-  SmoothingAggregator.addFilter("cpuTest")
-  SmoothingAggregator.addFilter("memTest")
 
   "A DeviceAggregator" should "listen to FormulaMessage" in {
     deviceAggregator.underlyingActor.messagesToListen should equal(Array(classOf[FormulaMessage]))
   }
 
   "A DeviceAggregator" should "process a FormulaMessage" in {
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(Process(123), 1.second), 1), device = "cpu"))
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(TickSubscription(Process(345), 1.second), 1), device = "cpu"))
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(TickSubscription(Process(123), 1.second), 1), device = "mem"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 1), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(1, TickSubscription(Process(345), 1 second), 1), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(1, TickSubscription(Process(123), 1 second), 1), device = "mem"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(2, TickSubscription(Process(123), 1 second), 1), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(2, TickSubscription(Process(345), 1 second), 1), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(2, TickSubscription(Process(123), 1 second), 1), device = "mem"))
 
     deviceAggregator.underlyingActor.sent should be('empty)
 
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(Process(123), 1.second), 2), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 2), device = "cpu"))
 
-    deviceAggregator.underlyingActor.sent should have size 2
-    deviceAggregator.underlyingActor.sent should (contain key ("cpu") and contain key ("mem"))
-    deviceAggregator.underlyingActor.sent("cpu").energy should equal(Energy.fromPower(SmoothingAggregator.filter("cpuTest", 1 + 2)))
-    deviceAggregator.underlyingActor.sent("mem").energy should equal(Energy.fromPower(SmoothingAggregator.filter("memTest", 3)))
+    deviceAggregator.underlyingActor.sent should have size 4
+    deviceAggregator.underlyingActor.sent should (contain key (1, "cpu") and contain key (1, "mem"))
+    deviceAggregator.underlyingActor.sent((1, "cpu")).energy should equal(Energy.fromPower(1 + 2))
+    deviceAggregator.underlyingActor.sent((1, "mem")).energy should equal(Energy.fromPower(3))
   }
 }

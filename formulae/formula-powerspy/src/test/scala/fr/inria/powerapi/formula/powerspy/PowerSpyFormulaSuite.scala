@@ -23,30 +23,28 @@ package fr.inria.powerapi.formula.powerspy
 import scala.concurrent.{Lock, Await}
 import scala.concurrent.duration.DurationInt
 
-
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.TestActorRef
 import akka.util.Timeout
-import fr.inria.powerapi.core.Listener
 import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.Process
+import fr.inria.powerapi.core.Reporter
+import fr.inria.powerapi.core.ProcessedMessage
 import fr.inria.powerapi.sensor.powerspy.PowerSpySensorMessage
-import fr.inria.powerapi.library.PowerAPI
-import fr.inria.powerapi.sensor.powerspy.PowerSpySensor
 import org.junit.Ignore
 
 case object GiveMeYourLastReceive
 
-class PowerSpyFormulaListener extends Listener {
+class PowerSpyReporter extends Reporter {
   var powerSpyFormulaMessage: PowerSpyFormulaMessage = null
   val powerSpyFormulaMessageLock = new Lock()
 
-  def messagesToListen = Array(classOf[PowerSpyFormulaMessage])
+  def process(processedMessage: ProcessedMessage) = {}
 
   def process(powerSpyFormulaMessage: PowerSpyFormulaMessage) {
     if (log.isDebugEnabled) {
@@ -63,19 +61,19 @@ class PowerSpyFormulaListener extends Listener {
     powerSpyFormulaMessageLock.release
   }
 
-  def acquire = {
+  override def receive = {
     case powerSpyFormulaMessage: PowerSpyFormulaMessage => process(powerSpyFormulaMessage)
     case GiveMeYourLastReceive => processGiveMeYourLastReceive(sender)
   }
 }
 
-class PowerSpyFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class PowerSpyFormulaSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
 
   @Test
   def testComputation() {
     implicit val system = ActorSystem("formula-powerspy")
 
-    val powerSpyFormulaListener = TestActorRef[PowerSpyFormulaListener]
+    val powerSpyFormulaListener = TestActorRef[PowerSpyReporter]
     system.eventStream.subscribe(powerSpyFormulaListener, classOf[PowerSpyFormulaMessage])
 
     val powerSpyFormula = TestActorRef[PowerSpyFormula]
@@ -89,17 +87,4 @@ class PowerSpyFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
     result.energy should equal(Energy.fromPower(10.0 * 0.08f * 0.0005f))
     system.shutdown
   }
-
-  @Ignore
-  @Test
-  def testAll() {
-    Array(classOf[PowerSpySensor], classOf[PowerSpyFormula]).foreach(module => PowerAPI.startEnergyModule(module))
-
-    PowerAPI.startMonitoring(process = Process(1), duration = 500.milliseconds, listener = classOf[PowerSpyFormulaListener])
-    Thread.sleep((30.seconds).toMillis)
-    PowerAPI.stopMonitoring(process = Process(1), duration = 500.milliseconds, listener = classOf[PowerSpyFormulaListener])
-
-    Array(classOf[PowerSpySensor], classOf[PowerSpyFormula]).foreach(module => PowerAPI.stopEnergyModule(module))
-  }
-
 }

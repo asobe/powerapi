@@ -20,50 +20,12 @@
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>fr.inria.powerapi</groupId>
-			<artifactId>library</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
 			<groupId>com.github.scala-incubator.io</groupId>
 			<artifactId>scala-io-core_${scala.version}</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>com.github.scala-incubator.io</groupId>
 			<artifactId>scala-io-file_${scala.version}</artifactId>
-		</dependency>
-
-		<!-- Test scope -->
-
-		<dependency>
-			<groupId>fr.inria.powerapi.sensor</groupId>
-			<artifactId>sensor-cpu-sigar</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.formula</groupId>
-			<artifactId>formula-cpu-max</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.sensor</groupId>
-			<artifactId>sensor-mem-sigar</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.formula</groupId>
-			<artifactId>formula-mem-single</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>fr.inria.powerapi.processor</groupId>
-			<artifactId>device-aggregator</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
 		</dependency>
 	</dependencies>
 </project>

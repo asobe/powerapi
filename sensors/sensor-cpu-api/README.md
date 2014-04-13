@@ -6,7 +6,7 @@ Base types for each CPU `Sensor` module implementations.
 
 ## In
 
-This module reacts to `Tick` messages, typically sent by the core `Clock` class.
+This module reacts to `Tick` messages, typically sent by the core `ClockWorker` class.
 
 ## Out
 

@@ -20,15 +20,14 @@
  */
 package fr.inria.powerapi.formula.cpu.maxvm
 
-import org.scalatest.FlatSpec
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.junit.AssertionsForJUnit
 import scala.collection.mutable.Stack
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.pattern.ask
-import fr.inria.powerapi.core.Listener
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.core.Process
@@ -42,7 +41,7 @@ import fr.inria.powerapi.sensor.cpu.api.ProcessPercent
 import fr.inria.powerapi.sensor.cpu.api.ActivityPercent
 
 @RunWith(classOf[JUnitRunner])
-class CpuFormulaSpec extends FlatSpec with ShouldMatchersForJUnit {
+class CpuFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
   implicit val system = ActorSystem("CpuFormulaSpecSystem")
 

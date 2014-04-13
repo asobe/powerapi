@@ -39,14 +39,6 @@
 			<artifactId>log4j</artifactId>
 			<version>1.2.17</version>
 		</dependency>
-
-		<!-- Test scope -->
-		<dependency>
-			<groupId>fr.inria.powerapi</groupId>
-			<artifactId>library</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
 
 	<build>

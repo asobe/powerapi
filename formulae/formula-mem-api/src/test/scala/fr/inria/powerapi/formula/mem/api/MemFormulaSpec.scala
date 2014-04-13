@@ -24,8 +24,8 @@ import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
 import org.junit.runner.RunWith
-import org.scalatest.junit.JUnitRunner
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite, JUnitRunner}
+import org.scalatest.Matchers
 import org.scalatest.FlatSpec
 import akka.actor.ActorSystem
 import akka.util.Timeout
@@ -36,7 +36,7 @@ import fr.inria.powerapi.core.MessagesToListen
 import fr.inria.powerapi.core.Message
 
 @RunWith(classOf[JUnitRunner])
-class MemFormulaSpec extends FlatSpec with ShouldMatchersForJUnit {
+class MemFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
   lazy val system = ActorSystem("mem-formula-suite")
   implicit lazy val timeout = Timeout(5.seconds)

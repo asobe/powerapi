@@ -508,8 +508,8 @@ public class SimplePowerSpy implements PowerSpy {
 				  }
 				}
 				catch (NullPointerException e) {
-				  if (LOG.isEnabledFor(Level.WARN)) {
-					LOG.warn("Monitor thread stooped");
+				  if (LOG.isEnabledFor(Level.DEBUG)) {
+					LOG.warn("Monitor thread stopped");
 				}
 				}
 			} else {

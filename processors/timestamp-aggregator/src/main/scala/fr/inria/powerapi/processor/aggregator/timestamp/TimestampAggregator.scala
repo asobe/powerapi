@@ -1,26 +1,24 @@
 /**
- * Copyright (C) 2012 Inria, University Lille 1.
- *
- * This file is part of PowerAPI.
- *
- * PowerAPI is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * PowerAPI is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with PowerAPI. If not, see <http://www.gnu.org/licenses/>.
- *
- * Contact: powerapi-user-list@googlegroups.com.
- */
+* Copyright (C) 2012 Inria, University Lille 1.
+*
+* This file is part of PowerAPI.
+*
+* PowerAPI is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License as
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+*
+* PowerAPI is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with PowerAPI. If not, see <http://www.gnu.org/licenses/>.
+*
+* Contact: powerapi-user-list@googlegroups.com.
+*/
 package fr.inria.powerapi.processor.aggregator.timestamp
-
-import com.typesafe.config.ConfigFactory
 
 import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.FormulaMessage
@@ -30,52 +28,16 @@ import fr.inria.powerapi.core.Processor
 import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 
-object SmoothingAggregator {
-  /**
-   * Link to get information from configuration files.
-   */
-  lazy val conf = ConfigFactory.load
-  lazy val state     = conf.getBoolean("powerapi.aggregator.smoothing.state")
-  lazy val freq      = conf.getDouble("powerapi.aggregator.smoothing.freq")
-  lazy val mincutoff = conf.getDouble("powerapi.aggregator.smoothing.mincutoff")
-  lazy val beta      = conf.getDouble("powerapi.aggregator.smoothing.beta")
-  
-  val filterList = collection.mutable.HashMap[String, OneEuroFilter]("timestamp" -> new OneEuroFilter(freq, mincutoff, beta))
-  
-  def addFilter(key: String) {
-    filterList += (key -> new OneEuroFilter(freq, mincutoff, beta))
-  }
-  def containsFilter(key: String) = filterList.contains(key)
-  def filter(key: String, value: Double) = if (state) filterList(key).filter(value) else value
-}
-
 /**
- * Messages that can be sent by aggregators:
- * 1. RowMessage, wrapper for a FormulaMessage which is replaced by a ProcessedMessage in order to differ from it (by type)
- * 2. AggregatedMessage, RowMessage and AggregatedMessage composite
- *
- * @author abourdon
- */
+* Messages that can be sent by aggregators:
+* 1. RowMessage, wrapper for a FormulaMessage which is replaced by a ProcessedMessage in order to differ from it (by type)
+* 2. AggregatedMessage, RowMessage and AggregatedMessage composite
+*
+* @author abourdon
+*/
 case class RowMessage(tick: Tick, device: String, energy: Energy) extends ProcessedMessage
 case class AggregatedMessage(tick: Tick, device: String, messages: collection.mutable.Set[ProcessedMessage] = collection.mutable.Set[ProcessedMessage]()) extends ProcessedMessage {
-  def energy = {
-    if (SmoothingAggregator.state) {
-      var key = "timestamp"
-      if (tick.subscription.process.pid != -1) {
-        if (SmoothingAggregator.containsFilter(tick.subscription.process.pid.toString) == false)
-          SmoothingAggregator.addFilter(tick.subscription.process.pid.toString)
-        key = tick.subscription.process.pid.toString
-      }
-      else if (device != "all") {
-        if (SmoothingAggregator.containsFilter(device) == false)
-          SmoothingAggregator.addFilter(device)
-        key = device
-      }
-      Energy.fromPower(SmoothingAggregator.filter(key, messages.foldLeft(0: Double) { (acc, message) => acc + message.energy.power }))
-    }
-    else
-      Energy.fromPower(messages.foldLeft(0: Double) { (acc, message) => acc + message.energy.power })
-  }
+  def energy = Energy.fromPower(messages.foldLeft(0: Double) { (acc, message) => acc + message.energy.power })
   def add(message: ProcessedMessage) {
     messages += message
   }
@@ -85,24 +47,21 @@ case class AggregatedMessage(tick: Tick, device: String, messages: collection.mu
 }
 
 /**
- * Aggregates FormulaMessages by their timestamp.
- *
- * By default, TimestampAggregator builds new AggregatedMessage with process = Process(-1) and device = "all".
- * Note that Process(-1) means "all processes".
- *
- * @author abourdon
- */
+* Aggregates FormulaMessages by their clockids (which represent the different monitorings) and timestamp.
+*
+* By default, TimestampAggregator builds new AggregatedMessage with process = Process(-1) and device = "all".
+* Note that Process(-1) means "all processes".
+*/
 class TimestampAggregator extends Processor {
   // Cache has to be created during the instance creation in order to limit overhead
   // and thus reduce latency when receiving formula messages.
-  // That's why we have to define it lazyless
   val cache = collection.mutable.Map[Long, AggregatedMessage]()
 
   def addToCache(formulaMessage: FormulaMessage) {
     cache get formulaMessage.tick.timestamp match {
       case Some(agg) => agg += RowMessage(formulaMessage.tick, formulaMessage.device, formulaMessage.energy)
       case None => {
-        val agg = AggregatedMessage(tick = Tick(TickSubscription(Process(-1), formulaMessage.tick.subscription.duration)), device = "all")
+        val agg = AggregatedMessage(tick = Tick(formulaMessage.tick.clockid, TickSubscription(Process(-1), formulaMessage.tick.subscription.duration)), device = "all")
         agg += RowMessage(formulaMessage.tick, formulaMessage.device, formulaMessage.energy)
         cache += formulaMessage.tick.timestamp -> agg
       }
@@ -113,17 +72,45 @@ class TimestampAggregator extends Processor {
     cache -= timestamp
   }
 
+  def byClocks(implicit timestamp: Long): Iterable[AggregatedMessage] = {
+    val base = cache(timestamp)
+    // Group by timestamp (which is represented by one entry in the cache) and clockid
+    val messages = for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) yield (AggregatedMessage(
+      tick = Tick(byMonitoring._1, TickSubscription(Process(-1), base.tick.subscription.duration), timestamp),
+      device = "all",
+      messages = byMonitoring._2)
+    )
+
+    messages
+  }
+
   def send(implicit timestamp: Long) {
-    publish(cache(timestamp))
+    byClocks foreach publish
   }
 
   def process(formulaMessage: FormulaMessage) {
     if (!cache.isEmpty && !cache.contains(formulaMessage.tick.timestamp)) {
+      // Get first timestamp to inject it in each method
       implicit val toDisplay = cache.minBy(_._1)._1
       send
       dropFromCache
     }
     addToCache(formulaMessage)
   }
+}
 
+/**
+ * Companion object used to create this given component.
+ */
+object AggregatorTimestamp extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[TimestampAggregator]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait AggregatorTimestamp {
+  self: fr.inria.powerapi.core.API =>
+  configure(AggregatorTimestamp)
 }

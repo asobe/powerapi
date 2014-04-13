@@ -26,19 +26,21 @@ import scala.util.Properties
 
 import org.junit.Test
 import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.Matchers
 
 import akka.actor.actorRef2Scala
 import akka.actor.Actor
 import akka.actor.ActorSystem
 import akka.actor.Props
 import akka.testkit.TestActorRef
-import fr.inria.powerapi.core.Clock
+import scala.concurrent.Await
+import akka.util.Timeout
+import akka.pattern.ask
+
+import fr.inria.powerapi.core.{ ClockMessages, ClockSupervisor }
 import fr.inria.powerapi.core.Process
 import fr.inria.powerapi.core.Tick
-import fr.inria.powerapi.core.TickIt
 import fr.inria.powerapi.core.TickSubscription
-import fr.inria.powerapi.core.UnTickIt
 import fr.inria.powerapi.sensor.disk.api.DiskSensorMessage
 
 class DiskReceiverMock extends Actor {
@@ -49,14 +51,14 @@ class DiskReceiverMock extends Actor {
   }
 }
 
-class DiskSensorSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DiskSensorSuite extends JUnitSuite with Matchers {
   trait ConfigurationMock extends Configuration {
     lazy val basedir = new URL("file", Properties.propOrEmpty("basedir"), "")
     override lazy val iofile = new URL(basedir, "/src/test/resources/proc/%?/io").toString
   }
 
   implicit val system = ActorSystem("DiskSensorSuite")
-  implicit val tick = Tick(TickSubscription(Process(123), 1.second))
+  implicit val tick = Tick(1, TickSubscription(Process(123), 1.second))
   val diskSensor = TestActorRef(new DiskSensor with ConfigurationMock)
 
   @Test
@@ -70,14 +72,17 @@ class DiskSensorSuite extends JUnitSuite with ShouldMatchersForJUnit {
 
   @Test
   def testTick() {
+    import ClockMessages.{ StartClock, StopClock }
+    implicit val timeout = Timeout(5.seconds)
+    
     val diskReceiver = TestActorRef[DiskReceiverMock]
-    val clock = system.actorOf(Props[Clock])
+    val clock = system.actorOf(Props[ClockSupervisor])
     system.eventStream.subscribe(diskSensor, classOf[Tick])
     system.eventStream.subscribe(diskReceiver, classOf[DiskSensorMessage])
 
-    clock ! TickIt(TickSubscription(Process(123), 10.seconds))
+    val clockid = Await.result(clock ? StartClock(Array(Process(123)), 10.seconds), timeout.duration).asInstanceOf[Long]
     Thread.sleep(1000)
-    clock ! UnTickIt(TickSubscription(Process(123), 10.seconds))
+    Await.result(clock ? StopClock(clockid), timeout.duration)
 
     diskReceiver.underlyingActor.receivedValues match {
       case None => fail()

@@ -21,8 +21,6 @@
 package fr.inria.powerapi.reporter.file
 
 import fr.inria.powerapi.core.Energy
-import fr.inria.powerapi.core.Listener
-import fr.inria.powerapi.library.PowerAPI
 import scalax.io.Resource
 import scalax.file.Path
 import fr.inria.powerapi.core.ProcessedMessage
@@ -51,9 +49,9 @@ class FileReporter extends Reporter with Configuration {
   case class Line(processedMessage: ProcessedMessage) {
     override def toString() =
       "timestamp=" + processedMessage.tick.timestamp + ";" +
-        "process=" + processedMessage.tick.subscription.process + ";" +
-        "device=" + processedMessage.device + ";" +
-        "power=" + processedMessage.energy.power + scalax.io.Line.Terminators.NewLine.sep
+      "process=" + processedMessage.tick.subscription.process + ";" +
+      "device=" + processedMessage.device + ";" +
+      "power=" + processedMessage.energy.power + scalax.io.Line.Terminators.NewLine.sep
   }
 
   lazy val output = {
@@ -64,5 +62,4 @@ class FileReporter extends Reporter with Configuration {
   def process(processedMessage: ProcessedMessage) {
     output.append(Line(processedMessage).toString)
   }
-
 }

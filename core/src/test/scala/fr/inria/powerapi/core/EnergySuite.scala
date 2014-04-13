@@ -22,9 +22,10 @@ package fr.inria.powerapi.core
 
 import scala.concurrent.duration.DurationInt
 import org.junit.Test
-import org.scalatest.junit.{ ShouldMatchersForJUnit, JUnitSuite }
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
-class EnergySuite extends JUnitSuite with ShouldMatchersForJUnit {
+class EnergySuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   @Test
   def testFromPower() {
     Energy.fromPower(3).power should equal(3)

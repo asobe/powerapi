@@ -31,14 +31,14 @@ import akka.util.Timeout
 import fr.inria.powerapi.core.Message
 import fr.inria.powerapi.core.MessagesToListen
 import fr.inria.powerapi.sensor.disk.api.DiskSensorMessage
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 class DiskFormulaMock extends DiskFormula {
   def process(diskSensorMessage: DiskSensorMessage) {}
 }
 
-class DiskFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DiskFormulaSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   lazy val system = ActorSystem("CpuFormulaSuite")
   implicit lazy val timeout = Timeout(5.seconds)
 

@@ -27,7 +27,7 @@ import scala.util.Properties
 
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.Matchers
 import org.scalatest.FlatSpec
 
 import akka.actor.ActorSystem
@@ -38,7 +38,7 @@ import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.sensor.cpu.api.TimeInStates
 
 @RunWith(classOf[JUnitRunner])
-class CpuSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class CpuSensorSpec extends FlatSpec with Matchers {
 
   trait ConfigurationMock extends Configuration {
     override lazy val timeInStatePath = new URL(
@@ -47,7 +47,7 @@ class CpuSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
   }
 
   implicit val system = ActorSystem("cpusensorsuite")
-  implicit val tick = Tick(TickSubscription(Process(123), 1.second))
+  implicit val tick = Tick(1, TickSubscription(Process(123), 1.second))
   val cpuSensor = TestActorRef(new CpuSensor with ConfigurationMock {
     override lazy val cores = 4
   })

@@ -24,10 +24,9 @@ import scala.concurrent.duration.DurationInt
 
 import org.junit.runner.RunWith
 import org.scalatest.FlatSpec
-import org.scalatest.junit.JUnitRunner
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite, JUnitRunner}
+import org.scalatest.Matchers
 import akka.actor.ActorSystem
-import akka.testkit.TestActorRef
 import akka.testkit.TestActorRef
 import fr.inria.powerapi.core.Energy
 import fr.inria.powerapi.core.FormulaMessage
@@ -40,40 +39,43 @@ case class FormulaMessageMock(energy: Energy, tick: Tick, device: String = "mock
 class TimestampAggregatorMock extends TimestampAggregator {
   val sent = collection.mutable.Map[Long, AggregatedMessage]()
 
-  override def send(implicit timestamp: Long) {
-    sent += timestamp -> cache(timestamp)
+  override def send(implicit timestamp: Long) = {
+    byClocks foreach (msg => sent += msg.tick.clockid -> msg)
   }
 }
 
 @RunWith(classOf[JUnitRunner])
-class TimestampAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
-
+class TimestampAggregatorSpec extends FlatSpec with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("timestamp-aggregator-spec")
   val timestampAggregator = TestActorRef[TimestampAggregatorMock]
-  
-  SmoothingAggregator.addFilter("timestampTest")
 
   "A TimestampAggregator" should "listen to FormulaMessage" in {
     timestampAggregator.underlyingActor.messagesToListen should equal(Array(classOf[FormulaMessage]))
   }
 
   "A TimestampAggregator" should "process a FormulaMessage" in {
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(Process(123), 1.second), 1)))
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(TickSubscription(Process(123), 1.second), 1)))
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(TickSubscription(Process(123), 1.second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(1, TickSubscription(Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(1, TickSubscription(Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(2, TickSubscription(Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(2, TickSubscription(Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(2, TickSubscription(Process(123), 1 second), 1)))
 
     timestampAggregator.underlyingActor.sent should be('empty)
 
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(Process(123), 1.second), 2)))
-
-    timestampAggregator.underlyingActor.sent should have size 1
-    timestampAggregator.underlyingActor.sent should contain key 1
-    timestampAggregator.underlyingActor.sent(1).energy should equal(Energy.fromPower(SmoothingAggregator.filter("timestampTest", 1 + 2 + 3)))
-
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(Process(123), 1.second), 3)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 2)))
 
     timestampAggregator.underlyingActor.sent should have size 2
+    timestampAggregator.underlyingActor.sent should contain key 1
+    timestampAggregator.underlyingActor.sent(1).energy should equal(Energy.fromPower(1 + 2 + 3))
     timestampAggregator.underlyingActor.sent should contain key 2
-    timestampAggregator.underlyingActor.sent(2).energy should equal(Energy.fromPower(SmoothingAggregator.filter("timestampTest", 1)))
+    timestampAggregator.underlyingActor.sent(2).energy should equal(Energy.fromPower(4 + 5 + 6))
+
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 3)))
+
+    // The map is not cleared, so all the previous are kept.
+    timestampAggregator.underlyingActor.sent should have size 2
+    timestampAggregator.underlyingActor.sent should contain key 1
+    timestampAggregator.underlyingActor.sent(1).energy should equal(Energy.fromPower(1))
   }
 }

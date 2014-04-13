@@ -23,8 +23,8 @@ package fr.inria.powerapi.formula.disk.single
 import scala.concurrent.duration.DurationInt
 
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
@@ -35,7 +35,7 @@ import fr.inria.powerapi.core.TickSubscription
 import fr.inria.powerapi.formula.disk.api.DiskFormulaMessage
 import fr.inria.powerapi.sensor.disk.api.DiskSensorMessage
 
-class DiskFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
+class DiskFormulaSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("DiskFormulaSuiteSystem")
   val diskFormula = TestActorRef[DiskFormula].underlyingActor
 
@@ -63,7 +63,7 @@ class DiskFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
 
   @Test
   def testRefreshCache() {
-    val old = DiskSensorMessage(rw = Map("n/a" -> (123: Long, 456: Long)), Tick(TickSubscription(Process(123), 500.milliseconds)))
+    val old = DiskSensorMessage(rw = Map("n/a" -> (123: Long, 456: Long)), Tick(1, TickSubscription(Process(123), 500.milliseconds)))
     diskFormula.refreshCache(old)
     diskFormula.cache getOrElse (TickSubscription(Process(123), 500.milliseconds), null) should equal(old)
   }
@@ -81,8 +81,8 @@ class DiskFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
   @Test
   def testPower() {
     val duration = 500.milliseconds
-    val old = DiskSensorMessage(rw = Map("n/a" -> (100: Long, 200: Long)), Tick(TickSubscription(Process(123), duration)))
-    val now = DiskSensorMessage(rw = Map("n/a" -> (500: Long, 400: Long)), Tick(TickSubscription(Process(123), duration)))
+    val old = DiskSensorMessage(rw = Map("n/a" -> (100: Long, 200: Long)), Tick(1, TickSubscription(Process(123), duration)))
+    val now = DiskSensorMessage(rw = Map("n/a" -> (500: Long, 400: Long)), Tick(1, TickSubscription(Process(123), duration)))
 
     diskFormula.power(now, old) should equal(Energy.fromJoule(((500 - 100) * diskFormula.readEnergyByByte + (400 - 200) * diskFormula.writeEnergyByByte), duration))
   }
@@ -90,7 +90,7 @@ class DiskFormulaSuite extends JUnitSuite with ShouldMatchersForJUnit {
   @Test
   def testCompute() {
     val duration = 500.milliseconds
-    val tick = Tick(TickSubscription(Process(123), duration))
+    val tick = Tick(1, TickSubscription(Process(123), duration))
 
     val old = DiskSensorMessage(rw = Map("n/a" -> (100: Long, 200: Long)), tick)
     diskFormula.refreshCache(old)

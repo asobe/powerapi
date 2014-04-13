@@ -40,6 +40,7 @@ import fr.inria.powerapi.sensor.cpu.api.ProcessElapsedTime
 import fr.inria.powerapi.sensor.cpu.api.ProcessPercent
 
 import scalax.io.Resource
+import org.apache.log4j.{ Level, Logger }
 
 /**
  * CPU sensor configuration.
@@ -51,7 +52,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
     new BufferedReader(new FileReader(filepath))
   } catch {
         case ioe: IOException =>
-          if (log.isWarningEnabled) log.warning("i/o exception: " + ioe.getMessage)
+          if (logger.isEnabledFor(Level.WARN)) logger.warn("i/o exception: " + ioe.getMessage)
           null
     }
 }
@@ -96,7 +97,7 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor with Con
         }
       }
 
-      if (log.isInfoEnabled) log.info("read power value from host: " + power)
+      if (logger.isEnabledFor(Level.INFO)) logger.info("read power value from host: " + power)
       Energy.fromPower(power)
     }
   }
@@ -111,4 +112,20 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor with Con
         activityPercent = activityPercent.process(tick.subscription),
         tick = tick))
   }
+}
+
+/**
+ * Companion object used to create this given component.
+ */
+object SensorCpuProcVirtio extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[CpuSensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorCpuProcVirtio {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorCpuProcVirtio)
 }

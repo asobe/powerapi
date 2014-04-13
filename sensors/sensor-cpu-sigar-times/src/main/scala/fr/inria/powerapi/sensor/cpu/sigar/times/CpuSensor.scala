@@ -112,3 +112,19 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.sigar.CpuSensor with Config
     )
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object SensorCpuSigarTimes extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[CpuSensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorCpuSigarTimes {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorCpuSigarTimes)
+}

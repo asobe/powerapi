@@ -21,7 +21,8 @@
 package fr.inria.powerapi.sensor.sigar
 
 import org.scalatest.FlatSpec
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.JUnitRunner
+import org.scalatest.Matchers
 import akka.testkit.TestActorRef
 import akka.actor.ActorSystem
 import fr.inria.powerapi.core.Tick
@@ -33,7 +34,7 @@ class SigarSensorMock extends SigarSensor {
 }
 
 @RunWith(classOf[JUnitRunner])
-class SigarSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class SigarSensorSpec extends FlatSpec with Matchers {
 
   implicit val system = ActorSystem("sensor-sigar")
   val sensor = TestActorRef[SigarSensorMock]

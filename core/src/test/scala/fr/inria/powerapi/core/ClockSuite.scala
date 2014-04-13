@@ -22,104 +22,91 @@ package fr.inria.powerapi.core
 
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.SynchronizedMap
-import scala.concurrent.Await
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.DurationInt
 
-import org.junit.Ignore
 import org.junit.Test
-import org.scalatest.junit.JUnitSuite
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite}
+import org.scalatest.Matchers
 
 import akka.actor.ActorLogging
 import akka.actor.ActorSystem
 import akka.actor.actorRef2Scala
+import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.testkit.TestActorRef
 import akka.util.Timeout
 
 case object Result
 
-class ByProcessTickReceiver extends akka.actor.Actor with ActorLogging {
-  val receivedTicks = new HashMap[TickSubscription, Int] with SynchronizedMap[TickSubscription, Int]
+class ByClockTickReceiver extends akka.actor.Actor with ActorLogging {
+  val receivedTicks = new HashMap[Long, Int] with SynchronizedMap[Long, Int]
 
-  private def increment(tickSubscription: TickSubscription) {
-    val currentTick = receivedTicks getOrElse(tickSubscription, 0)
-    receivedTicks += (tickSubscription -> (currentTick + 1))
+  private def increment(clockid: Long) {
+    val currentTick = receivedTicks getOrElse(clockid, 0)
+    receivedTicks += (clockid -> (currentTick + 1))
   }
 
   def receive = {
-    case tick: Tick => increment(tick.subscription)
-    case Result => sender ! receivedTicks
+    case tick: Tick => increment(tick.clockid)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 }
 
-class SimpleTickReceiver extends akka.actor.Actor with ActorLogging {
-  var receivedTicks = 0
+class ClockSuite extends JUnitSuite with Matchers with AssertionsForJUnit {
+  import ClockMessages._
 
-  def receive = {
-    case tick: Tick => receivedTicks += 1
-  }
-}
-
-class ClockSuite extends JUnitSuite with ShouldMatchersForJUnit {
   implicit val system = ActorSystem("ClockTest")
-  val clock = TestActorRef[Clock]
+  val clock = TestActorRef[ClockSupervisor]
+  implicit val timeout = Timeout(10.seconds)
 
   @Test
-  def testMessagesToListen() {
-    implicit val timeout = Timeout(5.seconds)
-    val request = clock ? MessagesToListen
-    val messages = Await.result(request, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
-
-    messages should have size 2
-    messages(0) should be(classOf[TickIt])
-    messages(1) should be(classOf[UnTickIt])
-  }
-
-  @Test
-  def testReceivedSimpleTicks() {
-    val tickReceiver = TestActorRef[ByProcessTickReceiver]
+  def testClockBehavior() {
+    val tickReceiver = TestActorRef[ByClockTickReceiver]
     system.eventStream.subscribe(tickReceiver, classOf[Tick])
 
-    clock ! TickIt(TickSubscription(Process(123), 500.milliseconds))
-    clock ! TickIt(TickSubscription(Process(124), 1000.milliseconds))
-    clock ! TickIt(TickSubscription(Process(125), 1500.milliseconds))
-    Thread.sleep(3200)
+    val clock1 = Await.result(clock ? StartClock(Array(Process(123)), 500.milliseconds), timeout.duration).asInstanceOf[Long]
+    val clock2 = Await.result(clock ? StartClock(Array(Process(124)), 1000.milliseconds), timeout.duration).asInstanceOf[Long]
+    val clock3 = Await.result(clock ? StartClock(Array(Process(125)), 1500.milliseconds), timeout.duration).asInstanceOf[Long]
 
-    clock ! UnTickIt(TickSubscription(Process(123), 500.milliseconds))
-    Thread.sleep(2200)
+    clock ? StartTick(clock1, Process(321))
+    clock ? StartTick(clock1, Process(321))
 
-    clock ! UnTickIt(TickSubscription(Process(124), 500.milliseconds))
-    clock ! UnTickIt(TickSubscription(Process(125), 1500.milliseconds))
+    val clock3ending = Await.result(clock ? WaitFor(clock3, 5400.milliseconds), (5400.milliseconds + 1.seconds))
+    clock3ending should equal(ClockStoppedAck)
+    
+    val isAliveClock3 = Await.result(clock ? Ping(clock3), 50.milliseconds).asInstanceOf[Boolean]
+    isAliveClock3 should equal(false)
+
+    val isAliveClock2 = Await.result(clock ? Ping(clock2), 50.milliseconds).asInstanceOf[Boolean]
+    isAliveClock2 should equal(true)
+
+    clock ? StopTick(clock1, Process(321))
+    clock ? StopTick(clock1, Process(421))
+
+    val clock2ending  = Await.result(clock ? WaitFor(clock2, 1200.milliseconds), (1200.milliseconds + 1.seconds))
+    clock2ending should equal(ClockStoppedAck)
+
+    val futureProcessesList = Await.result(clock ? ListProcesses(clock1), timeout.duration).asInstanceOf[Future[List[Process]]]
+    val processesList = Await.result(futureProcessesList, timeout.duration).asInstanceOf[List[Process]]
+
+    processesList.size should equal(1)
+    processesList(0) should equal(Process(123))
+
+    Await.result(clock ? StopAllClocks, timeout.duration) should equal(AllClocksStoppedAck)
+
+    Thread.sleep((5.seconds).toMillis)
 
     val receivedTicks = tickReceiver.underlyingActor.receivedTicks
-    receivedTicks getOrElse(TickSubscription(Process(123), 500.milliseconds), 0) should {
-      equal(7) or equal(7 + 1)
+    
+    receivedTicks getOrElse(clock1, 0) should {
+      equal(24) or equal(24 + 1)
     }
-    receivedTicks getOrElse(TickSubscription(Process(124), 1000.milliseconds), 0) should {
-      equal(5) or equal(5 + 1)
+    receivedTicks getOrElse(clock2, 0) should {
+      equal(6) or equal(6 + 1)
     }
-    receivedTicks getOrElse(TickSubscription(Process(125), 1500.milliseconds), 0) should {
+    receivedTicks getOrElse(clock3, 0) should {
       equal(4) or equal(4 + 1)
     }
-  }
-
-  @Ignore
-  @Test
-  def testReceivedIntensiveTicks() {
-    val tickReceiver = TestActorRef[SimpleTickReceiver]
-    val duration = 100.milliseconds
-    val sleep = 10.seconds
-    val pids = (0 to 500)
-    system.eventStream.subscribe(tickReceiver, classOf[Tick])
-
-    pids.foreach(pid => clock ! TickIt(TickSubscription(Process(pid), duration)))
-    Thread.sleep(sleep.toMillis)
-    pids.foreach(pid => clock ! UnTickIt(TickSubscription(Process(pid), duration)))
-    Thread.sleep(sleep.toMillis / 2)
-
-    val averageReceivedTicks = tickReceiver.underlyingActor.receivedTicks.toDouble / pids.size
-    println(averageReceivedTicks)
   }
 }

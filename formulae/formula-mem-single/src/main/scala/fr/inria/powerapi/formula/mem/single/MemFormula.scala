@@ -60,5 +60,20 @@ class MemFormula extends fr.inria.powerapi.formula.mem.api.MemFormula with Confi
   def process(memSensorMessage: MemSensorMessage) {
     publish(MemFormulaMessage(Energy.fromPower(compute(memSensorMessage)), memSensorMessage.tick))
   }
+}
 
+/**
+ * Companion object used to create this given component.
+ */
+object FormulaMemSingle extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[MemFormula]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait FormulaMemSingle {
+  self: fr.inria.powerapi.core.API =>
+  configure(FormulaMemSingle)
 }

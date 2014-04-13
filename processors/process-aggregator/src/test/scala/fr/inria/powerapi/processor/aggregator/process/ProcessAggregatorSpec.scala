@@ -25,10 +25,9 @@ import scala.concurrent.duration.DurationInt
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import org.junit.runner.RunWith
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.junit.{AssertionsForJUnit, JUnitSuite, JUnitRunner}
+import org.scalatest.Matchers
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatedMessage
-import fr.inria.powerapi.processor.aggregator.timestamp.SmoothingAggregator
-import org.scalatest.junit.JUnitRunner
 import org.scalatest.FlatSpec
 import fr.inria.powerapi.core.FormulaMessage
 import fr.inria.powerapi.core.Energy
@@ -39,38 +38,42 @@ import fr.inria.powerapi.core.Process
 case class FormulaMessageMock(energy: Energy, tick: Tick, device: String = "mock") extends FormulaMessage
 
 class ProcessAggregatorMock extends ProcessAggregator {
-  val sent = collection.mutable.Map[Process, AggregatedMessage]()
+  val sent = collection.mutable.Map[(Long, Process), AggregatedMessage]()
 
   override def send(implicit timestamp: Long) {
-    byProcesses foreach (msg => sent += msg.tick.subscription.process -> msg)
+    byProcesses foreach (msg => sent += (msg.tick.clockid, msg.tick.subscription.process) -> msg)
   }
 }
 
 @RunWith(classOf[JUnitRunner])
-class ProcessAggregatorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class ProcessAggregatorSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
   implicit val system = ActorSystem("process-aggregator-spec")
   val processAggregator = TestActorRef[ProcessAggregatorMock]
-
-  SmoothingAggregator.addFilter("123Test")
-  SmoothingAggregator.addFilter("345Test")
 
   "A ProcessAggregator" should "listen to FormulaMessage" in {
     processAggregator.underlyingActor.messagesToListen should equal(Array(classOf[FormulaMessage]))
   }
 
   "A ProcessAggregator" should "process a FormulaMessage" in {
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(Process(123), 1.second), 1), device = "cpu"))
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(TickSubscription(Process(123), 1.second), 1), device = "mem"))
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(TickSubscription(Process(345), 1.second), 1), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 1), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(1, TickSubscription(Process(123), 1 second), 1), device = "mem"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(1, TickSubscription(Process(345), 1 second), 1), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(2, TickSubscription(Process(123), 1 second), 1), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(2, TickSubscription(Process(123), 1 second), 1), device = "mem"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(2, TickSubscription(Process(345), 1 second), 1), device = "cpu"))
 
     processAggregator.underlyingActor.sent should be('empty)
 
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(Process(123), 1.second), 2), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 2), device = "cpu"))
 
-    processAggregator.underlyingActor.sent should have size 2
-    processAggregator.underlyingActor.sent should (contain key (Process(123)) and contain key (Process(345)))
-    processAggregator.underlyingActor.sent(Process(123)).energy should equal(Energy.fromPower(SmoothingAggregator.filter("123Test", 1 + 2)))
-    processAggregator.underlyingActor.sent(Process(345)).energy should equal(Energy.fromPower(SmoothingAggregator.filter("345Test", 3)))
+    processAggregator.underlyingActor.sent should have size 4
+    processAggregator.underlyingActor.sent should (contain key (1, Process(123)) and contain key (1, Process(345)))
+    processAggregator.underlyingActor.sent(1, Process(123)).energy should equal(Energy.fromPower(1 + 2))
+    processAggregator.underlyingActor.sent(1, Process(345)).energy should equal(Energy.fromPower(3))
+
+    processAggregator.underlyingActor.sent should (contain key (2, Process(123)) and contain key (2, Process(345)))
+    processAggregator.underlyingActor.sent(2, Process(123)).energy should equal(Energy.fromPower(4 + 5))
+    processAggregator.underlyingActor.sent(2, Process(345)).energy should equal(Energy.fromPower(6))
   }
 }

@@ -4,8 +4,8 @@
     <groupId>fr.inria.powerapi.processor</groupId>
     <artifactId>device-aggregator</artifactId>
     <name>${project.artifactId}</name>
-    <description>Aggregates Formula messages by their timestamps and devices.</description>
-    <inceptionYear>2013</inceptionYear>
+    <description>Aggregates Formula messages by their clockids (which represent the monitorings), timestamps and devices.</description>
+    <inceptionYear>2014</inceptionYear>
 
     <parent>
         <groupId>fr.inria.powerapi</groupId>

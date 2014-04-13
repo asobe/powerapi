@@ -22,31 +22,27 @@ package fr.inria.powerapi.formula.mem.single
 
 import scala.concurrent.duration.DurationInt
 
-import org.scalatest.junit.ShouldMatchersForJUnit
-import org.scalatest.FlatSpec
+import org.scalatest.junit.AssertionsForJUnit
+import org.scalatest.{FlatSpec, Matchers}
 import fr.inria.powerapi.library.PowerAPI
 import fr.inria.powerapi.core.Process
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import fr.inria.powerapi.core.Listener
 import fr.inria.powerapi.formula.mem.api.MemFormulaMessage
+import akka.actor.Actor
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import fr.inria.powerapi.sensor.mem.api.MemSensorMessage
 import fr.inria.powerapi.sensor.mem.sigar.MemSensor
 
-class MemFormulaListener extends Listener {
-  def messagesToListen = Array(classOf[MemFormulaMessage])
-  def acquire = {
+class MemFormulaListener extends Actor {
+  def receive = {
     case memFormulaMessage: MemFormulaMessage => println(memFormulaMessage.energy.power)
-    case unknown => {
-      if (log.isWarningEnabled) log.warning("unknown message " + unknown)
-    }
   }
 }
 
 @RunWith(classOf[JUnitRunner])
-class MemFormulaSpec extends FlatSpec with ShouldMatchersForJUnit {
+class MemFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
   trait ConfigurationMock extends Configuration {
     override lazy val readPower = 5.0
@@ -63,17 +59,4 @@ class MemFormulaSpec extends FlatSpec with ShouldMatchersForJUnit {
   "A MemFormula" should "compute process memory power consumption" in {
     memFormula.underlyingActor.compute(MemSensorMessage(residentPerc = 0.5, tick = null)) should equal (memFormula.underlyingActor.power * 0.5)
   }
-
-  "A MemFormula" should "react to Tick to compute process memory power consumption" in {
-    val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
-
-    Array(classOf[MemSensor], classOf[MemFormula]).foreach(PowerAPI.startEnergyModule(_))
-    PowerAPI.startMonitoring(process = Process(currentPid), duration = 1.second, listener = classOf[MemFormulaListener])
-
-    Thread.sleep((5.seconds).toMillis)
-
-    PowerAPI.stopMonitoring(process = Process(currentPid), duration = 1.second, listener = classOf[MemFormulaListener])
-    Array(classOf[MemSensor], classOf[MemFormula]).foreach(PowerAPI.stopEnergyModule(_))
-  }
-
 }

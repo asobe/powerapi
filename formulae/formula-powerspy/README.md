@@ -6,7 +6,7 @@ PowerAPI `Formula` providing power metrics from a [PowerSpy](http://www.alciom.c
 
 ## In
 
-This module reacts to `PowerSpySensorMessage` messages, typically sent by the core `Clock` class.
+This module reacts to `PowerSpySensorMessage` messages, typically sent by the core `ClockWorker` class.
 
 ## Out
 

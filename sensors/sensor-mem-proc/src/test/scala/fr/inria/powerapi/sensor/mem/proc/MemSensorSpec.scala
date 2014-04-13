@@ -27,7 +27,7 @@ import scala.util.Properties
 
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import org.scalatest.junit.ShouldMatchersForJUnit
+import org.scalatest.Matchers
 import org.scalatest.FlatSpec
 
 import akka.actor.ActorSystem
@@ -37,7 +37,7 @@ import fr.inria.powerapi.core.Tick
 import fr.inria.powerapi.core.TickSubscription
 
 @RunWith(classOf[JUnitRunner])
-class MemSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
+class MemSensorSpec extends FlatSpec with Matchers {
 
   implicit val system = ActorSystem("sensor-mem-proc")
 
@@ -58,7 +58,7 @@ class MemSensorSpec extends FlatSpec with ShouldMatchersForJUnit {
   }
 
   "MemSensor" should "computes the process resident size memory percent" in {
-    sensor.underlyingActor.resident.perc(Tick(subscription = TickSubscription(Process(123), Duration.Zero))) should equal (48788.doubleValue / 4045760)
+    sensor.underlyingActor.resident.perc(Tick(1, subscription = TickSubscription(Process(123), Duration.Zero))) should equal (48788.doubleValue / 4045760)
   }
 
 }

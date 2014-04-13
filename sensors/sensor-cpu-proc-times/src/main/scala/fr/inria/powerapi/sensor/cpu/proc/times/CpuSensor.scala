@@ -115,3 +115,19 @@ class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.CpuSensor with Configu
     )
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object SensorCpuProcTimes extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[CpuSensor]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait SensorCpuProcTimes {
+  self: fr.inria.powerapi.core.API =>
+  configure(SensorCpuProcTimes)
+}

@@ -15,7 +15,7 @@
 	</parent>
 
 	<modules>
-		<module>sensor-sigar</module>
+		<module>sensor-sigar</module>	
 		<module>sensor-cpu-api</module>
 		<module>sensor-cpu-proc</module>
 		<module>sensor-cpu-proc-reg</module>

@@ -23,14 +23,6 @@
 			<artifactId>sensor-powerspy</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-
-		<!-- Test scope -->
-		<dependency>
-			<groupId>fr.inria.powerapi</groupId>
-			<artifactId>library</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
 
 </project>

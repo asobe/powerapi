@@ -106,3 +106,19 @@ class CpuFormula extends fr.inria.powerapi.formula.cpu.api.CpuFormula with Confi
     publish(compute(cpuSensorMessage))
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object FormulaCpuDVFS extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[CpuFormula]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait FormulaCpuDVFS {
+  self: fr.inria.powerapi.core.API =>
+  configure(FormulaCpuDVFS)
+}

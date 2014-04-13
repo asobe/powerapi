@@ -16,7 +16,7 @@ PowerAPI offers an API which can be used to express request about energy spent b
 
 <h2 id="getting-started">Getting started</h2>
 
-PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.10.2+), using the [Akka library](http://akka.io "Akka library") (v 2.1+). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
+PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.10), using the [Akka library](http://akka.io "Akka library") (v 2.3). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
 PowerAPI project is fully managed by [Maven](http://maven.apache.org "Maven") (v. 3).
 
 ### How to acquire it
@@ -114,7 +114,7 @@ These modules are organized as follow:
 
 As its name indicates, `Core` module gather all *kernel* functionnalities that will be used by other modules. More particulary, this module defines the whole types used by PowerAPI to define its architecture.
 
-This module also defines the essential `Clock` class, responsible of the periodically sending of the `Tick` message, later responsible of the process of the PowerAPI business part.
+This module also defines the essential `ClockSupervisor` and `ClockWorker` classes, responsible of the periodically sending of the `Tick` message, later responsible of the process of the PowerAPI business part.
 
 ### Sensors
 
