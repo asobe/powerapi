@@ -40,3 +40,19 @@ class PowerSpyFormula extends Formula {
     case powerSpySensorMessage: PowerSpySensorMessage => process(powerSpySensorMessage)
   }
 }
+
+/**
+ * Companion object used to create this given component.
+ */
+object FormulaPowerspy extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[PowerSpyFormula]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait FormulaPowerspy {
+  self: fr.inria.powerapi.core.API =>
+  configure(FormulaPowerspy)
+}

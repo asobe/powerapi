@@ -114,6 +114,12 @@
             <name>Typesafe Repository</name>
             <url>http://repo.typesafe.com/typesafe/releases</url>
         </repository>
+        <!-- Project repository -->
+        <repository>
+            <id>powerapi-dependencies</id>
+            <name>Powerapi dependencies repository</name>
+            <url>file://${powerapi.root}/lib</url>
+        </repository>
     </repositories>
 
     <dependencyManagement>

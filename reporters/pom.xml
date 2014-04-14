@@ -14,10 +14,6 @@
 		<version>1.6-SNAPSHOT</version>
 	</parent>
 
-	<properties>
-		<powerapi.root>${basedir}/..</powerapi.root>
-	</properties>
-
 	<modules>
 		<module>reporter-console</module>
 		<module>reporter-virtio</module>
