@@ -220,7 +220,6 @@ object Monitor extends App {
 
   else if(pids.isEmpty && !apps.isEmpty) {
     val appsC = fr.inria.powerapi.library.APPS(apps: _*)
-    println(appsC)
     allPIDs ++= (for(process <- appsC.monitoredProcesses.toArray) yield process.pid)
     powerapi.start(appsC, freq.millis)
   }
@@ -236,7 +235,7 @@ object Monitor extends App {
   if(reporters.isEmpty) reporters = Array("chart")
 
   reporters.foreach(reporter => {
-    monitoring = monitoring.attachReporter(getReporter(reporter))
+    monitoring.attachReporter(getReporter(reporter))
   })
 
   monitoring.waitFor(time.minute)

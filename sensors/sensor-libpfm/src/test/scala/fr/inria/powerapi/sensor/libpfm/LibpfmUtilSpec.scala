@@ -20,8 +20,9 @@
  */
 package fr.inria.powerapi.sensor.libpfm
 
-import scala.concurrent.duration.DurationInt
+import java.lang.management.ManagementFactory
 
+import scala.concurrent.duration.DurationInt
 import scala.util.Properties
 
 import org.junit.runner.RunWith
@@ -36,8 +37,11 @@ import org.scalatest.FlatSpec
 // import fr.inria.powerapi.core.TickSubscription
 // import fr.inria.powerapi.sensor.cpu.api.ProcessPercent
 
+import scala.sys.process._
+
 @RunWith(classOf[JUnitRunner])
 class LibpfmUtilSpec extends FlatSpec with Matchers {
+  val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
   "Init. method" should "initiliaze the libpfm" in {
     LibpfmUtil.isAlreadyInit should equal(false)
@@ -47,39 +51,68 @@ class LibpfmUtilSpec extends FlatSpec with Matchers {
     LibpfmUtil.initialize()
     LibpfmUtil.isAlreadyInit should equal(true)
   }
-  // trait ConfigurationMock extends Configuration {
-  //   lazy val basedir = new URL("file", Properties.propOrEmpty("basedir"), "")
-  //   override lazy val globalStatPath = new URL(basedir, "/src/test/resources/proc/stat").toString
-  //   override lazy val processStatPath = new URL(basedir, "/src/test/resources/proc/%?/stat").toString
-  // }
 
-  // implicit val system = ActorSystem("cpusensorsuite")
-  // val cpuSensor = TestActorRef(new CpuSensor with ConfigurationMock)
-  // val tick = Tick(1, TickSubscription(Process(123), 1.second))
-  // val processElapsedTime = 2 + 2
-  // val splittedTimes: Array[Long] = Array(441650, 65, 67586, 3473742, 31597, 0, 7703, 0, 23, 22)
-  // val globalElapsedTime = 441650 + 65 + 67586 + 3473742 + 31597 + 0 + 7703 + 0
+  "convertBitsetToLong method" should "convert a bitset to the corresponding long" in {
+    var long = 0L
+    var bitset = new java.util.BitSet()
+    // the bit 20 is mandatory, but the method edits it to 1 by default.
+    long = LibpfmUtil.convertBitsetToLong(bitset)
+    long should equal(1L << 20)
+    bitset.set(0)
+    bitset.set(1)
+    // Only 23 bits are allowed
+    bitset.set(24)
+    long = LibpfmUtil.convertBitsetToLong(bitset)
+    long should equal((1L << 0) + (1L << 1) + (1L << 20))
+    bitset = new java.util.BitSet()
+    bitset.set(0)
+    bitset.set(1)
+    bitset.set(2)
+    bitset.set(20)
+    long = LibpfmUtil.convertBitsetToLong(bitset)
+    long should equal((1L << 0) + (1L << 1) + (2L << 1) + (1L << 20))
+  }
 
-  // "A CpuSensor" should "read global elapsed time from a given dedicated system file" in {
-  //   cpuSensor.underlyingActor.processPercent.globalElapsedTime(splittedTimes) should equal(globalElapsedTime)
-  // }
+  "LibpfmUtil" should "allow to read a counter represented by an event (string)" in {
+    val seqCmd = Seq("/bin/bash", "./src/test/resources/test.bash")
+    val process = Process(seqCmd, None, "PATH" -> "/bin")
+    val buffer = process.lines
+    val ppid = buffer(0).trim.toInt
 
-  // "A CpuSensor" should "read process elapsed time from a given dedicated system file" in {
-  //   cpuSensor.underlyingActor.processPercent.processElapsedTime(Process(123)) should equal(processElapsedTime)
-  // }
+    val bitset = new java.util.BitSet()
+    bitset.set(0)
+    bitset.set(1)
+    bitset.set(5)
+    bitset.set(6)
 
-  // "A CpuSensor" should "refresh its cache after each processPercent calls" in {
-  //   cpuSensor.underlyingActor.processPercent.cache should have size 0
-  //   cpuSensor.underlyingActor.processPercent.process(tick.subscription)
-  //   cpuSensor.underlyingActor.processPercent.cache should equal(Map(tick.subscription -> (processElapsedTime, globalElapsedTime)))
-  // }
+    def run(fd: Int) = {
+      var i = 0
 
-  // "A CpuSensor" should "compute the process CPU percent" in {
-  //   val oldProcessElapsedTime = processElapsedTime / 2
-  //   val oldGlobalElapsedTime = globalElapsedTime / 2
-  //   cpuSensor.underlyingActor.processPercent.refrechCache(tick.subscription, (oldProcessElapsedTime, oldGlobalElapsedTime))
-  //   cpuSensor.underlyingActor.processPercent.process(tick.subscription) should equal(
-  //     ProcessPercent((processElapsedTime - oldProcessElapsedTime).doubleValue() / (globalElapsedTime - oldGlobalElapsedTime))
-  //   )
-  // }
+      LibpfmUtil.resetCounter(fd) should equal(true)
+      LibpfmUtil.enableCounter(fd) should equal(true)
+
+      Seq("kill", "-SIGCONT", ppid+"") !
+
+      while(i < 5) {
+        Thread.sleep(1000)
+        var value = LibpfmUtil.readCounter(fd)
+        println("cycles: " + value)
+        println("-----------------------------------")
+        i += 1
+      }
+
+      Seq("pkill", "-TERM", "-P", ppid+"") !
+
+      LibpfmUtil.disableCounter(fd) should equal(true)
+      LibpfmUtil.closeCounter(fd) should equal(true)
+      LibpfmUtil.terminate()
+    }
+
+    LibpfmUtil.initialize() should equal(true)
+
+    LibpfmUtil.configureCounter(fr.inria.powerapi.core.Process(ppid), bitset, "cycles") match {
+      case Some(fd) => run(fd)
+      case None => fail("cycles is an existing counter, it should be work.")
+    }
+  }
 }
