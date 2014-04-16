@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<artifactId>modes</artifactId>
+	<packaging>pom</packaging>
+	<name>${project.artifactId}</name>
+	<description>Modes for usage of the PowerAPI library.</description>
+	<inceptionYear>2014</inceptionYear>
+
+	<parent>
+		<groupId>fr.inria.powerapi</groupId>
+		<artifactId>powerapi</artifactId>
+		<version>1.6-SNAPSHOT</version>
+	</parent>
+
+	<modules>
+		<module>daemon-PowerAPI</module>
+	</modules>
+</project>
