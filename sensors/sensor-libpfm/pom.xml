@@ -24,6 +24,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>fr.inria.powerapi</groupId>
+            <artifactId>library</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>perfmon2</groupId>
             <artifactId>libpfm</artifactId>
             <version>4.5.0</version>

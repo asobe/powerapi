@@ -29,6 +29,14 @@ import org.bridj.Pointer.{ allocateLongs, pointerTo, pointerToCString }
 import org.apache.log4j.{ Level, Logger }
 import scala.collection
 
+/**
+ * This object allows us to interact with the Libpfm library (C Library).
+ * We use jnaerator and bridj to create the binding with it.
+ * https://github.com/ochafik/nativelibs4java
+ *
+ * The most configurable method is configureCounter (configuration parameter). To have more details about the bits to enable,
+ * follow this link: http://www.man7.org/linux/man-pages/man2/perf_event_open.2.html.
+ */
 object LibpfmUtil {
     // Shortcut to get the enabled and running time when we read the counters.
     private val perfFormatScale = LibpfmLibrary.perf_event_read_format.PERF_FORMAT_TOTAL_TIME_ENABLED.value.toInt | LibpfmLibrary.perf_event_read_format.PERF_FORMAT_TOTAL_TIME_RUNNING.value.toInt
@@ -54,7 +62,7 @@ object LibpfmUtil {
             }
         }
         else {
-            if(logger.isEnabledFor(Level.WARN)) logger.warn("Libpfm is already initialized.")
+            if(logger.isEnabledFor(Level.DEBUG)) logger.debug("Libpfm is already initialized.")
             true
         }
     }

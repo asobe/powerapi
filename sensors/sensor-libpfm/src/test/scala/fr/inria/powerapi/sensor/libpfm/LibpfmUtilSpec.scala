@@ -30,13 +30,6 @@ import org.scalatest.junit.{AssertionsForJUnit, JUnitRunner}
 import org.scalatest.Matchers
 import org.scalatest.FlatSpec
 
-// import akka.actor.ActorSystem
-// import akka.testkit.TestActorRef
-// import fr.inria.powerapi.core.Process
-// import fr.inria.powerapi.core.Tick
-// import fr.inria.powerapi.core.TickSubscription
-// import fr.inria.powerapi.sensor.cpu.api.ProcessPercent
-
 import scala.sys.process._
 
 @RunWith(classOf[JUnitRunner])
