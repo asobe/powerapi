@@ -109,6 +109,17 @@
         <powerapi.root>${basedir}</powerapi.root>
     </properties>
 
+    <pluginRepositories>
+      <pluginRepository>
+        <id>powerapi-dependencies</id>
+        <name>Powerapi dependencies repository</name>
+        <url>file://${powerapi.root}/lib</url>
+        <snapshots>
+          <enabled>true</enabled>
+        </snapshots>
+      </pluginRepository>
+    </pluginRepositories>
+
     <repositories>
         <repository>
             <id>typesafe</id>

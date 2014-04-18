@@ -60,18 +60,18 @@ class FuseReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
   def testRun() {
     Thread.sleep((1.second).toMillis)
   
-    Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-al","pfs/")).getInputStream).lines()
+    Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-l","pfs/")).getInputStream).lines()
       .toList(3).split("\\s").last should equal ("energy")
-    Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-al","pfs/energy/")).getInputStream).lines()
-      .toList should have size 3
+    Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-l","pfs/energy/")).getInputStream).lines()
+      .toList should have size 1
     
     Runtime.getRuntime.exec(Array("mkdir","pfs/energy/1234"))
     
-    Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-al","pfs/energy")).getInputStream).lines()
+    Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-l","pfs/energy")).getInputStream).lines()
       .toList.map(_.split("\\s").last) should contain ("1234")
-    val pidDir = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-al","pfs/energy/1234")).getInputStream).lines()
+    val pidDir = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-l","pfs/energy/1234")).getInputStream).lines()
       .toList.map(_.split("\\s").last)
-    pidDir should have size 6
+    pidDir should have size 4
     pidDir should contain ("frequency")
     pidDir should contain ("energy")
     pidDir should contain ("power")
@@ -85,8 +85,8 @@ class FuseReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
       
     Runtime.getRuntime.exec(Array("rmdir","pfs/energy/1234"))
     
-    Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-al","pfs/energy/")).getInputStream).lines()
-      .toList should have size 3
+    Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-l","pfs/energy/")).getInputStream).lines()
+      .toList should have size 1
   }
   
   @After

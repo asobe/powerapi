@@ -83,7 +83,7 @@ class RestReporter(powerapi: PAPI, monitoring: Monitoring) extends Actor with Ac
 /**
  * REST Service
  */
-trait RestService extends HttpService {
+trait RestService extends HttpService {// TODO two actors
   import RestServiceJsonProtocol._
   def mon(): Monitoring
   
