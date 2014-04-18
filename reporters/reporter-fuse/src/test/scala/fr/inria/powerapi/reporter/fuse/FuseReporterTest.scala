@@ -44,7 +44,7 @@ class FuseReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
   
   @Before
   def setUp() {
-    Path("pfs").createDirectory(createParents=false,failIfExists=false)
+    Path("pfs").createDirectory(failIfExists=false)
     
     val monitoring = powerapi.start(PIDS(), 1.seconds)
     
