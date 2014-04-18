@@ -81,6 +81,8 @@
       <groupId>daemon-plugin</groupId>
       <artifactId>jsvc-maven-plugin</artifactId>
       <version>1.0-SNAPSHOT</version>
+      <scope>system</scope>
+      <systemPath>${powerapi.root}/lib/daemon-plugin/jsvc-maven-plugin/1.0-SNAPSHOT/jsvc-maven-plugin-1.0-SNAPSHOT.jar</systemPath>
     </dependency>
   </dependencies>
 
