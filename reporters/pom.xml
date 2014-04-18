@@ -21,6 +21,8 @@
 		<module>reporter-gnuplot</module>
 		<module>reporter-jfreechart</module>
 		<module>reporter-thrift</module>
+		<module>reporter-fuse</module>
+		<module>reporter-rest</module>
 	</modules>
 
 </project>
