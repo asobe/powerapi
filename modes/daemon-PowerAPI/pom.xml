@@ -131,8 +131,8 @@
             <scriptName>${project.artifactId}</scriptName>
           </applicationConfiguration>
           <targetSystemConfiguration>
-            <javaHome>/usr/lib/jvm/java-7-openjdk-amd64</javaHome>
-            <applicationJarLocation>/home/adam/.m2/repository/fr/inria/powerapi/mode/PowerAPId/1.6-SNAPSHOT</applicationJarLocation>
+            <javaHome>${java.home}</javaHome>
+            <applicationJarLocation>${user.home}/.m2/repository/fr/inria/powerapi/mode/PowerAPId/${project.version}</applicationJarLocation>
             <daemonJarLocation>/usr/share/java</daemonJarLocation>
           </targetSystemConfiguration>
           <daemonConfiguration>
