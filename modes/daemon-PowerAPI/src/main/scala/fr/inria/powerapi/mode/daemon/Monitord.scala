@@ -43,7 +43,7 @@ class Monitord extends Daemon {
   val powerapi = new PAPI with SensorCpuProcReg with FormulaCpuReg with AggregatorProcess
   
   def beforeStart() {
-    Path("pfs").createDirectory(createParents=false,failIfExists=false)
+    Path("pfs").createDirectory(failIfExists=false)
     
     val monitoring = powerapi.start(PIDS(), 1.seconds)
     

@@ -61,7 +61,7 @@ class FuseReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
     Thread.sleep((1.second).toMillis)
   
     Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-l","pfs/")).getInputStream).lines()
-      .toList(3).split("\\s").last should equal ("energy")
+      .toList(1).split("\\s").last should equal ("energy")
     Resource.fromInputStream(Runtime.getRuntime.exec(Array("ls","-l","pfs/energy/")).getInputStream).lines()
       .toList should have size 1
     
