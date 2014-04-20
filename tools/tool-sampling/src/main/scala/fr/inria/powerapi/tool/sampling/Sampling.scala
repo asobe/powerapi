@@ -20,155 +20,135 @@
  */
 package fr.inria.powerapi.tool.sampling
 
-import scala.concurrent.duration.DurationInt
-import scalax.io.Resource
-import scalax.file.Path
-
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import com.typesafe.config.ConfigException
-
-import fr.inria.powerapi.core.Process
-import fr.inria.powerapi.core.ProcessedMessage
 import fr.inria.powerapi.core.Reporter
-import fr.inria.powerapi.library.PowerAPI
-import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
+import fr.inria.powerapi.library.{ PAPI, PIDS }
+import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
+import fr.inria.powerapi.formula.powerspy.FormulaPowerspy
+import fr.inria.powerapi.sensor.libpfm.{ LibpfmSensorMessage, SensorLibpfm }
+import fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
+import fr.inria.powerapi.reporter.file.FileReporter
 
-/**
- * Sampling's configuration part
- *
- * @author mcolmant
- */
-trait SamplingConfiguration {
+import akka.actor.{ Actor, Props }
+
+import scala.concurrent.duration.DurationInt
+import scala.sys.process._
+
+import scalax.file.Path
+import scalax.io.{ Resource, SeekableByteChannel }
+import scalax.io.managed.SeekableByteChannelResource
+
+trait Configuration extends fr.inria.powerapi.core.Configuration {
+  /** Core numbers (virtual incl.) */
+  lazy val cores = load { _.getInt("powerapi.tool.sampling.cores") }(4)
+  /** Number of required messages per step. */
+  lazy val nbMessages = load { _.getInt("powerapi.tool.sampling.step.messages") }(15)
+  /** Path used to store the files created during the sampling. */
+  lazy val samplingPath = load { _.getString("powerapi.tool.sampling.path") }("samples/")
   /**
-   * Link to get information from configuration files.
-   */
-  private lazy val conf = ConfigFactory.load
-
-  // No default value, required value
-  lazy val nbCore = load(_.getInt("powerapi.cpu.core"))(0)
-  // Samples directory
-  lazy val samplesDirPath = load(_.getString("powerapi.tool.sampling.path"))("samples/")
-  // Sampling step count
-  lazy val nbSamples = load(_.getInt("powerapi.tool.sampling.count"))(4)
-  // Correlation coefficient
-  lazy val corrCoeff = load(_.getDouble("powerapi.tool.sampling.corr_coeff"))(0.998)
-  // PowerSpy messages number, used to improve the sampling accuracy
-  lazy val nbMessage = load(_.getInt("powerapi.tool.sampling.message.count"))(10)
-  // Stress activity increase
-  lazy val stressActivityStep = load(_.getInt("powerapi.tool.sampling.stress.activity-step"))(25)
-  
-  lazy val filePath = samplesDirPath + "powerapi_sampling.dat"
-  lazy val output = {
-    Resource.fromFile(filePath)
-  }
-  lazy val nbStep = nbCore * (100 / stressActivityStep).toInt
-  lazy val separator = "===="
-
-  /**
-   * Default pattern to get information from configuration file.
+   * Scaling frequencies information, giving information about the available frequencies for each core.
+   * This information is typically given by the cpufrequtils utils.
    *
-   * @param request: request to get information from configuration file.
-   * @param default: default value returned in case of ConfigException.
-   *
-   * @see http://typesafehub.github.com/config/latest/api/com/typesafe/config/ConfigException.html
+   * @see http://www.kernel.org/pub/linux/utils/kernel/cpufreq/cpufreq-info.html
    */
-  def load[T](request: Config => T)(default: T): T =
-    try {
-      request(conf)
-    } catch {
-      case ce: ConfigException => {
-        default
-      }
-    }
+  lazy val scalingFreqPath = load { _.getString("powerapi.tool.sampling.scaling-available-frequencies") }("/sys/devices/system/cpu/cpu%?/cpufreq/scaling_available_frequencies")
+  /** Default values for the output files */
+  lazy val outBasePathLibpfm = "output-libpfm-"
+  lazy val outPathPowerspy = "output-powerspy.dat"
+  lazy val separator = "======="
+}
+
+class PowerspyReporter extends FileReporter with Configuration {
+  override lazy val filePath = outPathPowerspy
 }
 
 /**
- * Listen to ProcessedMessage and display its content into a given file.
- *
- * @author lhuertas
- * @author mcolmant
+ * It is a specific component to handle directly the messages produce by the LibpfmSensor.
+ * We just want to write the counter values into a file.
  */
-class FileReporter extends Reporter with SamplingConfiguration {
-  case class Line(processedMessage: ProcessedMessage) {
-    override def toString() = {
-      processedMessage.energy.power + scalax.io.Line.Terminators.NewLine.sep
-    }
+class LibpfmListener extends Actor with Configuration {
+  // Store all the streams to improve the speed processing.
+  val resources = scala.collection.mutable.HashMap[String, SeekableByteChannelResource[SeekableByteChannel]]()
+  
+  override def preStart() = {
+    context.system.eventStream.subscribe(self, classOf[LibpfmSensorMessage])
   }
 
-  def process(processedMessage: ProcessedMessage) {
-    output.append(Line(processedMessage).toString)
+  override def postStop() = {
+    context.system.eventStream.unsubscribe(self, classOf[LibpfmSensorMessage])
+  }
+
+  case class Line(sensorMessage: LibpfmSensorMessage) {
+    override def toString() =
+      "timestamp=" + sensorMessage.tick.timestamp + ";" +
+      "process=" + sensorMessage.tick.subscription.process + ";" +
+      "counter=" + sensorMessage.counter.value + scalax.io.Line.Terminators.NewLine.sep
+  }
+
+  def receive() = {
+    case sensorMessage: LibpfmSensorMessage => process(sensorMessage)
+  }
+
+  def process(sensorMessage: LibpfmSensorMessage) {
+    def updateResources(name: String): SeekableByteChannelResource[SeekableByteChannel] = {
+      val output = Resource.fromFile(outBasePathLibpfm + name + ".dat")
+      resources += (name -> output)
+      output
+    }
+
+    val output = resources.getOrElse(sensorMessage.event.name, updateResources(sensorMessage.event.name))
+    output.append(Line(sensorMessage).toString)
   }
 }
 
-/**
- * Sample the data provided by PowerSpy
- *
- * @author lhuertas
+/** 
+ * Be careful, we need the root access to write in sys virtual filesystem, else, we can not control the frequency.
  */
-object Sampling extends SamplingConfiguration {
-  
-  def start() {
-    // Cleaning phase
-    Path.fromString(samplesDirPath).deleteRecursively(force = true)
+object Sampling extends App with Configuration {
+  implicit val codec = scalax.io.Codec.UTF8
+  val availableFreqs = scala.collection.mutable.SortedSet[Long]()
 
-    val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
+  // Get the available frequencies from sys virtual filesystem.
+  (for(core <- 0 until cores) yield (scalingFreqPath.replace("%?", core.toString))).foreach(filepath => {
+    availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
+  })
 
-    // One monitoring per samling, it allows to avoid the noise and to have the right messages number
-    for(sample <- 1 to nbSamples) {
-      var stressPID = ""
-      var curStressActivity = 100.0
-      var curCPUActivity = 0.0
+  Path.fromString("test").deleteRecursively(force = true)
 
-      PowerAPI.startMonitoring(
-        process = Process(currentPid),
-        duration = 1.second,
-        processor = classOf[TimestampAggregator],
-        listener = classOf[FileReporter]
-      )
-      
-      // We use a separator between each step
-      // Initialization step, waiting the syncronization between PowerAPI and PowerSPY
-      Thread.sleep((30.second).toMillis)
-      output.append(separator + scalax.io.Line.Terminators.NewLine.sep)
+  //for(frequency <- availableFreqs) {
+    // Set the default governor with the userspace governor. It allows us to control the frequency.
+    Seq("bash", "-c", "echo userspace | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
+    // Set the frequency
+    Seq("bash", "-c", "echo " + availableFreqs(0) + " | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed > /dev/null")
 
-      // Idle sampling
-      Thread.sleep(((nbMessage).second).toMillis)
-      output.append(separator + scalax.io.Line.Terminators.NewLine.sep)
-      
-      // Use stress and cpulimit commands to get all cpu features
-      for(step <- 1 to nbStep) {
-        if (curStressActivity >= 100.0) {
-          Runtime.getRuntime.exec(Array("stress", "-v", "-c", "1"))
-          stressPID = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", "stress", "ho", "pid")).getInputStream).lines().last
-          curStressActivity = 0.0
-        }
-        
-        curStressActivity += stressActivityStep
-        var cpulimitPIDs = Resource.fromInputStream(Runtime.getRuntime.exec(Array("ps", "-C", "cpulimit", "ho", "pid")).getInputStream).lines()
-        
-        if (cpulimitPIDs.size > 0) {
-          Runtime.getRuntime.exec(Array("kill", "-9", cpulimitPIDs(0).toString))
-        }
-        
-        curCPUActivity += 100.0 / nbStep
-        Runtime.getRuntime.exec(Array("cpulimit", "-l", curStressActivity.toString, "-p", stressPID))
-        Thread.sleep((nbMessage.second).toMillis)
-        output.append(separator + scalax.io.Line.Terminators.NewLine.sep)
-      }
+    // Get the idle power consumption.
+    val powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
+                            with SensorLibpfm
+    val libpfmListener = powerapi.system.actorOf(Props[LibpfmListener])
 
-      PowerAPI.stopMonitoring(
-        process = Process(currentPid),
-        duration = 1.second,
-        processor = classOf[TimestampAggregator],
-        listener = classOf[FileReporter]
-      )
+    // Idle power
+    powerapi.start(PIDS(), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds)
+    Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
-      Runtime.getRuntime.exec(Array("killall", "stress"))
+    for(core <- 1 to cores) {
+      val seqCmd = Seq("/bin/bash", "./src/main/resources/start.bash", "stress -c " + core + " -t " + nbMessages)
+      val process = Process(seqCmd, None, "PATH" -> "/usr/bin")
+      val buffer = process.lines
+      val ppid = buffer(0).trim.toInt
+      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+      // Processing power
+      Seq("kill", "-SIGCONT", ppid+"").!
+      monitoring.waitFor(nbMessages.seconds)
 
-      // Backup
-      Path.fromString(filePath).copyTo(Path.fromString(samplesDirPath + "sample_" + sample + ".dat"))
-      Path.fromString(filePath).deleteIfExists()
+      (Path(".") * "output-libpfm-*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+      Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
     }
-  }
+    
+    powerapi.system.stop(libpfmListener)
+    powerapi.stop
+  //}
+
+  // Reset the governor with the ondemand policy.
+  Seq("bash", "-c", "echo ondemand | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
+
+  System.exit(0)
 }
