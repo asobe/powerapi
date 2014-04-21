@@ -34,6 +34,7 @@ import scala.concurrent.duration.DurationInt
 import scala.sys.process._
 
 import scalax.file.Path
+import scalax.file.ImplicitConversions.string2path
 import scalax.io.{ Resource, SeekableByteChannel }
 import scalax.io.managed.SeekableByteChannelResource
 
@@ -78,10 +79,12 @@ class LibpfmListener extends Actor with Configuration {
   }
 
   case class Line(sensorMessage: LibpfmSensorMessage) {
-    override def toString() =
-      "timestamp=" + sensorMessage.tick.timestamp + ";" +
-      "process=" + sensorMessage.tick.subscription.process + ";" +
-      "counter=" + sensorMessage.counter.value + scalax.io.Line.Terminators.NewLine.sep
+    val timestamp = sensorMessage.tick.timestamp
+    val process = sensorMessage.tick.subscription.process
+    val counter = sensorMessage.counter.value
+    val newLine = scalax.io.Line.Terminators.NewLine.sep
+    
+    override def toString() = s"timestamp=$timestamp;process=$process;counter=$counter$newLine"
   }
 
   def receive() = {
@@ -90,7 +93,7 @@ class LibpfmListener extends Actor with Configuration {
 
   def process(sensorMessage: LibpfmSensorMessage) {
     def updateResources(name: String): SeekableByteChannelResource[SeekableByteChannel] = {
-      val output = Resource.fromFile(outBasePathLibpfm + name + ".dat")
+      val output = Resource.fromFile(s"$outBasePathLibpfm$name.dat")
       resources += (name -> output)
       output
     }
@@ -112,40 +115,55 @@ object Sampling extends App with Configuration {
     availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
   })
 
-  Path.fromString("test").deleteRecursively(force = true)
+  Path.fromString(samplingPath).deleteRecursively(force = true)
 
-  //for(frequency <- availableFreqs) {
+  for(frequency <- availableFreqs) {
     // Set the default governor with the userspace governor. It allows us to control the frequency.
     Seq("bash", "-c", "echo userspace | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
     // Set the frequency
-    Seq("bash", "-c", "echo " + availableFreqs(0) + " | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed > /dev/null")
+    Seq("bash", "-c", s"echo $frequency | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed > /dev/null").!
 
     // Get the idle power consumption.
-    val powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
-                            with SensorLibpfm
-    val libpfmListener = powerapi.system.actorOf(Props[LibpfmListener])
-
-    // Idle power
-    powerapi.start(PIDS(), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds)
+    var powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
+    // Start a monitoring to get the idle power.
+    powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds)
+    powerapi.stop()
     Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
+    powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
+                        with SensorLibpfm
+    // Start the libpfm listener to intercept the LibpfmSensorMessage.
+    val libpfmListener = powerapi.system.actorOf(Props[LibpfmListener])
+
     for(core <- 1 to cores) {
-      val seqCmd = Seq("/bin/bash", "./src/main/resources/start.bash", "stress -c " + core + " -t " + nbMessages)
+      // Launch stress command to stimulate all the features on the processor.
+      // Here, we used a specific bash script to be sure that the command in not launch before to open and reset the counters.
+      val seqCmd = Seq("/bin/bash", "./src/main/resources/start.bash", s"stress -c $core -t $nbMessages")
       val process = Process(seqCmd, None, "PATH" -> "/usr/bin")
       val buffer = process.lines
       val ppid = buffer(0).trim.toInt
+
+      // Start a monitoring to get the values of the counters for the workload.
       val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
-      // Processing power
       Seq("kill", "-SIGCONT", ppid+"").!
       monitoring.waitFor(nbMessages.seconds)
 
-      (Path(".") * "output-libpfm-*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+      val pathMatcher = s"$outBasePathLibpfm*.dat"
+      (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
       Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
     }
-    
+
     powerapi.system.stop(libpfmListener)
-    powerapi.stop
-  //}
+    powerapi.stop()
+
+    // Move files to the right place, to save them for the future regression.
+    s"$samplingPath/$frequency".createDirectory(failIfExists=false)
+    (Path(".") * "*.dat").foreach(path => {
+      val name = path.name
+      val target: Path = s"$samplingPath/$frequency/$name"
+      path.moveTo(target=target, replace=true)
+    })
+  }
 
   // Reset the governor with the ondemand policy.
   Seq("bash", "-c", "echo ondemand | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
