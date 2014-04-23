@@ -24,7 +24,7 @@ import fr.inria.powerapi.core.Reporter
 import fr.inria.powerapi.library.{ PAPI, PIDS }
 import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
 import fr.inria.powerapi.formula.powerspy.FormulaPowerspy
-import fr.inria.powerapi.sensor.libpfm.{ LibpfmSensorMessage, SensorLibpfm }
+import fr.inria.powerapi.sensor.libpfm.{ LibpfmSensorMessage, LibpfmUtil, SensorLibpfm, SensorLibpfmConfigured }
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
 import fr.inria.powerapi.reporter.file.FileReporter
 
@@ -38,9 +38,11 @@ import scalax.file.ImplicitConversions.string2path
 import scalax.io.{ Resource, SeekableByteChannel }
 import scalax.io.managed.SeekableByteChannelResource
 
-trait Configuration extends fr.inria.powerapi.core.Configuration {
-  /** Core numbers (virtual incl.) */
-  lazy val cores = load { _.getInt("powerapi.tool.sampling.cores") }(4)
+trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.powerapi.sensor.libpfm.Configuration {
+  /** Core numbers. */
+  lazy val cores = load { _.getInt("powerapi.tool.sampling.cores") }(0)
+  /** Cache available (all levels, only for the data) in KB. */
+  lazy val l3Cache = load { _.getInt("powerapi.tool.sampling.L3-cache") }(0)
   /** Number of required messages per step. */
   lazy val nbMessages = load { _.getInt("powerapi.tool.sampling.step.messages") }(15)
   /** Path used to store the files created during the sampling. */
@@ -81,10 +83,11 @@ class LibpfmListener extends Actor with Configuration {
   case class Line(sensorMessage: LibpfmSensorMessage) {
     val timestamp = sensorMessage.tick.timestamp
     val process = sensorMessage.tick.subscription.process
+    val event = sensorMessage.event.name
     val counter = sensorMessage.counter.value
     val newLine = scalax.io.Line.Terminators.NewLine.sep
     
-    override def toString() = s"timestamp=$timestamp;process=$process;counter=$counter$newLine"
+    override def toString() = s"timestamp=$timestamp;process=$process;event=$event;counter=$counter$newLine"
   }
 
   def receive() = {
@@ -109,13 +112,18 @@ class LibpfmListener extends Actor with Configuration {
 object Sampling extends App with Configuration {
   implicit val codec = scalax.io.Codec.UTF8
   val availableFreqs = scala.collection.mutable.SortedSet[Long]()
+  val pathMatcher = s"$outBasePathLibpfm*.dat"
+
+  LibpfmUtil.initialize()
 
   // Get the available frequencies from sys virtual filesystem.
   (for(core <- 0 until cores) yield (scalingFreqPath.replace("%?", core.toString))).foreach(filepath => {
     availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
   })
 
+  // Cleaning phase
   Path.fromString(samplingPath).deleteRecursively(force = true)
+  (Path(".") * "*.dat").foreach(path => path.delete(force = true))
 
   for(frequency <- availableFreqs) {
     // Set the default governor with the userspace governor. It allows us to control the frequency.
@@ -123,24 +131,26 @@ object Sampling extends App with Configuration {
     // Set the frequency
     Seq("bash", "-c", s"echo $frequency | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed > /dev/null").!
 
+    // To be sure that the frequency is set by the processor.
+    Thread.sleep((2.seconds).toMillis)
+    
     // Get the idle power consumption.
-    var powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
+    val powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
+    // One libpfm sensor per event.
+    events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event, bitset)))
+    
     // Start a monitoring to get the idle power.
     powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds)
-    powerapi.stop()
     Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
-    powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
-                        with SensorLibpfm
-    // Start the libpfm listener to intercept the LibpfmSensorMessage.
+    // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
     val libpfmListener = powerapi.system.actorOf(Props[LibpfmListener])
 
+    // Stress only the cpu, without caches.
     for(core <- 1 to cores) {
       // Launch stress command to stimulate all the features on the processor.
       // Here, we used a specific bash script to be sure that the command in not launch before to open and reset the counters.
-      val seqCmd = Seq("/bin/bash", "./src/main/resources/start.bash", s"stress -c $core -t $nbMessages")
-      val process = Process(seqCmd, None, "PATH" -> "/usr/bin")
-      val buffer = process.lines
+      val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -c $core -t $nbMessages").lines
       val ppid = buffer(0).trim.toInt
 
       // Start a monitoring to get the values of the counters for the workload.
@@ -148,25 +158,61 @@ object Sampling extends App with Configuration {
       Seq("kill", "-SIGCONT", ppid+"").!
       monitoring.waitFor(nbMessages.seconds)
 
-      val pathMatcher = s"$outBasePathLibpfm*.dat"
       (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
       Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
     }
 
-    powerapi.system.stop(libpfmListener)
-    powerapi.stop()
-
     // Move files to the right place, to save them for the future regression.
-    s"$samplingPath/$frequency".createDirectory(failIfExists=false)
+    s"$samplingPath/$frequency/cpu".createDirectory(failIfExists=false)
     (Path(".") * "*.dat").foreach(path => {
       val name = path.name
-      val target: Path = s"$samplingPath/$frequency/$name"
+      val target: Path = s"$samplingPath/$frequency/cpu/$name"
       path.moveTo(target=target, replace=true)
     })
+
+    // We stress only one core (we consider that the environment is heterogenous).
+    for(bytes <- Iterator.iterate(8)(_ * 2).takeWhile(_ < l3Cache)) {
+      // Launch stress command to stimulate the available cache on the processor.
+      val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $bytes -t $nbMessages").lines
+      val ppid = buffer(0).trim.toInt
+      // Pin the process on the first core (physical or logical).
+      Seq("taskset", "-cp", "0", ppid+"").lines
+
+      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+      Seq("kill", "-SIGCONT", ppid+"").!
+      monitoring.waitFor(nbMessages.seconds)
+      
+      (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+      Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
+    }
+
+    // Last stress with all the cache memory.
+    val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $l3Cache -t $nbMessages").lines
+    val ppid = buffer(0).trim.toInt
+    Seq("taskset", "-cp", "0", ppid+"").lines
+
+    val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+    Seq("kill", "-SIGCONT", ppid+"").!
+    monitoring.waitFor(nbMessages.seconds)
+    
+    (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+    Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
+
+    // Move files to the right place, to save them for the future regression.
+    s"$samplingPath/$frequency/cache".createDirectory(failIfExists=false)
+    (Path(".") * "*.dat").foreach(path => {
+      val name = path.name
+      val target: Path = s"$samplingPath/$frequency/cache/$name"
+      path.moveTo(target=target, replace=true)
+    })
+
+    powerapi.system.stop(libpfmListener)
+    powerapi.stop()
   }
 
   // Reset the governor with the ondemand policy.
   Seq("bash", "-c", "echo ondemand | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
 
+  LibpfmUtil.terminate()
   System.exit(0)
 }

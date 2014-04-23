@@ -99,8 +99,13 @@ class LibpfmSensor(event: String, bitset: java.util.BitSet) extends Sensor {
   lazy val descriptors = new collection.mutable.HashMap[Process, Int]
   lazy val cache = new collection.mutable.HashMap[TickSubscription, Long]
 
-  override def preStart() = {
-    LibpfmUtil.initialize()
+  override def postStop() = {
+    descriptors.foreach {
+      case (_, fd) => {
+        LibpfmUtil.disableCounter(fd)
+        LibpfmUtil.closeCounter(fd)
+      }
+    }
   }
 
   def refreshCache(subscription: TickSubscription, now: Long) = {

@@ -12,6 +12,10 @@
         <version>1.6-SNAPSHOT</version>
     </parent>
 
+    <properties>
+        <powerapi.root>${basedir}/../..</powerapi.root>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>fr.inria.powerapi</groupId>

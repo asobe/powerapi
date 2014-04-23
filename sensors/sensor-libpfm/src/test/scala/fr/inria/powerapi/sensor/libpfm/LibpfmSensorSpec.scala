@@ -58,6 +58,8 @@ class LibpfmSensorSpec extends FlatSpec with Matchers {
   bitset.set(5)
   bitset.set(6)
 
+  LibpfmUtil.initialize()
+
   val libpfmSensor = TestActorRef(new LibpfmSensor("instructions", bitset))
   val listener = TestActorRef[Listener]
 
