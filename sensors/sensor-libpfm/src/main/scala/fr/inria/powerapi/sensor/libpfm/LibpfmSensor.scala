@@ -21,6 +21,7 @@
 package fr.inria.powerapi.sensor.libpfm
 
 import fr.inria.powerapi.core.{ Sensor, SensorMessage, Process, Tick, TickSubscription }
+import fr.inria.powerapi.library.{ MonitoringMessages }
 
 import scala.collection
 import scala.collection.JavaConversions
@@ -96,16 +97,33 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * Sensor which opens one counter per event and pid (because of the implementation of perf_event_open method).
  */
 class LibpfmSensor(event: String, bitset: java.util.BitSet) extends Sensor {
+  import MonitoringMessages.CleanResources
+
   lazy val descriptors = new collection.mutable.HashMap[Process, Int]
   lazy val cache = new collection.mutable.HashMap[TickSubscription, Long]
 
+  override def messagesToListen = super.messagesToListen ++ Array(classOf[CleanResources])
+
+  override def acquire: Receive = super.acquire orElse acquireStopMonitoring
+
+  def acquireStopMonitoring: Receive = {
+    case CleanResources => stopMonitoring()
+  }
+
   override def postStop() = {
+    stopMonitoring()
+  }
+
+  def stopMonitoring() = {
     descriptors.foreach {
       case (_, fd) => {
         LibpfmUtil.disableCounter(fd)
         LibpfmUtil.closeCounter(fd)
       }
     }
+
+    descriptors.clear()
+    cache.clear()
   }
 
   def refreshCache(subscription: TickSubscription, now: Long) = {

@@ -4,7 +4,7 @@
     <artifactId>tool-sampling</artifactId>
     <name>${project.artifactId}</name>
     <description>Tool for the Data sampling to compute the formula of a new processor.</description>
-    <inceptionYear>2043</inceptionYear>
+    <inceptionYear>2014</inceptionYear>
 
     <parent>
         <groupId>fr.inria.powerapi</groupId>
@@ -56,48 +56,11 @@
             <groupId>com.github.scala-incubator.io</groupId>
             <artifactId>scala-io-core_${scala.version}</artifactId>
         </dependency>
-        <!--<dependency>
-        <groupId>com.github.scala-incubator.io</groupId>
-            <artifactId>scala-io-file_${scala.version}</artifactId>
-        </dependency>
         <dependency>
-            <groupId>fr.inria.powerapi</groupId>
-            <artifactId>library</artifactId>
-            <version>${project.version}</version>
+           <groupId>org.scalanlp</groupId>
+           <artifactId>nak</artifactId>
+           <version>1.2.1</version>
         </dependency>
-        <dependency>
-            <groupId>fr.inria.powerapi.sensor</groupId>
-            <artifactId>sensor-powerspy</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>fr.inria.powerapi.formula</groupId>
-            <artifactId>formula-powerspy</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>fr.inria.powerapi.processor</groupId>
-            <artifactId>timestamp-aggregator</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.scala-incubator.io</groupId>
-            <artifactId>scala-io-core_${scala.version}</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.github.scala-incubator.io</groupId>
-            <artifactId>scala-io-file_${scala.version}</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>net.sourceforge.f2j</groupId>
-            <artifactId>arpack_combined_all</artifactId>
-            <version>0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.scalanlp</groupId>
-            <artifactId>breeze_${scala.version}</artifactId>
-            <version>0.5.2</version>
-        </dependency>-->
     </dependencies>
 
     <build>
@@ -106,7 +69,7 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>fr.inria.powerapi.tool.sampling.Sampling</mainClass>
+                    <mainClass>fr.inria.powerapi.tool.sampling.SamplingTool</mainClass>
                 </configuration>
             </plugin>
         </plugins>
