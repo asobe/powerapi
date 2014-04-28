@@ -333,7 +333,7 @@ class Processing extends Configuration {
             var index = 0
             while(!data(path).isEmpty) {
               val existing = eventData.getOrElse(index, scala.collection.mutable.ArrayBuffer[Double]())
-              existing ++= data(path).takeWhile(_ != separator).map(_.toDouble).filter(_ != 0)
+              existing ++= data(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
               eventData(index) = existing
               // tail is used to remove the separator.
               data(path) = data(path).dropWhile(_ != separator).tail
@@ -360,7 +360,7 @@ class Processing extends Configuration {
           // Special case for the file wich contains the idle power. The values will be store in another buffer.
           if(path.path.endsWith(s"$eltIdlePower/$outPathPowerspy")) {
             val existing = idlePowersData.getOrElse(0, scala.collection.mutable.ArrayBuffer[Double]())
-            existing ++= powers(path).takeWhile(_ != separator).map(_.toDouble).filter(_ != 0)
+            existing ++= powers(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
             idlePowersData(0) = existing
             // tail is used to remove the separator.
             powers(path) = powers(path).dropWhile(_ != separator).tail
@@ -368,7 +368,7 @@ class Processing extends Configuration {
           var index = 0
           while(!powers(path).isEmpty) {
             val existing = powersData.getOrElse(index, scala.collection.mutable.ArrayBuffer[Double]())
-            existing ++= powers(path).takeWhile(_ != separator).map(_.toDouble).filter(_ != 0)
+            existing ++= powers(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
             powersData(index) = existing
             // tail is used to remove the separator.
             powers(path) = powers(path).dropWhile(_ != separator).tail
