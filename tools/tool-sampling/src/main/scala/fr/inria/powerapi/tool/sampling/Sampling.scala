@@ -130,9 +130,10 @@ class LibpfmListener extends Actor with Configuration {
  * Main launcher.
  */
 object SamplingTool extends App {
-  new Sampling().run()
-  new Processing().run()
+  //new Sampling().run()
+  //new Processing().run()
   new MultipleLinearRegression().run()
+  System.exit(0)
 }
 
 /** 
