@@ -90,7 +90,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
     conf =>
       (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.events")))
         yield (item.asInstanceOf[Config].getString("event"))).toArray
-  }(Array[String]("cycles"))
+  }(Array[String]())
 }
 
 /**

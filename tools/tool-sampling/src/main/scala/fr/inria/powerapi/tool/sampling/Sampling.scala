@@ -428,7 +428,7 @@ class MultipleLinearRegression extends Configuration {
       availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
     })
 
-    var formattedString = "powerapi.formulae = [" + scalax.io.Line.Terminators.NewLine.sep
+    var formattedString = "powerapi.libpfm.formulae = [" + scalax.io.Line.Terminators.NewLine.sep
     
     for(frequency <- availableFreqs) {
       val counters = csvread(file = new java.io.File(s"$processingPath/$frequency/counters.csv"), 
