@@ -15,7 +15,7 @@
 	</parent>
 
 	<modules>
-	<!-- TODO: Write some examples with PowerAPI v3 -->
+		<module>example-libpfm</module>
 	</modules>
 
 </project>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>fr.inria.powerapi.reporter</groupId>
+    <name>${project.artifactId}</name>
+    <description>Example of libpfm usage.</description>
+    <artifactId>example-libpfm</artifactId>
+    <inceptionYear>2014</inceptionYear>
+
+    <parent>
+        <groupId>fr.inria.powerapi</groupId>
+        <artifactId>examples</artifactId>
+        <version>1.6-SNAPSHOT</version>
+    </parent>
+
+    <dependencies>
+        <dependency>
+            <groupId>fr.inria.powerapi</groupId>
+            <artifactId>library</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.processor</groupId>
+            <artifactId>timestamp-aggregator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.processor</groupId>
+            <artifactId>device-aggregator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.reporter</groupId>
+            <artifactId>reporter-jfreechart</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.sensor</groupId>
+            <artifactId>sensor-libpfm</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.sensor</groupId>
+            <artifactId>sensor-powerspy</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.formula</groupId>
+            <artifactId>formula-powerspy</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.formula</groupId>
+            <artifactId>formula-libpfm</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>fr.inria.powerapi.example.libpfm.Monitor</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

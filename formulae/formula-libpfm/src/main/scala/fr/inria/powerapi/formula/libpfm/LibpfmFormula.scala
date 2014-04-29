@@ -26,15 +26,21 @@ import fr.inria.powerapi.sensor.libpfm.{ Counter, Event, LibpfmSensorMessage }
 import scala.collection
 import scala.collection.JavaConversions
 import scala.collection.JavaConversions._
+import scala.concurrent.duration.Duration
 
 import com.typesafe.config.Config
 
+/**
+ * Configuration part.
+ */
 trait Configuration extends fr.inria.powerapi.core.Configuration {
   lazy val formulae = load {
     conf =>
       (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.formulae")))
         yield (item.asInstanceOf[Config].getLong("freq"), JavaConversions.asScalaBuffer(item.asInstanceOf[Config].getDoubleList("formula").map(_.toDouble)).toArray)).toMap
   } (Map[Long, Array[Double]]())
+
+  lazy val idlePower = load { _.getDouble("powerapi.libpfm.idle-power") }(0)
 
   lazy val events = (load {
     conf =>
@@ -43,22 +49,34 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
   } (Array[String]())).sorted
 }
 
+/**
+ * Represent the formula which is published on the event bus. Here, we store all the LibpfmSensorMessage on a cache system until
+ * we receive a message with a new tick. In this case, the message can be published. The power is computed when
+ * the energy method is called. It allows to not overload the messages receiving.
+ */
 case class LibpfmFormulaMessage(tick: Tick, device: String = "cpu", messages: collection.mutable.Set[LibpfmSensorMessage] = collection.mutable.Set[LibpfmSensorMessage]()) extends FormulaMessage with Configuration {
   def energy = {
-    // get the formula (currently, we take the formulae which corresponds to the max frequency).
-    val formula = formulae.maxBy(_._1)._2
+    // Get the formula (currently, we take the formulae which corresponds to the max frequency).
+    val frequency = formulae.maxBy(_._1)._1
+    val formula = formulae(frequency)
     var acc = 0.0
 
     // We assume the order is the same in each case (events are always sorted).
-    // The last value represents the idle power, we don't use it.
-    if(messages.size == formula.size - 1) {
-      for(i <- 0 until formula.size - 1) {
-        acc += (messages.find(_.event.name == events(i)) match {
-          case Some(message) => formula(i) * message.counter.value
-          case None => 0.0
-        })
-      }
+    for(i <- 0 until formula.size - 1) {
+      acc += (messages.filter(_.event.name == events(i)).foldLeft(0: Double) { 
+        (accLocal, message) => {
+          if(message.tick.subscription.duration !=  Duration.Zero) {
+            accLocal + (formula(i) * (message.counter.value / message.tick.subscription.duration.toSeconds))
+          }
+          else accLocal
+        }
+      })
     }
+
+    // Add the constant value.
+    acc += formula(formula.size - 1)
+    // Remove the idle part.
+    acc -= idlePower
 
     Energy.fromPower(acc)
   }
@@ -72,7 +90,10 @@ case class LibpfmFormulaMessage(tick: Tick, device: String = "cpu", messages: co
   }
 }
 
-
+/**
+ * Represent the formula which reacts on LibpfmSensorMessage. A cache is handled because there is one message per event/process for
+ * the same tick. So, we have to wait all the messages for the same tick before to pusblish a formula message.
+ */
 class LibpfmFormula extends Formula with Configuration {
   val cache = collection.mutable.Map[Long, LibpfmFormulaMessage]()
 
@@ -122,4 +143,20 @@ class LibpfmFormula extends Formula with Configuration {
   def acquire = {
     case libpfmSensorMessage: LibpfmSensorMessage => process(libpfmSensorMessage)
   }
+}
+
+/**
+ * Companion object used to create this given component.
+ */
+object FormulaLibpfm extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[LibpfmFormula]
+}
+
+/**
+ * Use to cook the bake.
+ */
+trait FormulaLibpfm {
+  self: fr.inria.powerapi.core.API =>
+  configure(FormulaLibpfm)
 }

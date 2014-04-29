@@ -130,8 +130,15 @@ class LibpfmListener extends Actor with Configuration {
  * Main launcher.
  */
 object SamplingTool extends App {
-  //new Sampling().run()
-  //new Processing().run()
+    // Method used to compute the median of any array type.
+  def median[T](s: Seq[T])(implicit n: Fractional[T]) = {
+    import n._
+    val (lower, upper) = s.sortWith(_<_).splitAt(s.size / 2)
+    if (s.size % 2 == 0) (lower.last + upper.head) / fromInt(2) else upper.head
+  }
+
+  new Sampling().run()
+  new Processing().run()
   new MultipleLinearRegression().run()
   System.exit(0)
 }
@@ -260,13 +267,6 @@ class Sampling extends Configuration {
  */
 class Processing extends Configuration {
   def run() = {
-    // Method used to compute the median of any array type.
-    def median[T](s: Seq[T])(implicit n: Fractional[T]) = {
-      import n._
-      val (lower, upper) = s.sortWith(_<_).splitAt(s.size / 2)
-      if (s.size % 2 == 0) (lower.last + upper.head) / fromInt(2) else upper.head
-    }
-
     lazy val PathRegex = (s"$samplingPath" + """/(\d)+/.*""").r
     // Method used to sort the paths.
     def sortPaths(path1: Path, path2: Path) = {
@@ -345,7 +345,7 @@ class Processing extends Configuration {
           // Compute the medians and store values inside the corresponding csv buffer.
           for(i <- 0 until eventData.keys.size) {
             // +1 because of the header
-            val medianVal = median(eventData(i))
+            val medianVal = SamplingTool.median(eventData(i))
             val line = csvData.getOrElse(nbLinesDataCSV + i, scala.collection.mutable.ArrayBuffer[String]())
             line += medianVal.toLong.toString
             csvData(nbLinesDataCSV + i) = line
@@ -379,7 +379,7 @@ class Processing extends Configuration {
 
         // Compute the medians and store values inside the corresponding csv buffer.
         if(!idlePowersData.isEmpty) {
-          val medianVal = median(idlePowersData(0))
+          val medianVal = SamplingTool.median(idlePowersData(0))
           val line = csvIdlePower.getOrElse(1, scala.collection.mutable.ArrayBuffer[String]())
           line += medianVal.toDouble.toString
           csvIdlePower(1) = line
@@ -387,7 +387,7 @@ class Processing extends Configuration {
 
         for(i <- 0 until powersData.keys.size) {
           // +1 because of the header
-          val medianVal = median(powersData(i))
+          val medianVal = SamplingTool.median(powersData(i))
           val line = csvPowers.getOrElse(nbLinesPowersCSV + i, scala.collection.mutable.ArrayBuffer[String]())
           line += medianVal.toDouble.toString
           csvPowers(nbLinesPowersCSV + i) = line
@@ -429,9 +429,11 @@ class MultipleLinearRegression extends Configuration {
       availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
     })
 
-    var formattedString = "powerapi.libpfm.formulae = [" + scalax.io.Line.Terminators.NewLine.sep
+    var formattedFormulaeString = "powerapi.libpfm.formulae = [" + scalax.io.Line.Terminators.NewLine.sep
+    var idlePowers = scala.collection.mutable.ArrayBuffer[Double]()
     
     for(frequency <- availableFreqs) {
+      // Formula part
       val counters = csvread(file = new java.io.File(s"$processingPath/$frequency/counters.csv"), 
         separator = csvDelimiter.charAt(0),
         skipLines = 1)
@@ -442,10 +444,18 @@ class MultipleLinearRegression extends Configuration {
         skipLines = 1)
       val coefficients = LinearRegression.regress(data, powers(::, 0))
       
-      formattedString += "\t{freq = " + frequency.toString + ", formula = [" + coefficients.toArray.mkString(",") + "]}" + scalax.io.Line.Terminators.NewLine.sep
+      formattedFormulaeString += "\t{freq = " + frequency.toString + ", formula = [" + coefficients.toArray.mkString(",") + "]}" + scalax.io.Line.Terminators.NewLine.sep
+      
+      // Idle power part
+      val idlePower = Path.fromString(s"$processingPath/$frequency/idle.csv").lines().toList.apply(1)
+      idlePowers += idlePower.toDouble
     }
 
-    formattedString += "]"
-    Resource.fromFile(s"$formulaePath/libpfm-formula.conf").append(formattedString)
+    formattedFormulaeString += "]"
+    val formattedIdlePString = "powerapi.libpfm.idle-power = " + SamplingTool.median(idlePowers)
+
+    Resource.fromFile(s"$formulaePath/libpfm-formula.conf").append(formattedFormulaeString)
+    Resource.fromFile(s"$formulaePath/libpfm-formula.conf").append(scalax.io.Line.Terminators.NewLine.sep + "" + scalax.io.Line.Terminators.NewLine.sep)
+    Resource.fromFile(s"$formulaePath/libpfm-formula.conf").append(formattedIdlePString)
   }
 }
