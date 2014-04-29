@@ -29,6 +29,7 @@ import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
+import scala.concurrent.duration.DurationInt
 
 @RunWith(classOf[JUnitRunner])
 class LibpfmFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
