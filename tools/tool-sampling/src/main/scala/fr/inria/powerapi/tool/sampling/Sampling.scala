@@ -24,7 +24,7 @@ import fr.inria.powerapi.core.{ ProcessedMessage, Reporter }
 import fr.inria.powerapi.library.{ PAPI, PIDS }
 import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
 import fr.inria.powerapi.formula.powerspy.FormulaPowerspy
-import fr.inria.powerapi.sensor.libpfm.{ LibpfmSensorMessage, LibpfmUtil, SensorLibpfm, SensorLibpfmConfigured }
+import fr.inria.powerapi.sensor.libpfm.{ LibpfmSensorMessage, LibpfmUtil, SensorLibpfmConfigured }
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
 import fr.inria.powerapi.reporter.file.FileReporter
 
@@ -44,14 +44,14 @@ import nak.regress.LinearRegression
 import breeze.linalg._
 
 trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.powerapi.sensor.libpfm.Configuration {
-  /** Core numbers. */
-  lazy val threads = load { _.getInt("powerapi.tool.sampling.threads") }(0)
+  /** Thread numbers. */
+  lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
   /** Cache available (all levels, only for the data) in KB. */
-  lazy val l3Cache = load { _.getInt("powerapi.tool.sampling.L3-cache") }(0)
+  lazy val l3Cache = load { _.getInt("powerapi.cpu.L3-cache") }(0)
   /** Number of samples .*/
   lazy val samples = load { _.getInt("powerapi.tool.sampling.samples") }(0)
   /** Number of required messages per step. */
-  lazy val nbMessages = load { _.getInt("powerapi.tool.sampling.step.messages") }(15)
+  lazy val nbMessages = load { _.getInt("powerapi.tool.sampling.step.messages") }(0)
   /** Path used to store the files created during the sampling. */
   lazy val samplingPath = load { _.getString("powerapi.tool.sampling.path") }("samples")
   /** Path used to store the processed files, used to compute the final formulae. */
@@ -65,7 +65,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
    *
    * @see http://www.kernel.org/pub/linux/utils/kernel/cpufreq/cpufreq-info.html
    */
-  lazy val scalingFreqPath = load { _.getString("powerapi.tool.sampling.scaling-available-frequencies") }("/sys/devices/system/cpu/cpu%?/cpufreq/scaling_available_frequencies")
+  lazy val scalingFreqPath = load { _.getString("powerapi.cpu.scaling-available-frequencies") }("/sys/devices/system/cpu/cpu%?/cpufreq/scaling_available_frequencies")
   /** Default values for the output files. */
   lazy val outBasePathLibpfm = "output-libpfm-"
   lazy val outPathPowerspy = "output-powerspy.dat"
@@ -167,7 +167,7 @@ class Sampling extends Configuration {
 
     val powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
     // One libpfm sensor per event.
-    events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event, bitset)))
+    events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
 
     for(index <- 1 to samples) {
       for(frequency <- availableFreqs) {

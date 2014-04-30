@@ -49,7 +49,7 @@ class CpuSensorSpec extends FlatSpec with Matchers {
 
   implicit val system = ActorSystem("cpusensorsuite")
   val cpuSensor = TestActorRef(new CpuSensor with ConfigurationMock)
-  val tick = Tick(1, TickSubscription(Process(123), 1.second))
+  val tick = Tick(1, TickSubscription(1, Process(123), 1.second))
   val processElapsedTime = 2 + 2
   val splittedTimes: Array[Long] = Array(441650, 65, 67586, 3473742, 31597, 0, 7703, 0, 23, 22)
   val globalElapsedTime = 441650 + 65 + 67586 + 3473742 + 31597 + 0 + 7703 + 0

@@ -21,7 +21,7 @@
 package fr.inria.powerapi.sensor.libpfm
 
 import fr.inria.powerapi.core.{ Sensor, SensorMessage, Process, Tick, TickSubscription }
-import fr.inria.powerapi.library.{ MonitoringMessages }
+import fr.inria.powerapi.library.MonitoringMessages
 
 import scala.collection
 import scala.collection.JavaConversions
@@ -46,7 +46,7 @@ case class LibpfmSensorMessage(
  * Libpfm sensor configuration.
  */
 trait Configuration extends fr.inria.powerapi.core.Configuration {
-  // Read all bit fields from the configuration
+  /** Read all bit fields from the configuration. */
   lazy val bits = {
     collection.immutable.HashMap[Int, Int](
       0 -> load { _.getInt("powerapi.libpfm.configuration.disabled") }(0),
@@ -75,7 +75,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
     )
   }
 
-  // Create the corresponding BitSet used to open the file descriptor.
+  /** Create the corresponding BitSet used to open the file descriptor. */
   lazy val bitset = {
     val tmp = new java.util.BitSet()
     bits.filter { 
@@ -85,7 +85,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
     tmp
   }
 
-  // Events to monitor.
+  /** Events to monitor. */
   lazy val events = load {
     conf =>
       (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.events")))
@@ -96,11 +96,11 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 /**
  * Sensor which opens one counter per event and pid (because of the implementation of perf_event_open method).
  */
-class LibpfmSensor(event: String, bitset: java.util.BitSet) extends Sensor {
+class LibpfmSensor(event: String) extends Sensor with Configuration {
   import MonitoringMessages.CleanResources
 
-  lazy val descriptors = new collection.mutable.HashMap[Process, Int]
-  lazy val cache = new collection.mutable.HashMap[TickSubscription, Long]
+  lazy val descriptors = new scala.collection.mutable.HashMap[Process, Int]
+  lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Long]
 
   override def messagesToListen = super.messagesToListen ++ Array(classOf[CleanResources])
 
@@ -173,8 +173,8 @@ trait LibpfmComponent {
  * Class used to create this given component.
  * Here, it is not a companion object because we have to configure multiple sensors.
  */
-class SensorLibpfmConfigured(val event: String, val bitset: java.util.BitSet) extends fr.inria.powerapi.core.APIComponent with LibpfmComponent {
-  override lazy val args = List(event, bitset)
+class SensorLibpfmConfigured(val event: String) extends fr.inria.powerapi.core.APIComponent with LibpfmComponent {
+  override lazy val args = List(event)
 }
 
 /**
@@ -184,5 +184,5 @@ trait SensorLibpfm extends Configuration {
   self: fr.inria.powerapi.core.API =>
 
   // One sensor per event.
-  events.distinct.foreach(event => configure(new SensorLibpfmConfigured(event, bitset)))
+  events.distinct.foreach(event => configure(new SensorLibpfmConfigured(event)))
 }

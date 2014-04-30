@@ -58,7 +58,7 @@ class MemSensorSpec extends FlatSpec with Matchers {
   }
 
   "MemSensor" should "computes the process resident size memory percent" in {
-    sensor.underlyingActor.resident.perc(Tick(1, subscription = TickSubscription(Process(123), Duration.Zero))) should equal (48788.doubleValue / 4045760)
+    sensor.underlyingActor.resident.perc(Tick(1, subscription = TickSubscription(1, Process(123), Duration.Zero))) should equal (48788.doubleValue / 4045760)
   }
 
 }

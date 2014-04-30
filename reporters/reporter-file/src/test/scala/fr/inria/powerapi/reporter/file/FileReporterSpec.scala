@@ -63,9 +63,9 @@ class FileReporterSpec extends FlatSpec with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("file-reporter-spec")
   val fileReporter = TestActorRef[FileReporterMock]
 
-  val prM1 = ProcessedMessageMock(Tick(1, TickSubscription(Process(123), 1 second), 1), Energy.fromPower(1))
-  val prM2 = ProcessedMessageMock(Tick(1, TickSubscription(Process(123), 1 second), 2), Energy.fromPower(2))
-  val prM3 = ProcessedMessageMock(Tick(1, TickSubscription(Process(123), 1 second), 3), Energy.fromPower(3))
+  val prM1 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(123), 1 second), 1), Energy.fromPower(1))
+  val prM2 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(123), 1 second), 2), Energy.fromPower(2))
+  val prM3 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(123), 1 second), 3), Energy.fromPower(3))
 
   "A FileReporter" should "process a ProcessedMessage" in {
     fileReporter.underlyingActor.process(prM1)

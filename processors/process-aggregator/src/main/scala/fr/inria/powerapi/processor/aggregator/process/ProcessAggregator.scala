@@ -38,7 +38,7 @@ class ProcessAggregator extends TimestampAggregator {
     for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) {
       for (byProcess <- byMonitoring._2.groupBy(_.tick.subscription.process)) {
         messages += AggregatedMessage(
-          tick = Tick(byMonitoring._1, TickSubscription(byProcess._1, base.tick.subscription.duration), timestamp),
+          tick = Tick(byMonitoring._1, TickSubscription(byMonitoring._1, byProcess._1, base.tick.subscription.duration), timestamp),
           device = "all",
           messages = byProcess._2
         )

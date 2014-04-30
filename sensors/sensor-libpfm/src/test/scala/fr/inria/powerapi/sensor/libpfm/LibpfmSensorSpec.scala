@@ -24,6 +24,7 @@ import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.Matchers
 import org.scalatest.FlatSpec
+import org.scalatest.BeforeAndAfter
 
 import akka.testkit.TestActorRef
 import akka.actor.{ Actor, ActorSystem, Props }
@@ -43,32 +44,42 @@ class Listener extends Actor {
 
   def receive() = {
     case _: LibpfmSensorMessage => received += 1
-    case unknown => println("umh, I can not process this message " + unknown + ".")
+    case unknown => println("umh, I'm not able to process this message " + unknown + ".")
   }
 }
 
 @RunWith(classOf[JUnitRunner])
-class LibpfmSensorSpec extends FlatSpec with Matchers {
+class LibpfmSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
   implicit val system = ActorSystem("LibpfmTest")
 
-  val bitset = new java.util.BitSet()
-  bitset.set(0)
-  bitset.set(1)
-  bitset.set(5)
-  bitset.set(6)
-
-  LibpfmUtil.initialize()
-
-  val libpfmSensor = TestActorRef(new LibpfmSensor("instructions", bitset))
+  val libpfmSensor = TestActorRef(new LibpfmSensor("instructions"))
   val listener = TestActorRef[Listener]
 
-  val m1 = Tick(1, TickSubscription(Process(currentPid), 1.seconds), 1)
-  val error = Tick(1, TickSubscription(Process(-1), 1.seconds), 1)
+  before {
+    LibpfmUtil.initialize()
+  }
+
+  after {
+    LibpfmUtil.terminate()
+  }
+
+  "A LibpfmSensor" should "have to be configured" in {
+    val bitset = new java.util.BitSet()
+    bitset.set(0)
+    bitset.set(1)
+    bitset.set(20)
+    libpfmSensor.underlyingActor.bitset should equal(bitset)
+  }
 
   "A LibpfmSensor" should "process a Tick message" in {
+    val m1 = Tick(1, TickSubscription(1, Process(currentPid), 1.seconds), 1)
+    val m2 = Tick(1, TickSubscription(1, Process(currentPid), 1.seconds), 2)
+    val error = Tick(1, TickSubscription(1, Process(-1), 1.seconds), 1)
+
     libpfmSensor.underlyingActor.process(m1)
+    libpfmSensor.underlyingActor.process(m2)
     libpfmSensor.underlyingActor.process(error)
-    listener.underlyingActor.received should equal(1)
+    listener.underlyingActor.received should equal(2)
   }
 }

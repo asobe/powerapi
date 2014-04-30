@@ -22,8 +22,21 @@
         </dependency>
         <dependency>
             <groupId>fr.inria.powerapi.sensor</groupId>
+            <artifactId>sensor-cpu-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.sensor</groupId>
             <artifactId>sensor-libpfm</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.scala-incubator.io</groupId>
+            <artifactId>scala-io-file_${scala.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.scala-incubator.io</groupId>
+            <artifactId>scala-io-core_${scala.version}</artifactId>
         </dependency>
     </dependencies>
 </project>

@@ -24,13 +24,20 @@ import scala.concurrent.duration.DurationInt
 
 object Monitor extends App {
     fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()
-    val api = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfm
-                                                with fr.inria.powerapi.formula.libpfm.FormulaLibpfm
-                                                with fr.inria.powerapi.processor.aggregator.device.AggregatorDevice                                    
-                                                with fr.inria.powerapi.sensor.powerspy.SensorPowerspy
-                                                with fr.inria.powerapi.formula.powerspy.FormulaPowerspy
+    val libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfm
+                                                    with fr.inria.powerapi.formula.libpfm.FormulaLibpfm
+                                                    with fr.inria.powerapi.processor.aggregator.device.AggregatorDevice
+    val powerspy = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.powerspy.SensorPowerspy
+                                                      with fr.inria.powerapi.formula.powerspy.FormulaPowerspy
+                                                      with fr.inria.powerapi.processor.aggregator.device.AggregatorDevice
 
-    api.start(fr.inria.powerapi.library.ALL(), 1.seconds).attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]).waitFor(10.minutes)
-    api.stop()
+    libpfm.start(fr.inria.powerapi.library.ALL(), 1.seconds).attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter])
+    powerspy.start(fr.inria.powerapi.library.PIDS(-1), 1.seconds).attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter])
+    
+    Thread.sleep((10.minutes).toMillis)
+    
+    powerspy.stop()
+    libpfm.stop()
+    
     fr.inria.powerapi.sensor.libpfm.LibpfmUtil.terminate()
 }

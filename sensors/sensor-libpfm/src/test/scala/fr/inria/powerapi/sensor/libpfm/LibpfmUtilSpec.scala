@@ -75,8 +75,6 @@ class LibpfmUtilSpec extends FlatSpec with Matchers {
     val bitset = new java.util.BitSet()
     bitset.set(0)
     bitset.set(1)
-    bitset.set(5)
-    bitset.set(6)
 
     def run(fd: Int) = {
       var i = 0

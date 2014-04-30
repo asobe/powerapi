@@ -237,7 +237,7 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
   def makeItTick() {
     def subscribe() {
       handledProcesses.foreach(process => {
-        subscriptions += TickSubscription(process, frequency)
+        subscriptions += TickSubscription(clockid, process, frequency)
       })
     }
 
@@ -261,7 +261,7 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
     def unsubscribe() {
       if (!subscriptions.isEmpty) {
         handledProcesses.foreach(process => {
-          subscriptions -= TickSubscription(process, frequency)
+          subscriptions -= TickSubscription(clockid, process, frequency)
         })
       }
     }
@@ -285,7 +285,7 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
    * Allows to do the subscription for a new process.
    */
   def attachProcess(startTick: StartTick) = {
-    val subscription = TickSubscription(startTick.process, frequency)
+    val subscription = TickSubscription(clockid, startTick.process, frequency)
     if(!subscriptions.contains(subscription)) {
       handledProcesses += startTick.process
       subscriptions += subscription
@@ -296,7 +296,7 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
    * Allows to stop a subscription for a given process.
    */
   def detachProcess(stopTick: StopTick) = {
-    val subscription = TickSubscription(stopTick.process, frequency)
+    val subscription = TickSubscription(clockid, stopTick.process, frequency)
     if(subscriptions.contains(subscription)) {
       handledProcesses -= stopTick.process
       subscriptions -= subscription
