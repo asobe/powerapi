@@ -298,14 +298,12 @@ class Processing extends Configuration {
     for(frequency <- availableFreqs) {
       // Used to build the csv arrays which be used to write the corresponding file.
       val csvData = scala.collection.mutable.LinkedHashMap[Int, scala.collection.mutable.ArrayBuffer[String]]()
-      val csvIdlePower = scala.collection.mutable.LinkedHashMap[Int, scala.collection.mutable.ArrayBuffer[String]]()
       val csvPowers = scala.collection.mutable.LinkedHashMap[Int, scala.collection.mutable.ArrayBuffer[String]]()
 
       // Create the headers.
       csvData(0) = scala.collection.mutable.ArrayBuffer[String]()
       events.distinct.sorted.foreach(event => csvData(0) += s"$event (median)")
       csvPowers(0) = scala.collection.mutable.ArrayBuffer[String]("P (median)")
-      csvIdlePower(0) = scala.collection.mutable.ArrayBuffer[String]("P (median)")
       
       // Loop on the stressed elements.
       for(elt <- elements) {
@@ -358,11 +356,8 @@ class Processing extends Configuration {
         val powersData = scala.collection.mutable.HashMap[Int, scala.collection.mutable.ArrayBuffer[Double]]()
         
         powersPaths.toArray.sortWith((path1, path2) => sortPaths(path1, path2)).foreach(path => {
-          // Special case for the file wich contains the idle power. The values will be store in another buffer.
+          // Special case for the file wich contains the idle power. We have to remove the first values.
           if(path.path.endsWith(s"$eltIdlePower/$outPathPowerspy")) {
-            val existing = idlePowersData.getOrElse(0, scala.collection.mutable.ArrayBuffer[Double]())
-            existing ++= powers(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
-            idlePowersData(0) = existing
             // tail is used to remove the separator.
             powers(path) = powers(path).dropWhile(_ != separator).tail
           }
@@ -377,14 +372,6 @@ class Processing extends Configuration {
           }
         })
 
-        // Compute the medians and store values inside the corresponding csv buffer.
-        if(!idlePowersData.isEmpty) {
-          val medianVal = SamplingTool.median(idlePowersData(0))
-          val line = csvIdlePower.getOrElse(1, scala.collection.mutable.ArrayBuffer[String]())
-          line += medianVal.toDouble.toString
-          csvIdlePower(1) = line
-        }
-
         for(i <- 0 until powersData.keys.size) {
           // +1 because of the header
           val medianVal = SamplingTool.median(powersData(i))
@@ -398,9 +385,6 @@ class Processing extends Configuration {
       // Write the corresponding csv files in a dedicated directory.
       s"$processingPath/$frequency".createDirectory(failIfExists=false)
 
-      csvIdlePower.values.foreach(line => {
-        Resource.fromFile(s"$processingPath/$frequency/idle.csv").append(line.mkString(csvDelimiter) + scalax.io.Line.Terminators.NewLine.sep)
-      })
       csvPowers.values.foreach(line => {
         Resource.fromFile(s"$processingPath/$frequency/powers.csv").append(line.mkString(csvDelimiter) + scalax.io.Line.Terminators.NewLine.sep)
       })
@@ -443,11 +427,12 @@ class MultipleLinearRegression extends Configuration {
         separator = csvDelimiter.charAt(0),
         skipLines = 1)
       val coefficients = LinearRegression.regress(data, powers(::, 0))
+      val coefficientsArr = coefficients.toArray
       
-      formattedFormulaeString += "\t{freq = " + frequency.toString + ", formula = [" + coefficients.toArray.mkString(",") + "]}" + scalax.io.Line.Terminators.NewLine.sep
+      formattedFormulaeString += "\t{freq = " + frequency.toString + ", formula = [" + coefficientsArr.mkString(",") + "]}" + scalax.io.Line.Terminators.NewLine.sep
       
-      // Idle power part
-      val idlePower = Path.fromString(s"$processingPath/$frequency/idle.csv").lines().toList.apply(1)
+      // Contant part.
+      val idlePower = coefficientsArr(coefficientsArr.size - 1)
       idlePowers += idlePower.toDouble
     }
 
