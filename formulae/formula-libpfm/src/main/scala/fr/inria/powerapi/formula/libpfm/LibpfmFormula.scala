@@ -50,6 +50,8 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 
   /** Thread numbers. */
   lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
+  /** Option used to know if cpufreq is enable or not. */
+  lazy val cpuFreq = load { _.getBoolean("powerapi.cpu.cpufreq-utils") }(false)
   /** Path to time_in_state file. */
   lazy val timeInStatePath = load { _.getString("powerapi.cpu.time-in-state") }("/sys/devices/system/cpu/cpu%?/cpufreq/stats/time_in_state")
 }
@@ -135,8 +137,13 @@ class LibpfmListener extends Component with Configuration {
       // If the size is greater than 1, the process is corrupt.
       if(filteredEntry.size == 1) {
         val entry = filteredEntry.head
-        //publish(LibpfmListenerMessage(tick = entry._1, timeInStates = frequencies.process(entry._1.subscription), messages = entry._2.toList))
-        publish(LibpfmListenerMessage(tick = entry._1, messages = entry._2.toList))
+
+        if(cpuFreq) {
+          publish(LibpfmListenerMessage(tick = entry._1, timeInStates = frequencies.process(entry._1.subscription), messages = entry._2.toList))
+        }
+
+        else publish(LibpfmListenerMessage(tick = entry._1, messages = entry._2.toList))
+        
         cache -= entry._1
       }
       else throw new Exception("There is a problem with the messages processing ...")
@@ -163,11 +170,7 @@ class LibpfmFormula extends Formula with Configuration {
   def process(libpfmListenerMessage: LibpfmListenerMessage) = {
     var acc = 0.0
 
-    //for((freq, formula) <- formulae) {
-      // We assume the order is the same (sorted).
-      // Variables injection into the formula.
-      //val formula = formulae(freq)
-      val formula = formulae.maxBy(_._1)._2
+    def compute(formula: Array[Double], libpfmListenerMessage: LibpfmListenerMessage) = {
       var power = 0.0
 
       for(i <- 0 until (formula.size - 1)) {
@@ -180,14 +183,28 @@ class LibpfmFormula extends Formula with Configuration {
         }
       }
 
-      // val globalTime = libpfmListenerMessage.timeInStates.times.values.sum
-      // var ratio = 0.0
-      // if(globalTime > 0) {
-      //   ratio = libpfmListenerMessage.timeInStates.times(freq.toInt).toDouble / globalTime
-      // }
-      // acc += power * ratio
+      power
+    }
+
+    // We assume the order is the same (sorted).
+    // Variables injection into the formula.
+    if(cpuFreq) {
+      for((freq, formula) <- formulae) {
+        val power = compute(formula, libpfmListenerMessage)
+        val globalTime = libpfmListenerMessage.timeInStates.times.values.sum
+        var ratio = 0.0
+        if(globalTime > 0) {
+          ratio = libpfmListenerMessage.timeInStates.times(freq.toInt).toDouble / globalTime
+        }
+        acc += power * ratio
+      }
+    }
+
+    else {
+      val formula = formulae.maxBy(_._1)._2
+      val power = compute(formula, libpfmListenerMessage)
       acc = power
-    //}
+    }
 
     publish(LibpfmFormulaMessage(energy = Energy.fromPower(acc), tick = libpfmListenerMessage.tick))
   }

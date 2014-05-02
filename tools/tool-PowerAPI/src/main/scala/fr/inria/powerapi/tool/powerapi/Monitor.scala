@@ -55,7 +55,7 @@ class ExtendVirtioReporter extends fr.inria.powerapi.reporter.virtio.VirtioRepor
   } (Map[Int, Int]())
 }
 
-object Initializer {
+object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
   var devs = List[String]("cpu")
   val powerapi = new fr.inria.powerapi.library.PAPI
 
@@ -63,27 +63,45 @@ object Initializer {
             memSensor:String, memFormula:String,
             diskSensor:String, diskFormula:String,
             aggregator: String): fr.inria.powerapi.library.PAPI = {
-    Array(
-      cpuSensor match {
-	      case "cpu-proc"     => fr.inria.powerapi.sensor.cpu.proc.SensorCpuProc
-	      case "cpu-proc-reg" => fr.inria.powerapi.sensor.cpu.proc.reg.SensorCpuProcReg
-        case "cpu-proc-virtio" => fr.inria.powerapi.sensor.cpu.proc.virtio.SensorCpuProcVirtio 	
-      },
-      cpuFormula match {
-	      case "cpu-max"    => fr.inria.powerapi.formula.cpu.max.FormulaCpuMax
-	      case "cpu-maxvm"  => fr.inria.powerapi.formula.cpu.maxvm.FormulaCpuMaxVM
-	      case "cpu-reg"    => fr.inria.powerapi.formula.cpu.reg.FormulaCpuReg
-      }
-    ).foreach(powerapi.configure(_))
     
+    if(cpuSensor == "sensor-libpfm" || cpuFormula == "formula-libpfm") {
+      fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()
+
+      // Special cases for libpfm sensor & formula.
+      if(cpuSensor == "sensor-libpfm") {
+        // One sensor per event.
+        events.distinct.foreach(event => powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmConfigured(event)))
+      }
+
+      if(cpuFormula == "formula-libpfm") {
+        powerapi.configure(fr.inria.powerapi.formula.libpfm.FormulaListener)
+        powerapi.configure(fr.inria.powerapi.formula.libpfm.FormulaLibpfm)
+      }
+    }
+
+    else {
+      Array(
+        cpuSensor match {
+          case "cpu-proc"        => fr.inria.powerapi.sensor.cpu.proc.SensorCpuProc
+          case "cpu-proc-reg"    => fr.inria.powerapi.sensor.cpu.proc.reg.SensorCpuProcReg
+          case "cpu-proc-virtio" => fr.inria.powerapi.sensor.cpu.proc.virtio.SensorCpuProcVirtio
+        },
+        cpuFormula match {
+          case "cpu-max"        => fr.inria.powerapi.formula.cpu.max.FormulaCpuMax
+          case "cpu-maxvm"      => fr.inria.powerapi.formula.cpu.maxvm.FormulaCpuMaxVM
+          case "cpu-reg"        => fr.inria.powerapi.formula.cpu.reg.FormulaCpuReg
+        }
+      ).foreach(powerapi.configure(_))
+    }
+
     if (memSensor != "" && memFormula != "") {
       Array(
         memSensor match {
-	        case "mem-proc"  => fr.inria.powerapi.sensor.mem.proc.SensorMemProc
-	        case "mem-sigar" => fr.inria.powerapi.sensor.mem.sigar.SensorMemSigar
+          case "mem-proc"  => fr.inria.powerapi.sensor.mem.proc.SensorMemProc
+          case "mem-sigar" => fr.inria.powerapi.sensor.mem.sigar.SensorMemSigar
         },
         memFormula match {
-	        case "mem-single" => fr.inria.powerapi.formula.mem.single.FormulaMemSingle
+          case "mem-single" => fr.inria.powerapi.formula.mem.single.FormulaMemSingle
         }
       ).foreach(powerapi.configure(_))
       devs +:= "memory"
@@ -92,11 +110,11 @@ object Initializer {
     if (diskSensor != "" && diskFormula != "") {
       Array(
         diskSensor match {
-	        case "disk-proc" => fr.inria.powerapi.sensor.disk.proc.SensorDiskProc
-	        case "disk-atop" => fr.inria.powerapi.sensor.disk.atop.SensorDiskAtop 	
+          case "disk-proc" => fr.inria.powerapi.sensor.disk.proc.SensorDiskProc
+          case "disk-atop" => fr.inria.powerapi.sensor.disk.atop.SensorDiskAtop   
         },
         diskFormula match {
-	        case "disk-single" => fr.inria.powerapi.formula.disk.single.FormulaDiskSingle
+          case "disk-single" => fr.inria.powerapi.formula.disk.single.FormulaDiskSingle
         }
       ).foreach(powerapi.configure(_))
       devs +:= "disk"
@@ -122,8 +140,8 @@ object Monitor extends App {
   lazy val FileFormat       = """-filename\s+(\w+)""".r
   lazy val FreqFormat       = """-frequency\s+(\d+)""".r
   lazy val TimeFormat       = """-time\s+(\d+)""".r
-  lazy val CpuSensorFormat   = """-cpusensor\s+(cpu-proc|cpu-proc-reg|cpu-proc-virtio)""".r
-  lazy val CpuFormulaFormat  = """-cpuformula\s+(cpu-max|cpu-maxvm|cpu-reg)""".r
+  lazy val CpuSensorFormat   = """-cpusensor\s+(cpu-proc|cpu-proc-reg|cpu-proc-virtio|sensor-libpfm)""".r
+  lazy val CpuFormulaFormat  = """-cpuformula\s+(cpu-max|cpu-maxvm|cpu-reg|formula-libpfm)""".r
   lazy val MemSensorFormat   = """-memsensor\s+(mem-proc|mem-sigar)""".r
   lazy val MemFormulaFormat  = """-memformula\s+(mem-single)""".r
   lazy val DiskSensorFormat  = """-disksensor\s+(disk-proc|disk-atop)""".r

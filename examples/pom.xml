@@ -15,7 +15,7 @@
 	</parent>
 
 	<modules>
-		<module>example-libpfm</module>
+		<module>exp-middleware</module>
 	</modules>
 
 </project>

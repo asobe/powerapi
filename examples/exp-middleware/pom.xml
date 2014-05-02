@@ -4,7 +4,7 @@
     <groupId>fr.inria.powerapi.example</groupId>
     <name>${project.artifactId}</name>
     <description>Example of libpfm usage.</description>
-    <artifactId>example-libpfm</artifactId>
+    <artifactId>exp-middleware</artifactId>
     <inceptionYear>2014</inceptionYear>
 
     <parent>
@@ -40,6 +40,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>fr.inria.powerapi.formula</groupId>
+            <artifactId>formula-libpfm</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>fr.inria.powerapi.sensor</groupId>
             <artifactId>sensor-powerspy</artifactId>
             <version>${project.version}</version>
@@ -47,11 +52,6 @@
         <dependency>
             <groupId>fr.inria.powerapi.formula</groupId>
             <artifactId>formula-powerspy</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>fr.inria.powerapi.formula</groupId>
-            <artifactId>formula-libpfm</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
@@ -62,7 +62,7 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>fr.inria.powerapi.example.libpfm.Monitor</mainClass>
+                    <mainClass>fr.inria.powerapi.exp.middleware.Monitor</mainClass>
                 </configuration>
             </plugin>
         </plugins>
