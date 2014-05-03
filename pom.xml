@@ -94,6 +94,7 @@
         <module>processors</module>
         <module>reporters</module>
         <module>tools</module>
+        <module>modes</module>
     </modules>
 
     <properties>
@@ -102,11 +103,22 @@
         <encoding>UTF-8</encoding>
         <scala.version>2.10</scala.version>
         <scala.library>2.10.3</scala.library>
-        <akka.version>2.3.0</akka.version>
+        <akka.version>2.2.4</akka.version>
         <firstAuthor.name>Aurelien Bourdon</firstAuthor.name>
         <firstAuthor.email>aurelien.bourdon@inria.fr</firstAuthor.email>
         <powerapi.root></powerapi.root>
     </properties>
+
+    <pluginRepositories>
+      <pluginRepository>
+        <id>powerapi-dependencies</id>
+        <name>Powerapi dependencies repository</name>
+        <url>file://${powerapi.root}/lib</url>
+        <snapshots>
+          <enabled>true</enabled>
+        </snapshots>
+      </pluginRepository>
+    </pluginRepositories>
 
     <repositories>
         <repository>

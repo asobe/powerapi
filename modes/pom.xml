@@ -2,11 +2,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<artifactId>reporters</artifactId>
+	<artifactId>modes</artifactId>
 	<packaging>pom</packaging>
 	<name>${project.artifactId}</name>
-	<description>PowerAPI's reporters.</description>
-	<inceptionYear>2013</inceptionYear>
+	<description>Modes for usage of the PowerAPI library.</description>
+	<inceptionYear>2014</inceptionYear>
 
 	<parent>
 		<groupId>fr.inria.powerapi</groupId>
@@ -15,14 +15,6 @@
 	</parent>
 
 	<modules>
-		<module>reporter-console</module>
-		<module>reporter-virtio</module>
-		<module>reporter-file</module>
-		<module>reporter-gnuplot</module>
-		<module>reporter-jfreechart</module>
-		<module>reporter-thrift</module>
-		<module>reporter-fuse</module>
-		<module>reporter-rest</module>
+		<module>daemon-PowerAPI</module>
 	</modules>
-
 </project>
