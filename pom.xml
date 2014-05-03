@@ -105,7 +105,7 @@
         <akka.version>2.3.0</akka.version>
         <firstAuthor.name>Aurelien Bourdon</firstAuthor.name>
         <firstAuthor.email>aurelien.bourdon@inria.fr</firstAuthor.email>
-        <powerapi.root>${basedir}</powerapi.root>
+        <powerapi.root></powerapi.root>
     </properties>
 
     <repositories>
@@ -127,12 +127,12 @@
             <dependency>
                 <groupId>com.github.scala-incubator.io</groupId>
                 <artifactId>scala-io-core_${scala.version}</artifactId>
-                <version>0.4.2</version>
+                <version>0.4.3</version>
             </dependency>
             <dependency>
                 <groupId>com.github.scala-incubator.io</groupId>
                 <artifactId>scala-io-file_${scala.version}</artifactId>
-                <version>0.4.2</version>
+                <version>0.4.3</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

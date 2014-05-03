@@ -55,16 +55,16 @@ class DeviceAggregatorSpec extends FlatSpec with Matchers with AssertionsForJUni
   }
 
   "A DeviceAggregator" should "process a FormulaMessage" in {
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 1), device = "cpu"))
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(1, TickSubscription(Process(345), 1 second), 1), device = "cpu"))
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(1, TickSubscription(Process(123), 1 second), 1), device = "mem"))
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(2, TickSubscription(Process(123), 1 second), 1), device = "cpu"))
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(2, TickSubscription(Process(345), 1 second), 1), device = "cpu"))
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(2, TickSubscription(Process(123), 1 second), 1), device = "mem"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(1, Process(123), 1 second), 1), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(1, TickSubscription(1, Process(345), 1 second), 1), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(1, TickSubscription(1, Process(123), 1 second), 1), device = "mem"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(2, TickSubscription(2, Process(123), 1 second), 1), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(2, TickSubscription(2, Process(345), 1 second), 1), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(2, TickSubscription(2, Process(123), 1 second), 1), device = "mem"))
 
     deviceAggregator.underlyingActor.sent should be('empty)
 
-    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 2), device = "cpu"))
+    deviceAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(1, Process(123), 1 second), 2), device = "cpu"))
 
     deviceAggregator.underlyingActor.sent should have size 4
     deviceAggregator.underlyingActor.sent should (contain key (1, "cpu") and contain key (1, "mem"))

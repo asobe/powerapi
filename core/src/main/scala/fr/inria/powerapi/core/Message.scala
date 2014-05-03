@@ -39,12 +39,12 @@ import akka.actor.ActorRef
 
 /**
  * In addition to a specific Listener, each PowerAPI request is composed by:
- * - 
+ * - a clockid to represent the monitoring
  * - a process
  * - a time period or computation duration
  * Thus, a TickSubscription represents this PowerAPI request composition.
  */
-case class TickSubscription(process: Process, duration: FiniteDuration)
+case class TickSubscription(clockid: Long, process: Process, duration: FiniteDuration)
 
 /**
  * Each PowerAPI's request is created according to a specific time period.

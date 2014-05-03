@@ -54,16 +54,16 @@ class TimestampAggregatorSpec extends FlatSpec with Matchers with AssertionsForJ
   }
 
   "A TimestampAggregator" should "process a FormulaMessage" in {
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 1)))
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(1, TickSubscription(Process(123), 1 second), 1)))
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(1, TickSubscription(Process(123), 1 second), 1)))
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(2, TickSubscription(Process(123), 1 second), 1)))
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(2, TickSubscription(Process(123), 1 second), 1)))
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(2, TickSubscription(Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(1, Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(1, TickSubscription(1, Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(1, TickSubscription(1, Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(2, TickSubscription(2, Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(2, TickSubscription(2, Process(123), 1 second), 1)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(2, TickSubscription(2, Process(123), 1 second), 1)))
 
     timestampAggregator.underlyingActor.sent should be('empty)
 
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 2)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(1, Process(123), 1 second), 2)))
 
     timestampAggregator.underlyingActor.sent should have size 2
     timestampAggregator.underlyingActor.sent should contain key 1
@@ -71,9 +71,9 @@ class TimestampAggregatorSpec extends FlatSpec with Matchers with AssertionsForJ
     timestampAggregator.underlyingActor.sent should contain key 2
     timestampAggregator.underlyingActor.sent(2).energy should equal(Energy.fromPower(4 + 5 + 6))
 
-    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(Process(123), 1 second), 3)))
+    timestampAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(1, Process(123), 1 second), 3)))
 
-    // The map is not cleared, so all the previous are kept.
+    // The map is not cleared, so all the previous values are kept.
     timestampAggregator.underlyingActor.sent should have size 2
     timestampAggregator.underlyingActor.sent should contain key 1
     timestampAggregator.underlyingActor.sent(1).energy should equal(Energy.fromPower(1))

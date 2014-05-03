@@ -23,6 +23,7 @@
 		<module>formula-mem-single</module>
 		<module>formula-disk-api</module>
 		<module>formula-disk-single</module>
+		<module>formula-libpfm</module>
 		<module>formula-powerspy</module>
 	</modules>
 

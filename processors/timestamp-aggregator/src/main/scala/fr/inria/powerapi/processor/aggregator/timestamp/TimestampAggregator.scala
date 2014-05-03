@@ -61,7 +61,7 @@ class TimestampAggregator extends Processor {
     cache get formulaMessage.tick.timestamp match {
       case Some(agg) => agg += RowMessage(formulaMessage.tick, formulaMessage.device, formulaMessage.energy)
       case None => {
-        val agg = AggregatedMessage(tick = Tick(formulaMessage.tick.clockid, TickSubscription(Process(-1), formulaMessage.tick.subscription.duration)), device = "all")
+        val agg = AggregatedMessage(tick = Tick(formulaMessage.tick.clockid, TickSubscription(formulaMessage.tick.clockid, Process(-1), formulaMessage.tick.subscription.duration)), device = "all")
         agg += RowMessage(formulaMessage.tick, formulaMessage.device, formulaMessage.energy)
         cache += formulaMessage.tick.timestamp -> agg
       }
@@ -76,7 +76,7 @@ class TimestampAggregator extends Processor {
     val base = cache(timestamp)
     // Group by timestamp (which is represented by one entry in the cache) and clockid
     val messages = for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) yield (AggregatedMessage(
-      tick = Tick(byMonitoring._1, TickSubscription(Process(-1), base.tick.subscription.duration), timestamp),
+      tick = Tick(byMonitoring._1, TickSubscription(byMonitoring._1, Process(-1), base.tick.subscription.duration), timestamp),
       device = "all",
       messages = byMonitoring._2)
     )
