@@ -6,16 +6,6 @@
   <description>PowerAPI daemon.</description>
   <inceptionYear>2014</inceptionYear>
 
-  <repositories>
-    <repository>
-      <id>OSS Sonatype snapshot repository</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
-  </repositories>
-
   <parent>
     <groupId>fr.inria.powerapi</groupId>
     <artifactId>modes</artifactId>
