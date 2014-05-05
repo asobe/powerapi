@@ -100,7 +100,9 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
   import MonitoringMessages.CleanResources
 
   lazy val descriptors = new scala.collection.mutable.HashMap[Process, Int]
+  var oldDescriptors = new scala.collection.mutable.HashMap[Process, Int]
   lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Long]
+  var timestamp = 0l
 
   override def messagesToListen = super.messagesToListen ++ Array(classOf[CleanResources])
 
@@ -131,6 +133,20 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
   }
 
   def process(tick: Tick) = {
+    if(tick.timestamp > timestamp) {
+      val diff = oldDescriptors -- descriptors.keys
+      diff.foreach {
+        case (process, fd) => {
+          descriptors -= process
+          LibpfmUtil.disableCounter(fd)
+          LibpfmUtil.closeCounter(fd)
+        }
+      }
+
+      timestamp = tick.timestamp
+      oldDescriptors = descriptors.clone
+    }
+
     // Reset and enable the counter if the cache does not contain it.
     if(!descriptors.contains(tick.subscription.process)) {
       LibpfmUtil.configureCounter(tick.subscription.process, bitset, event) match {

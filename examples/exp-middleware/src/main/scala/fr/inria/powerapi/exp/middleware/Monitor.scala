@@ -21,7 +21,7 @@
 package fr.inria.powerapi.exp.middleware
 
 import fr.inria.powerapi.core.{ Configuration, Energy, Process, ProcessedMessage, Reporter, Tick, TickSubscription }
-import fr.inria.powerapi.library.{ ALL, PAPI, PIDS }
+import fr.inria.powerapi.library.{ ALL, APPS, PAPI, PIDS }
 import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfm }
 import fr.inria.powerapi.formula.libpfm.FormulaLibpfm
 import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
@@ -180,7 +180,7 @@ object SpecCPUExp {
 
 // Object launcher.
 object Monitor extends App {
-  //Default.run()
-  SpecCPUExp.run()
+  Default.run()
+  //SpecCPUExp.run()
   System.exit(0)
 }
