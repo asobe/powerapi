@@ -1,6 +1,7 @@
 #!/bin/bash
 
-(( $# > 2)) || { echo "Usage: ./start_bench.bash #abs_dir_spec #name #duration"; exit 1;}
+# This script is used to launch one given benchmark (represented by its name) during a fixed duration.
+(( $# == 3)) || { echo "Usage: ./start_bench.bash #abs_dir_spec #name #duration"; exit 1;}
 
 # Benchmark launching
 (

@@ -42,6 +42,11 @@ trait PowerIdleConfiguration extends Configuration {
   lazy val avgIdlePower = load {  _.getDouble("powerapi.libpfm.idle-power") } (0.0)
 }
 
+trait StressExpConfiguration extends Configuration {
+  /** Thread numbers. */
+  lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
+}
+
 case class AggregatedMessage(tick: Tick, device: String, messages: collection.mutable.Set[ProcessedMessage] = collection.mutable.Set[ProcessedMessage]()) 
 extends PowerIdleConfiguration with ProcessedMessage {
   override def energy = {
@@ -105,6 +110,9 @@ class ExtendedFileReporter extends Reporter {
   }
 }
 
+/**
+ * Object for simple experimentation, to observe the results directly in a chart.
+ */
 object Default {
   def run() = {
     LibpfmUtil.initialize()
@@ -132,20 +140,28 @@ object SpecCPUExp {
     val benchmarks = Array("calculix", "soplex", "bzip2")
     val path = "/home/colmant/cpu2006"
     val duration = "30"
-    val dataPath = "data"
+    val dataPath = "host-spec-cpu-data"
     val nbRuns = 3
     val separator = "====="
 
-    LibpfmUtil.initialize()
-    val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
-    val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
     // Cleaning phase
     Path.fromString(dataPath).deleteRecursively(force = true)
     (Path(".") * "*.dat").foreach(path => path.delete(force = true))
 
+    // Kill all the running benchmarks (if there is still alive from another execution).
     val benchsToKill = (Seq("bash", "-c", "ps -ef") #> Seq("bash", "-c", "grep _base.amd64-m64-gcc43-nn") #> Seq("bash", "-c", "head -n 1") #> Seq("bash", "-c", "cut -d '/' -f 6") #> Seq("bash", "-c", "cut -d ' ' -f1")).lines
-
     benchsToKill.foreach(benchmark => Seq("bash", "-c", s"killall -s KILL specperl runspec specinvoke $benchmark &> /dev/null").run)
+
+    // To be sure that the benchmarks are compiled, we launch the compilation before all the monitorings (no noise).
+    benchmarks.foreach(benchmark => {
+      val res = Seq("bash", "./src/main/resources/compile_bench.bash", path, benchmark).!
+      if(res != 0) throw new RuntimeException("Umh, there is a problem with SPEC CPU 2006, check if the compilation works manually.")
+    })
+    
+
+    LibpfmUtil.initialize()
+    val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
+    val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
 
     for(run <- 1 to nbRuns) {
       benchmarks.foreach(benchmark => {
@@ -156,8 +172,8 @@ object SpecCPUExp {
         Thread.sleep((20.seconds).toMillis)
         (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
 
-        // Launch the benchmark with a bash script (easier way).
-        Seq("bash", "./src/main/resources/start_bench.bash", path, benchmark, duration).run
+        // Launch the benchmark with a bash script (easiest way).
+        Seq("bash", "./src/main/resources/start_bench.bash", path, benchmark, duration).!
 
         monitoringLibpfm.waitFor(duration.toInt.seconds)
 
@@ -178,9 +194,60 @@ object SpecCPUExp {
   }
 }
 
+/**
+ * Object used for the experiments with stress command, to show the non-linearity of complex processors.
+ */
+object StressExp extends StressExpConfiguration {
+  def run() = {
+    val duration = "30"
+    val dataPath = "host-stress-data"
+    val nbRuns = 3
+    val separator = "====="
+
+    Path.fromString(dataPath).deleteRecursively(force = true)
+    (Path(".") * "*.dat").foreach(path => path.delete(force = true))
+
+    Seq("bash", "-c", "killall stress &> /dev/null").run
+
+    LibpfmUtil.initialize()
+    val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
+    val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
+
+    for(run <- 1 to nbRuns) {
+      var monitoringLibpfm = libpfm.start(ALL(), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
+      val monitoringPspy = powerspy.start(PIDS(-1), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
+
+      // Waiting for the synchronization.
+      monitoringLibpfm.waitFor(20.seconds)
+      (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+
+      for(thread <- 1 to threads) {
+        monitoringLibpfm = libpfm.start(ALL(), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
+        Seq("bash", "-c", s"stress -c $thread -t $duration").!
+        monitoringLibpfm.waitFor(duration.toInt.seconds)
+        (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+      }
+
+     // Move files to the right place.
+      s"$dataPath/$run".createDirectory(failIfExists=false)
+      (Path(".") * "*.dat").foreach(path => {
+        val name = path.name
+        val target: Path = s"$dataPath/$run/$name"
+        path.moveTo(target=target, replace=true)
+      })
+    }
+
+    powerspy.stop()
+    libpfm.stop()
+
+    LibpfmUtil.terminate()
+  }
+}
+
 // Object launcher.
 object Monitor extends App {
   Default.run()
   //SpecCPUExp.run()
+  //StressExp.run()
   System.exit(0)
 }
