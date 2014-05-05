@@ -337,7 +337,14 @@ class Processing extends Configuration {
             existing ++= data(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
             eventData(index) = existing
             // tail is used to remove the separator.
-            data(path) = data(path).dropWhile(_ != separator).tail
+            val tmpData = data(path).dropWhile(_ != separator)
+
+            if(!tmpData.isEmpty) {
+              data(path) = tmpData.tail
+            }
+
+            else data(path) = tmpData
+
             index += 1
           }
         })
@@ -361,7 +368,13 @@ class Processing extends Configuration {
         // Special case for the file wich contains the idle power. We have to remove the first values.
         if(path.path.endsWith(s"$eltIdlePower/$outPathPowerspy")) {
           // tail is used to remove the separator.
-          powers(path) = powers(path).dropWhile(_ != separator).tail
+          val tmpData = powers(path).dropWhile(_ != separator)
+
+          if(!tmpData.isEmpty) {
+            powers(path) = tmpData.tail
+          }
+
+          else powers(path) = tmpData
         }
         var index = 0
         while(!powers(path).isEmpty) {
@@ -369,7 +382,14 @@ class Processing extends Configuration {
           existing ++= powers(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
           powersData(index) = existing
           // tail is used to remove the separator.
-          powers(path) = powers(path).dropWhile(_ != separator).tail
+          val tmpData = powers(path).dropWhile(_ != separator)
+
+          if(!tmpData.isEmpty) {
+            powers(path) = tmpData.tail
+          }
+
+          else powers(path) = tmpData
+
           index += 1
         }
       })
