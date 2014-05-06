@@ -28,6 +28,7 @@ import scala.collection
 import scala.collection.JavaConversions
 import scala.collection.JavaConversions._
 import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
 
 import scalax.file.Path
 import com.typesafe.config.Config
@@ -179,7 +180,8 @@ class LibpfmFormula extends Formula with Configuration {
         if(eventMsg.size != 1) throw new Exception("The processing is incorrect ...")
         
         if(libpfmListenerMessage.tick.subscription.duration != Duration.Zero) {
-          power += (formula(i) * (eventMsg(0).counter.value / eventMsg(0).tick.subscription.duration.toSeconds))
+          val durToSec = eventMsg(0).tick.subscription.duration.toMillis.toDouble / (1.second).toMillis
+          power += (formula(i) * (eventMsg(0).counter.value / durToSec))
         }
       }
 

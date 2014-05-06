@@ -100,7 +100,8 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
   import MonitoringMessages.CleanResources
 
   lazy val descriptors = new scala.collection.mutable.HashMap[Process, Int]
-  var oldDescriptors = new scala.collection.mutable.HashMap[Process, Int]
+  // Used to close the file descriptors which are useless when a tick with a new timestamp is received.
+  var tickProcesses = scala.collection.mutable.Set[Process]()
   lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Long]
   var timestamp = 0l
 
@@ -133,19 +134,23 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
   }
 
   def process(tick: Tick) = {
+    // Piece of code used to refresh the file descriptors which are read by the sensors, the old ones are closed.
     if(tick.timestamp > timestamp) {
-      val diff = oldDescriptors -- descriptors.keys
+      val diff = descriptors -- tickProcesses
       diff.foreach {
         case (process, fd) => {
-          descriptors -= process
           LibpfmUtil.disableCounter(fd)
           LibpfmUtil.closeCounter(fd)
+          descriptors -= process
         }
       }
 
       timestamp = tick.timestamp
-      oldDescriptors = descriptors.clone
+      tickProcesses = scala.collection.mutable.Set[Process]()
     }
+
+    // Add the process into the cache of tick processes, it's a set, so we can just add it (no doublon).
+    tickProcesses += tick.subscription.process
 
     // Reset and enable the counter if the cache does not contain it.
     if(!descriptors.contains(tick.subscription.process)) {
