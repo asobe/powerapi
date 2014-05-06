@@ -173,10 +173,12 @@ object SpecCPUExp {
         Thread.sleep((20.seconds).toMillis)
         (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
 
-        // Launch the benchmark with a bash script (easiest way).
+        // Launch the benchmark with a bash script (easiest way, and blocking).
         Seq("bash", "./src/main/resources/start_bench.bash", path, benchmark, duration).!
 
-        monitoringLibpfm.waitFor(duration.toInt.seconds)
+        // For the moment, is the only way to stop powerapi.
+        monitoringLibpfm.waitFor(1.milliseconds)
+        monitoringPspy.waitFor(1.milliseconds)
 
         // Move files to the right place.
         s"$dataPath/$benchmark/$run".createDirectory(failIfExists=false)
@@ -199,11 +201,12 @@ object SpecCPUExp {
  * Object used for the experiments with stress command, to show the non-linearity of complex processors.
  */
 object StressExp extends StressExpConfiguration {
-  def run() = {
+
+  def collect() = {
     val duration = "30"
     val dataPath = "host-stress-data"
-    val warmup = 5
-    val nbRuns = warmup + 5
+    val warmup = 0
+    val nbRuns = warmup + 3
     val separator = "====="
 
     Path.fromString(dataPath).deleteRecursively(force = true)
@@ -220,15 +223,17 @@ object StressExp extends StressExpConfiguration {
       val monitoringPspy = powerspy.start(PIDS(-1), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
 
       // Waiting for the synchronization.
-      monitoringLibpfm.waitFor(20.seconds)
+      Thread.sleep((20.seconds).toMillis)
       (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
 
       for(thread <- 1 to threads) {
-        monitoringLibpfm = libpfm.start(ALL(), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
-        Seq("bash", "-c", s"stress -c $thread -t $duration").run
-        monitoringLibpfm.waitFor(duration.toInt.seconds)
+        Seq("bash", "-c", s"stress -c $thread -t $duration").!
         (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
       }
+
+      // For the moment, is the only way to stop the monitoring.
+      monitoringLibpfm.waitFor(1.milliseconds)
+      monitoringPspy.waitFor(1.milliseconds)
 
      // Move files to the right place.
       s"$dataPath/$run".createDirectory(failIfExists=false)
@@ -243,6 +248,15 @@ object StressExp extends StressExpConfiguration {
     libpfm.stop()
 
     LibpfmUtil.terminate()
+  }
+
+  def process() = {
+
+  }
+
+  def run() = {
+    collect()
+    //process()
   }
 }
 

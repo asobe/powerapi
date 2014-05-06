@@ -1,18 +1,14 @@
 #!/bin/bash
 
 # This script is used to launch one given benchmark (represented by its name) during a fixed duration.
-(( $# == 3)) || { echo "Usage: ./start_bench.bash #abs_dir_spec #name #duration"; exit 1;}
+(( $# == 2)) || { echo "Usage: ./start_bench.bash #abs_dir_spec #name"; exit 1;}
 
-# Benchmark launching
-(
-  cd $1
-  . ./shrc
+cd $1
+. ./shrc
 
-  runspec --noreportable --iterations=1 $2 > /dev/null &
-  sleep $3
-)
+runspec --noreportable --iterations=1 $2
 
-# Stop benchmark
+# Stop the benchmark if it does not terminate correctly.
 name=$(ps -ef | grep _base.amd64-m64-gcc43-nn | head -n 1 | cut -d '/' -f 6 | cut -d ' ' -f1)
 killall -s KILL specperl runspec specinvoke $name &> /dev/null
 
