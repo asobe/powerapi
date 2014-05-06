@@ -57,12 +57,13 @@ class ExtendVirtioReporter extends fr.inria.powerapi.reporter.virtio.VirtioRepor
 
 object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
   var devs = List[String]("cpu")
-  val powerapi = new fr.inria.powerapi.library.PAPI
 
   def start(cpuSensor:String, cpuFormula:String,
             memSensor:String, memFormula:String,
             diskSensor:String, diskFormula:String,
             aggregator: String): fr.inria.powerapi.library.PAPI = {
+
+    val powerapi = new fr.inria.powerapi.library.PAPI
     
     if(cpuSensor == "sensor-libpfm" || cpuFormula == "formula-libpfm") {
       fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()
@@ -85,11 +86,13 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
           case "cpu-proc"        => fr.inria.powerapi.sensor.cpu.proc.SensorCpuProc
           case "cpu-proc-reg"    => fr.inria.powerapi.sensor.cpu.proc.reg.SensorCpuProcReg
           case "cpu-proc-virtio" => fr.inria.powerapi.sensor.cpu.proc.virtio.SensorCpuProcVirtio
+          case "powerspy"    => fr.inria.powerapi.sensor.powerspy.SensorPowerspy
         },
         cpuFormula match {
           case "cpu-max"        => fr.inria.powerapi.formula.cpu.max.FormulaCpuMax
           case "cpu-maxvm"      => fr.inria.powerapi.formula.cpu.maxvm.FormulaCpuMaxVM
           case "cpu-reg"        => fr.inria.powerapi.formula.cpu.reg.FormulaCpuReg
+          case "powerspy"   => fr.inria.powerapi.formula.powerspy.FormulaPowerspy
         }
       ).foreach(powerapi.configure(_))
     }
@@ -146,6 +149,7 @@ object Monitor extends App {
   lazy val MemFormulaFormat  = """-memformula\s+(mem-single)""".r
   lazy val DiskSensorFormat  = """-disksensor\s+(disk-proc|disk-atop)""".r
   lazy val DiskFormulaFormat = """-diskformula\s+(disk-single)""".r
+  lazy val PowerspyFormat = """-powerspy\s+(1|0)""".r
 
     // Write a runtime configuration file for VMs
   def createVMCOnfiguration(vmParameter: String): Array[Int] = {
@@ -200,6 +204,7 @@ object Monitor extends App {
       case MemFormulaFormat(memFormula)   => ("memFormula" -> memFormula)
       case DiskSensorFormat(diskSensor)   => ("diskSensor" -> diskSensor)
       case DiskFormulaFormat(diskFormula) => ("diskFormula" -> diskFormula)
+      case PowerspyFormat(powerspySet)    => ("powerspySet" -> powerspySet)
       case _ => ("none" -> "")
     }
   }).toMap
@@ -210,6 +215,12 @@ object Monitor extends App {
     params.getOrElse("diskSensor", ""), params.getOrElse("diskFormula", ""),
     params.getOrElse("agg", "timestamp")
   )
+  val powerspySet = params.getOrElse("powerspySet", "0").toInt
+  var powerspy: fr.inria.powerapi.library.PAPI = null;
+  
+  if (powerspySet == 1) {
+    powerspy = Initializer.start("powerspy","powerspy","","","","","device") 
+  }
 
   var pids = params.getOrElse("pids", "").split(",").filter(_ != "").map(_.toInt)
   val apps = params.getOrElse("app", "").split(",").filter(_ != "")
@@ -249,6 +260,11 @@ object Monitor extends App {
     allPIDs ++= (for(process <- appsC.monitoredProcesses.toArray) yield process.pid)
     powerapi.start(pidsC, appsC, freq.millis)
   }
+   
+  var monitoringPowerspy: fr.inria.powerapi.library.Monitoring = null;
+  if (powerspySet == 1) {
+    monitoringPowerspy = powerspy.start(fr.inria.powerapi.library.PIDS(-1), freq.millis)
+  }
 
   if(reporters.isEmpty) reporters = Array("chart")
 
@@ -256,8 +272,17 @@ object Monitor extends App {
     monitoring.attachReporter(getReporter(reporter))
   })
 
-  monitoring.waitFor(time.minute)
+  if (powerspySet == 1) {
+    reporters.foreach(reporter => {
+      monitoringPowerspy.attachReporter(getReporter(reporter))
+    })
+  }
+
+  Thread.sleep((time.minute).toMillis)
   powerapi.stop
+  if (powerspySet == 1) {
+    powerspy.stop
+  }
 
   val allDevs = Initializer.devs.distinct.sortWith(_.compareTo(_) < 0)
   
