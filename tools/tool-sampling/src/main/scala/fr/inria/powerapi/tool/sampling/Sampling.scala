@@ -236,14 +236,15 @@ class Sampling extends Configuration {
   }
 
   def run() = {
-    val availableFreqs = scala.collection.mutable.SortedSet[Long]()
-
     LibpfmUtil.initialize()
 
-    // Get the available frequencies from sys virtual filesystem.
-    (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
-      availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
-    })
+    val availableFreqs = scala.collection.mutable.SortedSet[Long]()
+    if(cpuFreq) {
+      // Get the available frequencies from sys virtual filesystem.
+      (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
+        availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
+      })
+    }
 
     // Cleaning phase
     Path.fromString(samplingPath).deleteRecursively(force = true)
@@ -416,19 +417,19 @@ class Processing extends Configuration {
   }
 
   def run() = {
-    val availableFreqs = scala.collection.mutable.SortedSet[Long]()
-
     // Cleaning phase
     Path.fromString(processingPath).deleteRecursively(force = true)
 
     if(!Path.fromString(samplingPath).exists) System.exit(0)
     
-    // Get the available frequencies from sys virtual filesystem.
-    (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
-      availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
-    })
-
     if(cpuFreq) {
+      val availableFreqs = scala.collection.mutable.SortedSet[Long]()
+      
+      // Get the available frequencies from sys virtual filesystem.
+      (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
+        availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
+      })
+
       for(frequency <- availableFreqs) {
         process(frequency)
       }
@@ -457,23 +458,24 @@ class MultipleLinearRegression extends Configuration {
 
   def run() = {
     implicit val codec = scalax.io.Codec.UTF8
-    val availableFreqs = scala.collection.mutable.SortedSet[Long]()
 
     // Cleaning phase
     Path.fromString(formulaePath).deleteRecursively(force = true)
 
     if(!Path.fromString(processingPath).exists) System.exit(0)
     
-    // Get the available frequencies from sys virtual filesystem.
-    (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
-      availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
-    })
-
     val lines = scala.collection.mutable.ArrayBuffer[String]()
     lines += "powerapi.libpfm.formulae = [" + scalax.io.Line.Terminators.NewLine.sep
     val idlePowers = scala.collection.mutable.ArrayBuffer[Double]()
     
     if(cpuFreq) {
+      val availableFreqs = scala.collection.mutable.SortedSet[Long]()
+      
+      // Get the available frequencies from sys virtual filesystem.
+      (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
+        availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
+      })
+
       for(frequency <- availableFreqs) {
         val coefficients = compute(frequency)
         lines += "\t{freq = " + frequency.toString + ", formula = [" + coefficients.mkString(",") + "]}" + scalax.io.Line.Terminators.NewLine.sep
