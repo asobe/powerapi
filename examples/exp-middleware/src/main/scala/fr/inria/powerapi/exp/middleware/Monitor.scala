@@ -122,7 +122,7 @@ object Default {
     libpfm.start(ALL(), 1.seconds).attachReporter(classOf[JFreeChartReporter])
     powerspy.start(PIDS(-1), 1.seconds).attachReporter(classOf[JFreeChartReporter])
     
-    Thread.sleep((10.minutes).toMillis)
+    Thread.sleep((5.hours).toMillis)
     
     powerspy.stop()
     libpfm.stop()
@@ -141,7 +141,8 @@ object SpecCPUExp {
     val path = "/home/colmant/cpu2006"
     val duration = "30"
     val dataPath = "host-spec-cpu-data"
-    val nbRuns = 3
+    val warmup = 5
+    val nbRuns = warmup + 5
     val separator = "====="
 
     // Cleaning phase
@@ -201,7 +202,8 @@ object StressExp extends StressExpConfiguration {
   def run() = {
     val duration = "30"
     val dataPath = "host-stress-data"
-    val nbRuns = 3
+    val warmup = 5
+    val nbRuns = warmup + 5
     val separator = "====="
 
     Path.fromString(dataPath).deleteRecursively(force = true)
@@ -223,7 +225,7 @@ object StressExp extends StressExpConfiguration {
 
       for(thread <- 1 to threads) {
         monitoringLibpfm = libpfm.start(ALL(), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
-        Seq("bash", "-c", s"stress -c $thread -t $duration").!
+        Seq("bash", "-c", s"stress -c $thread -t $duration").run
         monitoringLibpfm.waitFor(duration.toInt.seconds)
         (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
       }
@@ -246,8 +248,8 @@ object StressExp extends StressExpConfiguration {
 
 // Object launcher.
 object Monitor extends App {
-  Default.run()
+  //Default.run()
   //SpecCPUExp.run()
-  //StressExp.run()
+  StressExp.run()
   System.exit(0)
 }
