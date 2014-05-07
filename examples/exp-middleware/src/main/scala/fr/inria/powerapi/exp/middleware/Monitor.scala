@@ -145,7 +145,7 @@ object Default {
  */
 object SpecCPUExp {
   implicit val codec = scalax.io.Codec.UTF8
-  val benchmarks = Array("calculix", "soplex", "bzip2")
+  val benchmarks = Array("calculix", "soplex", "bzip2", "hmmer", "povray", "bwaves", "gamess", "perlbench", "h264ref", "xalancbmk")
   val path = "/home/colmant/cpu2006"
   val duration = "30"
   val dataPath = "host-spec-cpu-data"
@@ -165,7 +165,7 @@ object SpecCPUExp {
     // To be sure that the benchmarks are compiled, we launch the compilation before all the monitorings (no noise).
     benchmarks.foreach(benchmark => {
       val res = Seq("bash", "./src/main/resources/compile_bench.bash", path, benchmark).!
-      if(res != 0) throw new RuntimeException("Umh, there is a problem with SPEC CPU 2006, check if the compilation works manually.")
+      if(res != 0) throw new RuntimeException("Umh, there is a problem with the compilation, maybe dependencies are missing.")
     })
     
 
