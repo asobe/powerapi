@@ -273,9 +273,9 @@ object Monitor extends App {
   })
 
   if (powerspySet == 1) {
-    reporters.foreach(reporter => {
-      monitoringPowerspy.attachReporter(getReporter(reporter))
-    })
+    //reporters.foreach(reporter => {
+      monitoringPowerspy.attachReporter(getReporter("file"))
+    //})
   }
 
   Thread.sleep((time.minute).toMillis)
