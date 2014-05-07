@@ -298,8 +298,6 @@ object SpecCPUExp {
         }
       })
 
-      //println(estimatedData)
-
       for(i <- 0 until estimatedData.keys.size) {
         val consumption = Tool.median(estimatedData(i))
         val existing = csvData.getOrElse(nbLinesDataCSV + i, scala.collection.mutable.ArrayBuffer[String]())
@@ -403,18 +401,23 @@ object StressExp extends StressExpConfiguration {
     }
 
     val estimationPaths = (Path.fromString(dataPath) * """\d+""".r * "powerapi_cpu.dat")
+    val powerPaths = (Path.fromString(dataPath) * """\d+""".r * "powerapi_powerspy.dat")
 
     // Get the data.
     val data = scala.collection.mutable.HashMap[Path, Array[String]]()
     estimationPaths.foreach(path => {
       data(path) = path.lines().toArray
     })
+    val powers = scala.collection.mutable.HashMap[Path, Array[String]]()
+    powerPaths.foreach(path => {
+      powers(path) = path.lines().toArray  
+    })
 
     val csvData = scala.collection.mutable.LinkedHashMap[Int, scala.collection.mutable.ArrayBuffer[String]]()
 
     // Create the headers.
     csvData(0) = scala.collection.mutable.ArrayBuffer[String]()
-    Array("# CPU Load", "# Estimated consumption").foreach(elt => csvData(0) += elt)
+    Array("# CPU Load", "# Estimated consumption", "# min median Pspy", "# max median Pspy").foreach(elt => csvData(0) += elt)
 
     val nbLinesDataCSV = csvData.keys.size
 
@@ -438,14 +441,42 @@ object StressExp extends StressExpConfiguration {
         index += 1
       }
     })
+    val powerspyData = scala.collection.mutable.HashMap[Int, scala.collection.mutable.ArrayBuffer[Double]]()
+    powerPaths.toArray.sortWith((path1, path2) => sortPaths(path1, path2)).foreach(path => {
+      var index = 0
+
+      while(!powers(path).isEmpty) {
+        val existing = powerspyData.getOrElse(index, scala.collection.mutable.ArrayBuffer[Double]())
+        val stepPowers = powers(path).takeWhile(_ != separator).filter(line => (line != "" && line != "0")).map(_.split("=").last.toDouble).filter(value => value > 0 && value < 1000)
+        existing += Tool.median(stepPowers)
+        powerspyData(index) = existing
+        // tail is used to remove the separator.
+        val tmpData = powers(path).dropWhile(_ != separator)
+
+        if(!tmpData.isEmpty) {
+          powers(path) = tmpData.tail
+        }
+
+        else powers(path) = tmpData
+
+        index += 1
+      }
+    })
 
     // Compute the medians and store values inside the corresponding csv buffer.
     for(i <- 0 until estimatedData.keys.size) {
-      // +1 because of the header
       val medianVal = Tool.median(estimatedData(i))
       val existing = csvData.getOrElse(nbLinesDataCSV + i, scala.collection.mutable.ArrayBuffer[String]())
       existing += (i.toDouble / (estimatedData.keys.size - 1)).toString
       existing += medianVal.toString
+      csvData(nbLinesDataCSV + i) = existing
+    }
+    for(i <- 0 until powerspyData.keys.size) {
+      val maxVal = powerspyData(i).max
+      val minVal = powerspyData(i).min
+      val existing = csvData.getOrElse(nbLinesDataCSV + i, scala.collection.mutable.ArrayBuffer[String]())
+      existing += minVal.toString
+      existing += maxVal.toString
       csvData(nbLinesDataCSV + i) = existing
     }
 
@@ -464,8 +495,8 @@ object StressExp extends StressExpConfiguration {
 
 // Object launcher.
 object Monitor extends App {
-  //Default.run()
-  SpecCPUExp.run()
-  StressExp.run()
+  Default.run()
+  //SpecCPUExp.run()
+  //StressExp.run()
   System.exit(0)
 }
