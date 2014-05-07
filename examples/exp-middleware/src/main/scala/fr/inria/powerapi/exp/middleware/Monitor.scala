@@ -472,12 +472,17 @@ object StressExp extends StressExpConfiguration {
       csvData(nbLinesDataCSV + i) = existing
     }
     for(i <- 0 until powerspyData.keys.size) {
-      val maxVal = powerspyData(i).max
-      val minVal = powerspyData(i).min
+      var max = powerspyData(i).max
+      var min = powerspyData(i).min
       val existing = csvData.getOrElse(nbLinesDataCSV + i, scala.collection.mutable.ArrayBuffer[String]())
-      existing += minVal.toString
-      existing += maxVal.toString
-      csvData(nbLinesDataCSV + i) = existing
+      if(existing.size == 2) {
+        val estimated = existing(1).toDouble
+        min = (if (estimated - min > 0) min else estimated)
+        max = (if (max - estimated > 0) max else estimated)
+        existing += min.toString
+        existing += max.toString
+        csvData(nbLinesDataCSV + i) = existing
+      }
     }
 
     // Cleaning phase
