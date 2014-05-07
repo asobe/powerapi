@@ -51,8 +51,10 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 
   /** Thread numbers. */
   lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
-  /** Option used to know if cpufreq is enable or not. */
+  /** Option used to know if cpufreq is enabled or not. */
   lazy val cpuFreq = load { _.getBoolean("powerapi.cpu.cpufreq-utils") }(false)
+  /** Option used to know if the turbo boost in enabled or not. */
+  lazy val turbo = load { _.getBoolean("powerapi.cpu.turbo") }(false)
   /** Path to time_in_state file. */
   lazy val timeInStatePath = load { _.getString("powerapi.cpu.time-in-state") }("/sys/devices/system/cpu/cpu%?/cpufreq/stats/time_in_state")
 }
@@ -203,7 +205,26 @@ class LibpfmFormula extends Formula with Configuration {
     }
 
     else {
-      val formula = formulae.maxBy(_._1)._2
+      val size = formulae.size
+      
+      val formula = (if(size == 1) {
+        formulae.maxBy(_._1)._2
+      }
+      else if(turbo) {
+        formulae.maxBy(_._1)._2
+      }
+      else {
+        val frequencies = formulae.keys.toArray.sorted
+        val lastFreq = frequencies(size - 1)
+        val sndToLastFreq = frequencies(size - 2)
+
+        // Under linux, the frequency which corresponds to the turbo frequency is the max frequency without turbo + 1000.
+        if(sndToLastFreq + 1000 == lastFreq) {
+          formulae(sndToLastFreq)
+        }
+        else formulae(lastFreq)
+      })
+
       val power = compute(formula, libpfmListenerMessage)
       acc = power
     }

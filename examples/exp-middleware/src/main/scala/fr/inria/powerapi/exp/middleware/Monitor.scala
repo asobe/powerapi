@@ -145,7 +145,7 @@ object Default {
  */
 object SpecCPUExp {
   implicit val codec = scalax.io.Codec.UTF8
-  val benchmarks = Array("calculix", "soplex", "bzip2", "hmmer", "povray", "bwaves", "gamess", "perlbench", "h264ref", "xalancbmk")
+  val benchmarks = Array("calculix", "soplex", "bzip2", "hmmer", "povray", "bwaves", "tonto", "perlbench", "h264ref", "xalancbmk")
   val path = "/home/colmant/cpu2006"
   val duration = "30"
   val dataPath = "host-spec-cpu-data"
