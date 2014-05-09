@@ -37,6 +37,15 @@ class ExtendFileReporter extends fr.inria.powerapi.reporter.file.FileReporter {
   }
 }
 
+/**
+ * Hot fix: configuration file for the api wich used powerspy.
+ */
+trait PowerspyFileReporterConf extends fr.inria.powerapi.reporter.file.Configuration {
+  override lazy val filePath = "powerapi-out-powerspy.dat"
+}
+
+class ExtendedPowerspyReporter extends fr.inria.powerapi.reporter.file.FileReporter with PowerspyFileReporterConf
+
 class ExtendGnuplotReporter extends fr.inria.powerapi.reporter.gnuplot.GnuplotReporter {
   override lazy val output = {
     if (log.isInfoEnabled) log.info("using " + Monitor.filePath + " as output file")
@@ -134,6 +143,10 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
   }
 }
 
+/**
+ * TODO: refactor the tool, a lot of stuffs here have many dependencies. We have to keep it simple.
+ * Example: one file for multiple reporters, it's not the better solution.
+ */
 object Monitor extends App {
   lazy val PidsFormat       = """-pid\s+(\d+[,\d]*)""".r
   lazy val VmsFormat        = """-vm\s+(\d+:\d+[,\d+:\d]*)""".r
@@ -273,9 +286,7 @@ object Monitor extends App {
   })
 
   if (powerspySet == 1) {
-    //reporters.foreach(reporter => {
-      monitoringPowerspy.attachReporter(getReporter("file"))
-    //})
+    monitoringPowerspy.attachReporter(classOf[ExtendedPowerspyReporter])
   }
 
   Thread.sleep((time.minute).toMillis)
