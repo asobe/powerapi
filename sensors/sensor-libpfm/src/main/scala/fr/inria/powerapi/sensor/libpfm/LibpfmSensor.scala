@@ -69,7 +69,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
       17 -> load { _.getInt("powerapi.libpfm.configuration.mmap_data") }(0),
       18 -> load { _.getInt("powerapi.libpfm.configuration.sample_id_all") }(0),
       19 -> load { _.getInt("powerapi.libpfm.configuration.exclude_host") }(0),
-      20 -> load { _.getInt("powerapi.libpfm.configuration.exclude_guest") }(1),
+      20 -> load { _.getInt("powerapi.libpfm.configuration.exclude_guest") }(0),
       21 -> load { _.getInt("powerapi.libpfm.configuration.exclude_callchain_kernel") }(0),
       22 -> load { _.getInt("powerapi.libpfm.configuration.exclude_callchain_user") }(0)
     )

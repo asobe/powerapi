@@ -78,7 +78,8 @@ object LibpfmUtil {
         val configuration = bitset.get(0, 23)
 
         // Here, the bit 21 is mandatory (exclude_guest bit), else libpfm does not work correctly.
-        if(!configuration.get(20)) configuration.set(20)
+        // NOTE: It's not required in the kernel 3.8.0-030800.
+        //if(!configuration.get(20)) configuration.set(20)
 
         // Conversion
         for(i <- 0 until configuration.length) {
@@ -108,9 +109,11 @@ object LibpfmUtil {
         argEncoded.attr(eventAttrPointer)
         
         // Get the specific event encoding for the OS.
-        // PFM_PLM3: user.
+        // PFM_PLM3: measure at user level (including PFM_PLM2, PFM_PLM1).
+        // Not included: PFM_PLM0: measure at kernel level => is it necessary ?
+        // PFM_PLMH: measure at hypervisor level.
         // PFM_OS_PERF_EVENT_EXT is used to extend the default perf_event library with libpfm.
-        val ret = LibpfmLibrary.pfm_get_os_event_encoding(cName, LibpfmLibrary.PFM_PLM3,  pfm_os_t.PFM_OS_PERF_EVENT_EXT, argEncodedPointer)
+        val ret = LibpfmLibrary.pfm_get_os_event_encoding(cName, LibpfmLibrary.PFM_PLM3 | LibpfmLibrary.PFM_PLMH,  pfm_os_t.PFM_OS_PERF_EVENT_EXT, argEncodedPointer)
 
         if(ret == LibpfmLibrary.PFM_SUCCESS) {
             // Sets the bits in the structure.
