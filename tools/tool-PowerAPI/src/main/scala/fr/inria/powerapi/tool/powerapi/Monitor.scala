@@ -26,6 +26,7 @@ import scalax.file.Path
 import scalax.io.Resource
 import com.typesafe.config.Config
 import scala.concurrent.duration.DurationInt
+import scala.sys.process._
 
 import collection.mutable
 
@@ -277,6 +278,15 @@ object Monitor extends App {
   var monitoringPowerspy: fr.inria.powerapi.library.Monitoring = null;
   if (powerspySet == 1) {
     monitoringPowerspy = powerspy.start(fr.inria.powerapi.library.PIDS(-1), freq.millis)
+  }
+
+  /** 
+   * HOT FIX: we have to send a SIGCONT signal to the VM process because we have to get access to the port
+   * provided by virtio serial for the repporting. The code is here because the LibpfmSensors have to be 
+   * started to open the hardware counters (limitation of libpfm).
+   */
+  if(params.isDefinedAt("vm")) {
+    pids.foreach(pid => Seq("kill", "-SIGCONT", pid+"").!)
   }
 
   if(reporters.isEmpty) reporters = Array("chart")
