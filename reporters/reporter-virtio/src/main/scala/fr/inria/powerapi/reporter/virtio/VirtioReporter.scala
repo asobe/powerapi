@@ -43,14 +43,12 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
    * Need the path to the unix domain socket for VirtioSerial. 
    */
   lazy val socketpath = load { _.getString("powerapi.cpu.virtio.host") }("/tmp/")
-
-  lazy val vmsConfiguration = Map[Int,Int]()
 } 
 
-class VirtioReporter extends Reporter with Configuration {
+class VirtioReporter(configuration: Map[Int, Int] = Map[Int, Int]()) extends Reporter with Configuration {
   lazy val sockets = scala.collection.mutable.Map.empty[Int, AFUNIXSocket]
   
-  for((vmPid, port) <- vmsConfiguration) {
+  for((vmPid, port) <- configuration) {
     if (log.isInfoEnabled) log.info("vmPID: " + vmPid + "and port: " + port)
     var sock = AFUNIXSocket.newInstance()
     var socketaddress = new AFUNIXSocketAddress(new File(socketpath + "port" + port))

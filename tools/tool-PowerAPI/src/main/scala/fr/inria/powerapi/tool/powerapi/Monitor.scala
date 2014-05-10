@@ -57,14 +57,6 @@ class ExtendGnuplotReporter extends fr.inria.powerapi.reporter.gnuplot.GnuplotRe
   override lazy val devices = Monitor.allDevs
 }
 
-class ExtendVirtioReporter extends fr.inria.powerapi.reporter.virtio.VirtioReporter {
-    override lazy val vmsConfiguration = load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
-        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
-  } (Map[Int, Int]())
-}
-
 object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
   var devs = List[String]("cpu")
 
@@ -164,42 +156,6 @@ object Monitor extends App {
   lazy val DiskSensorFormat  = """-disksensor\s+(disk-proc|disk-atop)""".r
   lazy val DiskFormulaFormat = """-diskformula\s+(disk-single)""".r
   lazy val PowerspyFormat = """-powerspy\s+(1|0)""".r
-
-    // Write a runtime configuration file for VMs
-  def createVMCOnfiguration(vmParameter: String): Array[Int] = {
-    lazy val output = {
-      Path.fromString("src/main/resources/vm_configuration.conf").deleteIfExists()
-      Resource.fromFile("src/main/resources/vm_configuration.conf")
-    }
-    // Format : PID:port, PID:port ...
-    lazy val vmsPidPort = vmParameter.split(',')
-    var res = scala.collection.mutable.ListBuffer.empty[String]
-
-    output.append("powerapi {" + scalax.io.Line.Terminators.NewLine.sep)
-    output.append("\tvms = [" + scalax.io.Line.Terminators.NewLine.sep)
-
-    for(vmConf <- vmsPidPort) {
-      var pidPortArr = vmConf.split(':')
-      output.append("\t\t{ pid = " + pidPortArr(0) + ", port = " + pidPortArr(1) + " }" + scalax.io.Line.Terminators.NewLine.sep)
-      res += pidPortArr(0)
-    }
-
-    output.append("\t]" + scalax.io.Line.Terminators.NewLine.sep)
-    output.append("}" + scalax.io.Line.Terminators.NewLine.sep)
-    res.map(_.toInt).toArray
-  }
-
-  def getReporter(reporter: String) = {
-    reporter match {
-      case "console" => classOf[fr.inria.powerapi.reporter.console.ConsoleReporter]
-      case "file" => classOf[ExtendFileReporter]
-      case "gnuplot" => classOf[ExtendGnuplotReporter]
-      case "chart" => classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]
-      case "virtio" => classOf[ExtendVirtioReporter]
-      case "thrift" => classOf[fr.inria.powerapi.reporter.thrift.ThriftReporter]
-      case _ => classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]
-    }
-  }
   
   val params =
   (for (arg <- args) yield {
@@ -243,8 +199,19 @@ object Monitor extends App {
   val time = params.getOrElse("time", "5").toInt
   val filePath = params.getOrElse("filePath", "powerapi-out")
 
+  val vmConfiguration = scala.collection.mutable.Map[Int, Int]()
   if(params.isDefinedAt("vm")) {
-    pids = createVMCOnfiguration(params("vm"))
+    // Format : PID:port, PID:port ...
+    val vmsPidPort = params("vm").split(',')
+    val pidsList = scala.collection.mutable.ListBuffer.empty[Int]
+
+    for(vmConf <- vmsPidPort) {
+      var pidPortArr = vmConf.split(':')
+      vmConfiguration += (pidPortArr(0).toInt -> pidPortArr(1).toInt)
+      pidsList += pidPortArr(0).toInt
+    }
+
+    pids = pidsList.toArray
   }
 
   var allPIDs = mutable.ListBuffer.empty[Int]
@@ -286,13 +253,21 @@ object Monitor extends App {
    * started to open the hardware counters (limitation of libpfm).
    */
   if(params.isDefinedAt("vm")) {
+    // We are waiting that first tick to be sure that the file descriptor for the pids are opened.
+    Thread.sleep(freq)
     pids.foreach(pid => Seq("kill", "-SIGCONT", pid+"").!)
   }
 
   if(reporters.isEmpty) reporters = Array("chart")
 
-  reporters.foreach(reporter => {
-    monitoring.attachReporter(getReporter(reporter))
+  reporters.foreach(reporter => reporter match {
+    case "console"  => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.console.ConsoleReporter])
+    case "file"     => monitoring.attachReporter(classOf[ExtendFileReporter])
+    case "gnuplot"  => monitoring.attachReporter(classOf[ExtendGnuplotReporter])
+    case "chart"    => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter])
+    case "virtio"   => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.virtio.VirtioReporter], vmConfiguration.toMap)
+    case "thrift"   => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.thrift.ThriftReporter])
+    case _          => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter])
   })
 
   if (powerspySet == 1) {
