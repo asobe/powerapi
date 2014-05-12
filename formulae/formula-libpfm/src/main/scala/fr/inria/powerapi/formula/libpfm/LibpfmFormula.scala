@@ -149,7 +149,7 @@ class LibpfmListener extends Component with Configuration {
         
         cache -= entry._1
       }
-      else throw new Exception("There is a problem with the messages processing ...")
+      else if(log.isWarningEnabled) log.warning("There is a problem with the messages processing.")
     }
 
     addToCache(libpfmSensorMessage)
@@ -179,11 +179,15 @@ class LibpfmFormula extends Formula with Configuration {
       for(i <- 0 until (formula.size - 1)) {
         val eventMsg = libpfmListenerMessage.messages.filter(message => message.event.name == events(i))
         
-        if(eventMsg.size != 1) throw new Exception("The processing is incorrect ...")
+        if(eventMsg.size != 1) {
+          if(log.isWarningEnabled) log.warning("The processing is incorrect, the estimation will be wrong for this tick.")
+        }
         
-        if(libpfmListenerMessage.tick.subscription.duration != Duration.Zero) {
-          val durToSec = eventMsg(0).tick.subscription.duration.toMillis.toDouble / (1.second).toMillis
-          power += (formula(i) * (eventMsg(0).counter.value / durToSec))
+        else {
+          if(libpfmListenerMessage.tick.subscription.duration != Duration.Zero) {
+            val durToSec = eventMsg(0).tick.subscription.duration.toMillis.toDouble / (1.second).toMillis
+            power += (formula(i) * (eventMsg(0).counter.value / durToSec))
+          }
         }
       }
 
