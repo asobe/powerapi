@@ -38,7 +38,26 @@ class CpuFormula extends Formula {
   def compute(now: CpuVirtioSensorMessage) = {
     if (log.isInfoEnabled) log.info("utilization: " + now.processPercent.percent)
     if (log.isInfoEnabled) log.info("activity percent: " + now.activityPercent.percent)
-    Energy.fromPower((now.vmConsumption.power * now.processPercent.percent) / now.activityPercent.percent)
+
+    // The division by 0 is not allowed and, the process and activity percents are lte to 100 percent.
+    if (now.activityPercent.percent == 0) {
+      Energy.fromPower(0)
+    }
+
+    else {
+      var activityPercent = now.activityPercent.percent
+      var processPercent = now.processPercent.percent
+
+      if(activityPercent > 100.0) {
+        activityPercent = 100.0
+      }
+
+      if(processPercent > 100) {
+        processPercent = 100.0
+      }
+
+      Energy.fromPower((now.vmConsumption.power * processPercent) / activityPercent)
+    }
   }
 
   def process(cpuVirtioSensorMessage: CpuVirtioSensorMessage) {
