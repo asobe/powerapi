@@ -296,11 +296,6 @@ class Sampling extends Configuration {
     LibpfmUtil.initialize()
 
     for(index <- 1 to samples) {
-      // Start a monitoring to get the idle power.
-      // We add some time because of the sync. between PowerAPI & PowerSPY.
-      powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
-      Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
-
       // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
       val libpfmListener = powerapi.system.actorOf(Props[LibpfmListener])
       // Buffer used for the taskset command to define the cores which will be used.
@@ -319,12 +314,18 @@ class Sampling extends Configuration {
         Seq("bash", "-c", s"echo $minFreq > /sys/devices/system/cpu/cpu$thread/cpufreq/scaling_max_freq").!
       }
 
+      // Start a monitoring to get the idle power.
+      // We add some time because of the sync. between PowerAPI & PowerSPY.
+      powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
+      Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
+
       for(thread <- 1 to 8) {
         val coreIndex = thread - 1
 
         if(coreIndex > 3) {
           for(threadTmp <- 4 until 8) {
             val maxFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$threadTmp/cpufreq/cpuinfo_max_freq").lines.apply(0).trim
+            Seq("bash", "-c", s"echo $maxFreq > /sys/devices/system/cpu/cpu$threadTmp/cpufreq/scaling_max_freq").!
             Seq("bash", "-c", s"echo $maxFreq > /sys/devices/system/cpu/cpu$threadTmp/cpufreq/scaling_min_freq").!
           }
         }
