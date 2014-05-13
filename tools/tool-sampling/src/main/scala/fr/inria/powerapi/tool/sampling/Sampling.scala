@@ -401,8 +401,8 @@ class Sampling extends Configuration {
       for(thread <- 0 until 8) {
         val maxFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_max_freq").lines.apply(0).trim
         val minFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_min_freq").lines.apply(0).trim
-        Seq("bash", "-c", s"echo $maxFreq > /sys/devices/system/cpu/cpu$thread/cpufreq/scaling_max_freq").!
         Seq("bash", "-c", s"echo $minFreq > /sys/devices/system/cpu/cpu$thread/cpufreq/scaling_min_freq").!
+        Seq("bash", "-c", s"echo $maxFreq > /sys/devices/system/cpu/cpu$thread/cpufreq/scaling_max_freq").!
       }
     }
 
