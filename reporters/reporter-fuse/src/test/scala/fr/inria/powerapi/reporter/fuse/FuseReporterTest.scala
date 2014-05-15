@@ -34,9 +34,21 @@ import org.scalatest.junit.JUnitSuite
 import org.scalatest.junit.ShouldMatchersForJUnit
 
 import fr.inria.powerapi.formula.cpu.reg.FormulaCpuReg
-import fr.inria.powerapi.library.{ PAPI, PIDS }
+import fr.inria.powerapi.library.{ PAPI, PIDS, Monitoring }
 import fr.inria.powerapi.processor.aggregator.process.AggregatorProcess
 import fr.inria.powerapi.sensor.cpu.proc.reg.SensorCpuProcReg
+
+class PowerAPIFuseMock(implicit mon: Monitoring) extends PowerAPIFuse {
+  override lazy val mountPoint = {
+    Path.fromString("./pfs").createDirectory(createParents=false, failIfExists=false)
+    "./pfs"
+  }
+}
+class FuseReporterMock(mon: Monitoring) extends FuseReporter(mon) {
+  override def preStart() {
+    context.actorOf(Props(classOf[PowerAPIFuseMock], mon), name = "FUSEMock")
+  }
+}
 
 class FuseReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
   
@@ -44,13 +56,11 @@ class FuseReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
   
   @Before
   def setUp() {
-    Path("pfs").createDirectory(failIfExists=false)
-    
     val monitoring = powerapi.start(PIDS(), 1.seconds)
     
     // create and start fuse interface actor
     val fuseService = powerapi.system.actorOf(
-      Props(classOf[FuseReporter], monitoring),
+      Props(classOf[FuseReporterMock], monitoring),
       name = "FuseReporter")
     
     monitoring.attachReporter(fuseService)

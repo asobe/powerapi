@@ -23,6 +23,8 @@ package fr.inria.powerapi.reporter.fuse
 import java.io.File
 import java.nio.ByteBuffer
 
+import scalax.file.Path
+
 import akka.actor.{ Actor, ActorLogging, Props }
 import akka.event.LoggingReceive
 
@@ -34,7 +36,7 @@ import net.fusejna.StructStat.StatWrapper
 import net.fusejna.types.TypeMode.{ ModeWrapper, NodeType }
 import net.fusejna.util.FuseFilesystemAdapterFull
 
-import fr.inria.powerapi.core.{ Process, ProcessedMessage }
+import fr.inria.powerapi.core.{ Process, ProcessedMessage, Reporter }
 import fr.inria.powerapi.library.{ PIDS, Monitoring }
 
 
@@ -59,18 +61,9 @@ private object Pids {
   }
 }
 
-class FuseReporter(mon: Monitoring) extends Actor with ActorLogging {
-  // ------------------
-  // --- Actor part --------------------------------------------------
-
+class FuseReporter(mon: Monitoring) extends Reporter {
   override def preStart() {
     context.actorOf(Props(classOf[PowerAPIFuse], mon), name = "FUSE")
-  }
-  override def postStop() {
-    context.stop(context.actorFor("akka://PowerAPI/user/FuseReporter/FUSE"))
-  }
-  def receive = LoggingReceive {
-    case processedMessage: ProcessedMessage => process(processedMessage)
   }
   
   def process(processedMessage: ProcessedMessage) {
@@ -84,16 +77,25 @@ class FuseReporter(mon: Monitoring) extends Actor with ActorLogging {
 }
 
 class PowerAPIFuse(implicit mon: Monitoring) extends FuseFilesystemAdapterFull with Actor with ActorLogging {
+  // ------------------
+  // --- Actor part --------------------------------------------------
+  
   override def preStart() {
-    this.log(false).mount("./pfs")
+    this.log(false).mount(mountPoint)
   }
   override def postStop() {
     this.unmount()
   }
   def receive = {case _ => ()}
 
+
   // ---------------------
   // --- FUSE-jna part --------------------------------------------------
+
+  lazy val mountPoint = {
+    Path.fromString("/pfs").createDirectory(createParents=false, failIfExists=false)
+    "/pfs"
+  }
 
   val pidsFileName = "pids"
   lazy val conf = collection.mutable.HashMap[String, String](

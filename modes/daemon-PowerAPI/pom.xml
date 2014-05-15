@@ -58,11 +58,6 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-			<groupId>com.github.scala-incubator.io</groupId>
-			<artifactId>scala-io-file_${scala.version}</artifactId>
-			<version>0.4.2</version>
-		</dependency>
-    <dependency>
       <groupId>commons-daemon</groupId>
       <artifactId>commons-daemon</artifactId>
       <version>1.0.15</version>

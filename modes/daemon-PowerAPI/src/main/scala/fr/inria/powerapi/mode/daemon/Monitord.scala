@@ -21,7 +21,6 @@
 package fr.inria.powerapi.mode.daemon
 
 import scala.concurrent.duration.{FiniteDuration, Duration, DurationInt}
-import scalax.file.Path
 
 import akka.actor.Props
 
@@ -43,8 +42,6 @@ class Monitord extends Daemon {
   val powerapi = new PAPI with SensorCpuProcReg with FormulaCpuReg with AggregatorProcess
   
   def beforeStart() {
-    Path("pfs").createDirectory(failIfExists=false)
-    
     val monitoring = powerapi.start(PIDS(), 1.seconds)
     
     // create and start fuse interface actor
@@ -61,8 +58,6 @@ class Monitord extends Daemon {
   }
   def beforeEnd() {
     powerapi.stop
-    
-    //Path("pfs").deleteRecursively()
   }
 
 

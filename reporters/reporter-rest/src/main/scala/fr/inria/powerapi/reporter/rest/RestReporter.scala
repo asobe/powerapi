@@ -20,7 +20,7 @@
  */
 package fr.inria.powerapi.reporter.rest
  
-import akka.actor.{ Actor, ActorLogging }
+import akka.actor.{ Actor, ActorLogging, Props }
 import akka.event.LoggingReceive
 import akka.io.IO
 
@@ -34,56 +34,71 @@ import spray.routing._
 
 import com.github.nscala_time.time.Imports._
 
-import fr.inria.powerapi.core.{ Process, ProcessedMessage }
+import fr.inria.powerapi.core.{ Process, ProcessedMessage, Reporter }
 import fr.inria.powerapi.library.{ PAPI, Monitoring }
 
 
-case class Data(pid: Int, energy: Double)
+case class Data(host: String, pid: Int, energy: Double)
 case class Event(`type`: String, time: String, data: Data)
 case class PidList(list: List[Int])
 
 object RestServiceJsonProtocol extends DefaultJsonProtocol {
-  implicit val dataFormat = jsonFormat2(Data)
+  implicit val dataFormat = jsonFormat3(Data)
   implicit val eventFormat = jsonFormat3(Event)
   implicit val pidListFormat = jsonFormat1(PidList)
 }
 
+trait Configuration extends fr.inria.powerapi.core.Configuration {
+  /** Host IP address used for HTTP server and for identifying a PowerAPI instance on distributed context. */
+  lazy val hostAddress = load { _.getString("powerapi.reporter.rest.host.address") }("localhost")
+  /** Cube database IP address. */
+  lazy val cubeAddress = load { _.getString("powerapi.reporter.rest.cube.address") }("localhost")
+}
+
 /**
- * REST Service actor
+ * REST Reporter
  */
-class RestReporter(powerapi: PAPI, monitoring: Monitoring) extends Actor with ActorLogging with RestService {
+class RestReporter(powerapi: PAPI, monitoring: Monitoring) extends Reporter with Configuration {
   def actorRefFactory = context
   implicit def executionContext = actorRefFactory.dispatcher
   import RestServiceJsonProtocol._
   
   override def preStart() {
-    // start HTTP server with rest service actor as a handler
-    IO(Http)(powerapi.system) ! Http.Bind(self, "localhost", 8080)
-  }
-  def acquire: Receive = {
-    case processedMessage: ProcessedMessage => process(processedMessage)
-  }
-  def receive = LoggingReceive {
-    acquire orElse runRoute(rest)
+    context.actorOf(Props(classOf[RestActor], powerapi, monitoring), name = "REST")
   }
   
   def process(processedMessage: ProcessedMessage) {
     val pid = processedMessage.tick.subscription.process.pid
-    val req = Post("http://localhost:1080/1.0/event/put",
+    val req = Post("http://"+cubeAddress+":1080/1.0/event/put",
                    List[Event](Event("request",
                                      DateTime.now.toString,
-                                     Data(pid, processedMessage.energy.power))))
+                                     Data(hostAddress, pid, processedMessage.energy.power))))
     val pipeline = sendReceive
     pipeline(req)
+  }
+}
+
+/**
+ * REST Service actor
+ */
+class RestActor(powerapi: PAPI, monitoring: Monitoring) extends Actor with ActorLogging with RestService with Configuration {
+  def actorRefFactory = context
+  
+  override def preStart() {
+    // start HTTP server with rest service actor as a handler
+    IO(Http)(powerapi.system) ! Http.Bind(self, hostAddress, 8080)
+  }
+  
+  def receive = LoggingReceive {
+    runRoute(rest)
   }
   
   def mon() = monitoring
 }
 
-/**
- * REST Service
- */
-trait RestService extends HttpService {// TODO two actors
+//REST Service
+trait RestService extends HttpService {
+  implicit def executionContext = actorRefFactory.dispatcher
   import RestServiceJsonProtocol._
   def mon(): Monitoring
   
