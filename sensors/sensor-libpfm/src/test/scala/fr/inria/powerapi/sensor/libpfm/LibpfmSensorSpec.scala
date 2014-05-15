@@ -68,7 +68,6 @@ class LibpfmSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val bitset = new java.util.BitSet()
     bitset.set(0)
     bitset.set(1)
-    bitset.set(20)
     libpfmSensor.underlyingActor.bitset should equal(bitset)
   }
 

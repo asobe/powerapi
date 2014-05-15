@@ -50,20 +50,19 @@ class LibpfmUtilSpec extends FlatSpec with Matchers {
     var bitset = new java.util.BitSet()
     // the bit 20 is mandatory, but the method edits it to 1 by default.
     long = LibpfmUtil.convertBitsetToLong(bitset)
-    long should equal(1L << 20)
+    long should equal(0L)
     bitset.set(0)
     bitset.set(1)
     // Only 23 bits are allowed
     bitset.set(24)
     long = LibpfmUtil.convertBitsetToLong(bitset)
-    long should equal((1L << 0) + (1L << 1) + (1L << 20))
+    long should equal((1L << 0) + (1L << 1))
     bitset = new java.util.BitSet()
     bitset.set(0)
     bitset.set(1)
     bitset.set(2)
-    bitset.set(20)
     long = LibpfmUtil.convertBitsetToLong(bitset)
-    long should equal((1L << 0) + (1L << 1) + (2L << 1) + (1L << 20))
+    long should equal((1L << 0) + (1L << 1) + (2L << 1))
   }
 
   "LibpfmUtil" should "allow to read a counter represented by an event (string)" in {

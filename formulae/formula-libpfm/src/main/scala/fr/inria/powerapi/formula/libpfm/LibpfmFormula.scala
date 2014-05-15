@@ -28,9 +28,12 @@ import scala.collection
 import scala.collection.JavaConversions
 import scala.collection.JavaConversions._
 import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
 
 import scalax.file.Path
 import com.typesafe.config.Config
+
+import scalax.io.Resource
 
 /**
  * Configuration part.
@@ -39,7 +42,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
   lazy val formulae = load {
     conf =>
       (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.formulae")))
-        yield (item.asInstanceOf[Config].getLong("freq"), JavaConversions.asScalaBuffer(item.asInstanceOf[Config].getDoubleList("formula").map(_.toDouble)).toArray)).toMap
+        yield (item.asInstanceOf[Config].getLong("freq"), JavaConversions.asScalaBuffer(item.asInstanceOf[Config].getDoubleList("formula").map(_.toDouble)).toArray)).toMap[Long, Array[Double]]
   } (Map[Long, Array[Double]]())
 
   lazy val events = (load {
@@ -50,10 +53,10 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 
   /** Thread numbers. */
   lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
-  /** Option used to know if cpufreq is enable or not. */
+  /** Option used to know if cpufreq is enabled or not. */
   lazy val cpuFreq = load { _.getBoolean("powerapi.cpu.cpufreq-utils") }(false)
   /** Path to time_in_state file. */
-  lazy val timeInStatePath = load { _.getString("powerapi.cpu.time-in-state") }("/sys/devices/system/cpu/cpu%?/cpufreq/stats/time_in_state")
+  lazy val timeInStatePath = load { _.getString("powerapi.cpu.time-in-state") }("file:///sys/devices/system/cpu/cpu%?/cpufreq/stats/time_in_state")
 }
 
 /**
@@ -79,13 +82,20 @@ class LibpfmListener extends Component with Configuration {
       val result = scala.collection.mutable.HashMap[Int, Long]()
 
       (for (thread <- 0 until threads) yield (timeInStatePath replace ("%?", thread.toString))).foreach(timeInStateFile => {
-        val lines = Path.fromString(timeInStateFile).lines()
-        lines.foreach(line => {
-          line match {
-            case TimeInStateFormat(freq, t) => result += (freq.toInt -> (t.toLong + (result getOrElse (freq.toInt, 0: Long))))
-            case _ => if (log.isWarningEnabled) log.warning("unable to parse line \"" + line + "\" from file \"" + timeInStateFile)
+        try {
+          // FIXME: Due to Java JDK bug #7132461, there is no way to apply buffer to procfs files and thus, directly open stream from the given URL.
+          // Then, we simply read these files thanks to a FileInputStream in getting those local path
+          Resource.fromInputStream(new java.io.FileInputStream(new java.net.URL(timeInStateFile).getPath)).lines().foreach(f = line => {
+            line match {
+              case TimeInStateFormat(freq, t) => result += (freq.toInt -> (t.toLong + (result getOrElse (freq.toInt, 0: Long))))
+              case _ => if (log.isWarningEnabled) log.warning("unable to parse line \"" + line + "\" from file \"" + timeInStateFile)
+            }
+          })
+        } catch {
+          case ioe: java.io.IOException => {
+            if (log.isWarningEnabled) log.warning("i/o exception: " + ioe.getMessage)
           }
-        })
+        }
       })
 
       result.toMap[Int, Long]
@@ -146,7 +156,7 @@ class LibpfmListener extends Component with Configuration {
         
         cache -= entry._1
       }
-      else throw new Exception("There is a problem with the messages processing ...")
+      else if(log.isWarningEnabled) log.warning("There is a problem with the messages processing.")
     }
 
     addToCache(libpfmSensorMessage)
@@ -176,10 +186,15 @@ class LibpfmFormula extends Formula with Configuration {
       for(i <- 0 until (formula.size - 1)) {
         val eventMsg = libpfmListenerMessage.messages.filter(message => message.event.name == events(i))
         
-        if(eventMsg.size != 1) throw new Exception("The processing is incorrect ...")
+        if(eventMsg.size != 1) {
+          if(log.isWarningEnabled) log.warning("The processing is incorrect, the estimation will be wrong for this tick.")
+        }
         
-        if(libpfmListenerMessage.tick.subscription.duration != Duration.Zero) {
-          power += (formula(i) * (eventMsg(0).counter.value / eventMsg(0).tick.subscription.duration.toSeconds))
+        else {
+          if(libpfmListenerMessage.tick.subscription.duration != Duration.Zero) {
+            val durToSec = eventMsg(0).tick.subscription.duration.toMillis.toDouble / (1.second).toMillis
+            power += (formula(i) * (eventMsg(0).counter.value / durToSec))
+          }
         }
       }
 
@@ -188,10 +203,22 @@ class LibpfmFormula extends Formula with Configuration {
 
     // We assume the order is the same (sorted).
     // Variables injection into the formula.
+    // Be careful, this part is Intel specific for the moment. We have to extend it for the other architectures.
     if(cpuFreq) {
-      for((freq, formula) <- formulae) {
+      var frequencies = scala.collection.mutable.ArrayBuffer[Long]()
+      frequencies ++= libpfmListenerMessage.timeInStates.times.keys.map(_.toLong).toArray
+      frequencies = frequencies.sorted
+
+      if(frequencies.size > 1) {
+        // The min frequency (so the frequency used when the processor is idle) is removed because it means no activities.
+        frequencies -= frequencies.min
+      }
+
+      for(freq <- frequencies) {
+        val formula = formulae(freq)
         val power = compute(formula, libpfmListenerMessage)
-        val globalTime = libpfmListenerMessage.timeInStates.times.values.sum
+        val globalTime = libpfmListenerMessage.timeInStates.times.filter(tuple => frequencies.contains(tuple._1)).values.sum
+
         var ratio = 0.0
         if(globalTime > 0) {
           ratio = libpfmListenerMessage.timeInStates.times(freq.toInt).toDouble / globalTime
@@ -202,8 +229,7 @@ class LibpfmFormula extends Formula with Configuration {
 
     else {
       val formula = formulae.maxBy(_._1)._2
-      val power = compute(formula, libpfmListenerMessage)
-      acc = power
+      acc = compute(formula, libpfmListenerMessage)
     }
 
     publish(LibpfmFormulaMessage(energy = Energy.fromPower(acc), tick = libpfmListenerMessage.tick))

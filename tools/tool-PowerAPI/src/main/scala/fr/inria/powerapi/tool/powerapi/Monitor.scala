@@ -26,6 +26,7 @@ import scalax.file.Path
 import scalax.io.Resource
 import com.typesafe.config.Config
 import scala.concurrent.duration.DurationInt
+import scala.sys.process._
 
 import collection.mutable
 
@@ -37,6 +38,15 @@ class ExtendFileReporter extends fr.inria.powerapi.reporter.file.FileReporter {
   }
 }
 
+/**
+ * Hot fix: configuration file for the api wich used powerspy.
+ */
+trait PowerspyFileReporterConf extends fr.inria.powerapi.reporter.file.Configuration {
+  override lazy val filePath = "powerapi-out-powerspy.dat"
+}
+
+class ExtendedPowerspyReporter extends fr.inria.powerapi.reporter.file.FileReporter with PowerspyFileReporterConf
+
 class ExtendGnuplotReporter extends fr.inria.powerapi.reporter.gnuplot.GnuplotReporter {
   override lazy val output = {
     if (log.isInfoEnabled) log.info("using " + Monitor.filePath + " as output file")
@@ -47,22 +57,15 @@ class ExtendGnuplotReporter extends fr.inria.powerapi.reporter.gnuplot.GnuplotRe
   override lazy val devices = Monitor.allDevs
 }
 
-class ExtendVirtioReporter extends fr.inria.powerapi.reporter.virtio.VirtioReporter {
-    override lazy val vmsConfiguration = load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.vms")))
-        yield (item.asInstanceOf[Config].getInt("pid"), item.asInstanceOf[Config].getInt("port"))).toMap
-  } (Map[Int, Int]())
-}
-
 object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
   var devs = List[String]("cpu")
-  val powerapi = new fr.inria.powerapi.library.PAPI
 
   def start(cpuSensor:String, cpuFormula:String,
             memSensor:String, memFormula:String,
             diskSensor:String, diskFormula:String,
             aggregator: String): fr.inria.powerapi.library.PAPI = {
+
+    val powerapi = new fr.inria.powerapi.library.PAPI
     
     if(cpuSensor == "sensor-libpfm" || cpuFormula == "formula-libpfm") {
       fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()
@@ -85,11 +88,13 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
           case "cpu-proc"        => fr.inria.powerapi.sensor.cpu.proc.SensorCpuProc
           case "cpu-proc-reg"    => fr.inria.powerapi.sensor.cpu.proc.reg.SensorCpuProcReg
           case "cpu-proc-virtio" => fr.inria.powerapi.sensor.cpu.proc.virtio.SensorCpuProcVirtio
+          case "powerspy"    => fr.inria.powerapi.sensor.powerspy.SensorPowerspy
         },
         cpuFormula match {
           case "cpu-max"        => fr.inria.powerapi.formula.cpu.max.FormulaCpuMax
           case "cpu-maxvm"      => fr.inria.powerapi.formula.cpu.maxvm.FormulaCpuMaxVM
           case "cpu-reg"        => fr.inria.powerapi.formula.cpu.reg.FormulaCpuReg
+          case "powerspy"   => fr.inria.powerapi.formula.powerspy.FormulaPowerspy
         }
       ).foreach(powerapi.configure(_))
     }
@@ -131,6 +136,10 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
   }
 }
 
+/**
+ * TODO: refactor the tool, a lot of stuffs here have many dependencies. We have to keep it simple.
+ * Example: one file for multiple reporters, it's not the better solution.
+ */
 object Monitor extends App {
   lazy val PidsFormat       = """-pid\s+(\d+[,\d]*)""".r
   lazy val VmsFormat        = """-vm\s+(\d+:\d+[,\d+:\d]*)""".r
@@ -146,42 +155,7 @@ object Monitor extends App {
   lazy val MemFormulaFormat  = """-memformula\s+(mem-single)""".r
   lazy val DiskSensorFormat  = """-disksensor\s+(disk-proc|disk-atop)""".r
   lazy val DiskFormulaFormat = """-diskformula\s+(disk-single)""".r
-
-    // Write a runtime configuration file for VMs
-  def createVMCOnfiguration(vmParameter: String): Array[Int] = {
-    lazy val output = {
-      Path.fromString("src/main/resources/vm_configuration.conf").deleteIfExists()
-      Resource.fromFile("src/main/resources/vm_configuration.conf")
-    }
-    // Format : PID:port, PID:port ...
-    lazy val vmsPidPort = vmParameter.split(',')
-    var res = scala.collection.mutable.ListBuffer.empty[String]
-
-    output.append("powerapi {" + scalax.io.Line.Terminators.NewLine.sep)
-    output.append("\tvms = [" + scalax.io.Line.Terminators.NewLine.sep)
-
-    for(vmConf <- vmsPidPort) {
-      var pidPortArr = vmConf.split(':')
-      output.append("\t\t{ pid = " + pidPortArr(0) + ", port = " + pidPortArr(1) + " }" + scalax.io.Line.Terminators.NewLine.sep)
-      res += pidPortArr(0)
-    }
-
-    output.append("\t]" + scalax.io.Line.Terminators.NewLine.sep)
-    output.append("}" + scalax.io.Line.Terminators.NewLine.sep)
-    res.map(_.toInt).toArray
-  }
-
-  def getReporter(reporter: String) = {
-    reporter match {
-      case "console" => classOf[fr.inria.powerapi.reporter.console.ConsoleReporter]
-      case "file" => classOf[ExtendFileReporter]
-      case "gnuplot" => classOf[ExtendGnuplotReporter]
-      case "chart" => classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]
-      case "virtio" => classOf[ExtendVirtioReporter]
-      case "thrift" => classOf[fr.inria.powerapi.reporter.thrift.ThriftReporter]
-      case _ => classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter]
-    }
-  }
+  lazy val PowerspyFormat = """-powerspy\s+(1|0)""".r
   
   val params =
   (for (arg <- args) yield {
@@ -200,6 +174,7 @@ object Monitor extends App {
       case MemFormulaFormat(memFormula)   => ("memFormula" -> memFormula)
       case DiskSensorFormat(diskSensor)   => ("diskSensor" -> diskSensor)
       case DiskFormulaFormat(diskFormula) => ("diskFormula" -> diskFormula)
+      case PowerspyFormat(powerspySet)    => ("powerspySet" -> powerspySet)
       case _ => ("none" -> "")
     }
   }).toMap
@@ -210,6 +185,12 @@ object Monitor extends App {
     params.getOrElse("diskSensor", ""), params.getOrElse("diskFormula", ""),
     params.getOrElse("agg", "timestamp")
   )
+  val powerspySet = params.getOrElse("powerspySet", "0").toInt
+  var powerspy: fr.inria.powerapi.library.PAPI = null;
+  
+  if (powerspySet == 1) {
+    powerspy = Initializer.start("powerspy","powerspy","","","","","device") 
+  }
 
   var pids = params.getOrElse("pids", "").split(",").filter(_ != "").map(_.toInt)
   val apps = params.getOrElse("app", "").split(",").filter(_ != "")
@@ -218,8 +199,19 @@ object Monitor extends App {
   val time = params.getOrElse("time", "5").toInt
   val filePath = params.getOrElse("filePath", "powerapi-out")
 
+  val vmConfiguration = scala.collection.mutable.Map[Int, Int]()
   if(params.isDefinedAt("vm")) {
-    pids = createVMCOnfiguration(params("vm"))
+    // Format : PID:port, PID:port ...
+    val vmsPidPort = params("vm").split(',')
+    val pidsList = scala.collection.mutable.ListBuffer.empty[Int]
+
+    for(vmConf <- vmsPidPort) {
+      var pidPortArr = vmConf.split(':')
+      vmConfiguration += (pidPortArr(0).toInt -> pidPortArr(1).toInt)
+      pidsList += pidPortArr(0).toInt
+    }
+
+    pids = pidsList.toArray
   }
 
   var allPIDs = mutable.ListBuffer.empty[Int]
@@ -249,15 +241,44 @@ object Monitor extends App {
     allPIDs ++= (for(process <- appsC.monitoredProcesses.toArray) yield process.pid)
     powerapi.start(pidsC, appsC, freq.millis)
   }
+   
+  var monitoringPowerspy: fr.inria.powerapi.library.Monitoring = null;
+  if (powerspySet == 1) {
+    monitoringPowerspy = powerspy.start(fr.inria.powerapi.library.PIDS(-1), freq.millis)
+  }
+
+  /** 
+   * HOT FIX: we have to send a SIGCONT signal to the VM process because we have to get access to the port
+   * provided by virtio serial for the repporting. The code is here because the LibpfmSensors have to be 
+   * started to open the hardware counters (limitation of libpfm).
+   */
+  if(params.isDefinedAt("vm")) {
+    // We are waiting that first tick to be sure that the file descriptor for the pids are opened.
+    Thread.sleep(freq)
+    pids.foreach(pid => Seq("kill", "-SIGCONT", pid+"").!)
+  }
 
   if(reporters.isEmpty) reporters = Array("chart")
 
-  reporters.foreach(reporter => {
-    monitoring.attachReporter(getReporter(reporter))
+  reporters.foreach(reporter => reporter match {
+    case "console"  => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.console.ConsoleReporter])
+    case "file"     => monitoring.attachReporter(classOf[ExtendFileReporter])
+    case "gnuplot"  => monitoring.attachReporter(classOf[ExtendGnuplotReporter])
+    case "chart"    => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter])
+    case "virtio"   => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.virtio.VirtioReporter], vmConfiguration.toMap)
+    case "thrift"   => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.thrift.ThriftReporter])
+    case _          => monitoring.attachReporter(classOf[fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter])
   })
 
-  monitoring.waitFor(time.minute)
+  if (powerspySet == 1) {
+    monitoringPowerspy.attachReporter(classOf[ExtendedPowerspyReporter])
+  }
+
+  Thread.sleep((time.minute).toMillis)
   powerapi.stop
+  if (powerspySet == 1) {
+    powerspy.stop
+  }
 
   val allDevs = Initializer.devs.distinct.sortWith(_.compareTo(_) < 0)
   
