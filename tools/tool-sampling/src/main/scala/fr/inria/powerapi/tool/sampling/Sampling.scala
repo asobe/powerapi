@@ -504,25 +504,29 @@ class Processing extends Configuration {
           var index = 0
           while(!data(path).isEmpty) {
             val existing = eventData.getOrElse(index, scala.collection.mutable.ArrayBuffer[Double]())
-            existing ++= data(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
-            eventData(index) = existing
+            val buffer = data(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
+            
             // tail is used to remove the separator.
-            val tmpData = data(path).dropWhile(_ != separator)
+            var tmpData = data(path).dropWhile(_ != separator)
 
             if(!tmpData.isEmpty) {
               data(path) = tmpData.tail
             }
 
             else data(path) = tmpData
-
-            index += 1
+            
+            if(buffer.size > nbMessages - 10) { 
+              existing ++= buffer
+              eventData(index) = existing
+              index += 1
+            }
           }
         })
-       
+        
         // Compute the medians and store values inside the corresponding csv buffer.
         for(i <- 0 until eventData.keys.size) {
           // +1 because of the header
-          val medianVal = SamplingTool.median(eventData(i))
+          val medianVal = if(!eventData(i).isEmpty) SamplingTool.median(eventData(i)) else 0l
           val line = csvData.getOrElse(nbLinesDataCSV + i, scala.collection.mutable.ArrayBuffer[String]())
           line += medianVal.toLong.toString
           csvData(nbLinesDataCSV + i) = line
@@ -538,7 +542,7 @@ class Processing extends Configuration {
         // Special case for the file wich contains the idle power. We have to remove the first values.
         if(path.path.endsWith(s"$eltIdlePower/$outPathPowerspy")) {
           // tail is used to remove the separator.
-          val tmpData = powers(path).dropWhile(_ != separator)
+          var tmpData = powers(path).dropWhile(_ != separator)
 
           if(!tmpData.isEmpty) {
             powers(path) = tmpData.tail
@@ -566,7 +570,7 @@ class Processing extends Configuration {
 
       for(i <- 0 until powersData.keys.size) {
         // +1 because of the header
-        val medianVal = SamplingTool.median(powersData(i))
+        val medianVal = if(!powersData(i).isEmpty) SamplingTool.median(powersData(i)) else 0l
         val line = csvPowers.getOrElse(nbLinesPowersCSV + i, scala.collection.mutable.ArrayBuffer[String]())
         line += medianVal.toDouble.toString
         csvPowers(nbLinesPowersCSV + i) = line
@@ -577,12 +581,15 @@ class Processing extends Configuration {
     // Write the corresponding csv files in a dedicated directory.
     s"$processingPath/$frequency".createDirectory(failIfExists=false)
 
-    csvPowers.values.foreach(line => {
-      Resource.fromFile(s"$processingPath/$frequency/powers.csv").append(line.mkString(csvDelimiter) + scalax.io.Line.Terminators.NewLine.sep)
-    })
-    csvData.values.foreach(line => {
-      Resource.fromFile(s"$processingPath/$frequency/counters.csv").append(line.mkString(csvDelimiter) + scalax.io.Line.Terminators.NewLine.sep)
-    })
+    val powers = csvPowers.values.toArray
+    val data = csvData.values.toArray
+
+    for(i <- 0 until data.size) {
+      if(data(i).size == events.size) {
+        Resource.fromFile(s"$processingPath/$frequency/counters.csv").append(data(i).mkString(csvDelimiter) + scalax.io.Line.Terminators.NewLine.sep)
+        Resource.fromFile(s"$processingPath/$frequency/powers.csv").append(powers(i).mkString(csvDelimiter) + scalax.io.Line.Terminators.NewLine.sep)
+      }
+    }
   }
 
   def run() = {
