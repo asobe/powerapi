@@ -54,6 +54,8 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
   lazy val samples = load { _.getInt("powerapi.tool.sampling.samples") }(0)
   /** Number of required messages per step. */
   lazy val nbMessages = load { _.getInt("powerapi.tool.sampling.step.messages") }(0)
+  /** Absolute path to spec cpu 2006. */
+  lazy val specpath = load { _.getString("powerapi.tool.sampling.spec-cpu") }("")
   /** Path used to store the files created during the sampling. */
   lazy val samplingPath = load { _.getString("powerapi.tool.sampling.path") }("samples")
   /** Path used to store the processed files, used to compute the final formulae. */
@@ -152,6 +154,8 @@ object SamplingTool extends App {
  * Be careful, we need the root access to write in sys virtual filesystem, else, we can not control the frequency.
  */
 class Sampling extends Configuration {
+  val benchmarks = Array("povray", "perlbench", "bzip2")
+
   private def sampling(powerapi: PAPI, index: Int, frequency: Long) = {
     implicit val codec = scalax.io.Codec.UTF8
     val pathMatcher = s"$outBasePathLibpfm*.dat"
@@ -182,6 +186,27 @@ class Sampling extends Configuration {
 
       (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
       Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
+    }
+
+    // Used spec-cpu benchmarks to have a representative set of workloads.
+    for(benchmark <- benchmarks) {
+      for(thread <- 1 to threads) {
+        // Launch the benchmark.
+        // Here, we used a specific bash script to be sure that the command in not launch before to open and reset the counters.
+        val buffer = Seq("bash", "./src/main/resources/start.bash", s"./src/main/resources/start_benchs.bash $specpath $benchmark $thread").lines
+        val ppid = buffer(0).trim.toInt
+        // Start a monitoring to get the values of the counters for the workload.
+        val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+        Seq("kill", "-SIGCONT", ppid+"").!
+        monitoring.waitFor(nbMessages.seconds)
+
+        (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+        Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
+
+        // Kill all the running benchmarks.
+        val benchsToKill = (Seq("bash", "-c", "ps -ef") #> Seq("bash", "-c", "grep _base.amd64-m64-gcc43-nn") #> Seq("bash", "-c", "head -n 1") #> Seq("bash", "-c", "cut -d '/' -f 6") #> Seq("bash", "-c", "cut -d ' ' -f1")).lines
+        benchsToKill.foreach(benchmark => Seq("bash", "-c", s"killall -s KILL specperl runspec specinvoke $benchmark &> /dev/null").run)
+      }
     }
 
     // Move files to the right place, to save them for the future regression.
@@ -249,6 +274,16 @@ class Sampling extends Configuration {
     // Cleaning phase
     Path.fromString(samplingPath).deleteRecursively(force = true)
     (Path(".") * "*.dat").foreach(path => path.delete(force = true))
+
+    // Kill all the running benchmarks (if there is still alive from another execution).
+    val benchsToKill = (Seq("bash", "-c", "ps -ef") #> Seq("bash", "-c", "grep _base.amd64-m64-gcc43-nn") #> Seq("bash", "-c", "head -n 1") #> Seq("bash", "-c", "cut -d '/' -f 6") #> Seq("bash", "-c", "cut -d ' ' -f1")).lines
+    benchsToKill.foreach(benchmark => Seq("bash", "-c", s"killall -s KILL specperl runspec specinvoke $benchmark &> /dev/null").run)
+
+    // To be sure that the benchmarks are compiled, we launch the compilation before all the monitorings (no noise).
+    benchmarks.foreach(benchmark => {
+      val res = Seq("bash", "./src/main/resources/compile_bench.bash", specpath, benchmark).!
+      if(res != 0) throw new RuntimeException("Umh, there is a problem with the compilation, maybe dependencies are missing.")
+    })
 
     val powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
     // One libpfm sensor per event.
