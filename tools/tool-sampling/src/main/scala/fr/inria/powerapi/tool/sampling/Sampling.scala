@@ -186,35 +186,35 @@ class Sampling extends Configuration {
 
     // Stress only the processor, without cache (decreasing load).
     val nbSec = (100 / 25) * nbMessages
-
     for(thread <- 1 to threads) {
-      val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -c 1 -t $nbSec").lines
+      val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -c $thread -t $nbSec").lines
       val ppid = buffer(0).trim.toInt
+      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
       // Get the worker pid corresponding to the stress.
-      val stressWorkerPid = Seq("ps", "-C", "stress", "ho", "pid").lines.last.trim
+      val lastWorkerPid = Seq("ps", "-C", "stress", "ho", "pid").lines.last.trim
       var cpulimitPid = ""
 
       // Core load.
       for(i <- 100 to 25 by -25) {
-        val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
-        Seq("cpulimit", "-l", i+"", "-p", stressWorkerPid).run
+        Seq("cpulimit", "-l", i+"", "-p", lastWorkerPid).run
         if(cpulimitPid != "") Seq("kill", "-9", cpulimitPid).!
         cpulimitPid = Seq("ps", "-C", "cpulimit", "ho", "pid").lines.last.trim
-        monitoring.waitFor(nbMessages.seconds)
+        Thread.sleep((nbMessages.seconds).toMillis)
         (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
         Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
       }
 
-      // To be sure, we kill all the processes.
-      Seq("kill", "-9", ppid+"").run
-      Seq("killall", "cpulimit").run
+      // For the moment, is the only way to stop the monitoring.
+      monitoring.waitFor(1.milliseconds)
 
-      // If it's not the last thread, we put one thead to 100% of load.
-      if(thread != threads) Seq("stress", "-c", "1").run
+      // To be sure, we kill all the processes.
+      Seq("killall", "cpulimit").run
+      Seq("kill", "-9", ppid+"").run
     }
 
-    Seq("killall", "stress").!
+    // To be sure, we kill all the processes.
+    Seq("killall", "cpulimit", "stress").run
 
     // Move files to the right place, to save them for the future regression.
     s"$samplingPath/$index/$frequency/cpu".createDirectory(failIfExists=false)
