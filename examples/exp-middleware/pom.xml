@@ -35,6 +35,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>fr.inria.powerapi.reporter</groupId>
+            <artifactId>reporter-console</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>fr.inria.powerapi.sensor</groupId>
             <artifactId>sensor-libpfm</artifactId>
             <version>${project.version}</version>

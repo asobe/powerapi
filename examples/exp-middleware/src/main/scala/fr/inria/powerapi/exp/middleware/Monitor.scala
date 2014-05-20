@@ -28,6 +28,7 @@ import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
 import fr.inria.powerapi.formula.powerspy.FormulaPowerspy
 import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
 import fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter
+import fr.inria.powerapi.reporter.console.ConsoleReporter
 
 import scala.concurrent.duration.DurationInt
 import scala.sys.process._
@@ -45,6 +46,10 @@ trait PowerIdleConfiguration extends Configuration {
 trait StressExpConfiguration extends Configuration {
   /** Thread numbers. */
   lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
+}
+
+trait SpecExpConfiguration extends Configuration {
+  lazy val specpath = load { _.getString("powerapi.spec.path") }("/home/powerapi/cpu2006")
 }
 
 case class AggregatedMessage(tick: Tick, device: String, messages: collection.mutable.Set[ProcessedMessage] = collection.mutable.Set[ProcessedMessage]()) 
@@ -143,11 +148,9 @@ object Default {
 /**
  * Object for the experiments with SPEC CPU 2006.
  */
-object SpecCPUExp {
+object SpecCPUExp extends SpecExpConfiguration{
   implicit val codec = scalax.io.Codec.UTF8
-  val benchmarks = Array("calculix", "soplex", "bzip2", "hmmer", "povray", "bwaves", "perlbench", "h264ref", "xalancbmk")
-  val path = "/home/colmant/cpu2006"
-  val duration = "30"
+  val benchmarks = Array("calculix", "h264ref", "bwaves", "gamess", "milc", "hmmer", "wrf")
   val dataPath = "host-spec-cpu-data"
   val warmup = 0
   val nbRuns = warmup + 3
@@ -164,7 +167,7 @@ object SpecCPUExp {
 
     // To be sure that the benchmarks are compiled, we launch the compilation before all the monitorings (no noise).
     benchmarks.foreach(benchmark => {
-      val res = Seq("bash", "./src/main/resources/compile_bench.bash", path, benchmark).!
+      val res = Seq("bash", "./src/main/resources/compile_bench.bash", specpath, benchmark).!
       if(res != 0) throw new RuntimeException("Umh, there is a problem with the compilation, maybe dependencies are missing.")
     })
     
@@ -183,7 +186,7 @@ object SpecCPUExp {
         (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
 
         // Launch the benchmark with a bash script (easiest way, and blocking).
-        Seq("bash", "./src/main/resources/start_bench.bash", path, benchmark).!
+        Seq("bash", "./src/main/resources/start_bench.bash", specpath, benchmark).!
 
         // For the moment, is the only way to stop powerapi.
         monitoringLibpfm.waitFor(1.milliseconds)
@@ -500,8 +503,8 @@ object StressExp extends StressExpConfiguration {
 
 // Object launcher.
 object Monitor extends App {
-  Default.run()
-  //SpecCPUExp.run()
-  //StressExp.run()
+  //Default.run()
+  SpecCPUExp.run()
+  StressExp.run()
   System.exit(0)
 }
