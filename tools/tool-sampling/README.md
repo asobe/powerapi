@@ -1,24 +1,19 @@
-# TODO
-Rewrite the README ...
+# Learning the processor energy profile
 
-# PowerAPI data sampling
-
-Stress processor and gather computer's power consumption to get its energy profile by polynomial regression.
+This phase depends on a powermeter. For our development, we used PowerSPY (see the README in the corresponding sensor).
+Some workloads are used to stress the processor along its features.
+Hardware counters are collected during each of them.
+Then, we applied a multivariate regression to obtain the energy profiles corresponding to all the available frequencies of the processor.
+The obtained model is available in `libpfm_formula.conf` in this folder.
 
 # System configuration
 
-Libraries are required:
-* `libbluetooth-dev` (not required if communication between PowerSpy / PowerAPI is already established)
-* `stess`
+Check all the `.conf` files. Several hardware informations are required.
+Several external libraries are used in this module. See the list below:
+* `stress`
 * `cpulimit`
-* `libatlas-base`
+* On linux platform, OpenBLAS from `http://www.openblas.net/` is required. The compilation from source is preferable. Then, please add these symlinks:
+  * ln -s $installation_dir/libopenblas_$library_name-r0.2.8.so libblas.so.3
+  * ln -s $installation_dir/libopenblas_$library_name-r0.2.8.so liblapack.so.3
 
-Intall the following package:
-* `libatlas-base-dev`
-
-If the files `/usr/lib/liblapack.so.3` and `/usr/lib/libblas.so.3` does not exist, create the symbolic links:
-* `ln -s /usr/lib/liblapack.so /usr/lib/liblapack.so.3`
-* `ln -s /usr/lib/libblas.so /usr/lib/libblas.so.3`
-
-If you need further details, see the link below:
-* `https://github.com/fommil/netlib-java/`
+Please read the documentation of the `sensor-powerspy` before to use this module.

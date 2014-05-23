@@ -10,14 +10,13 @@ PowerAPI offers an API which can be used to express request about energy spent b
 * [Getting started](#getting-started)
 * [Architecture details](#architecture-details)
 * [API details](#api-details)
-* [Last features](#last-features)
 * [Future works](#future-works)
 * [License](#license)
 
 <h2 id="getting-started">Getting started</h2>
 
 PowerAPI is completely written in [Scala](http://www.scala-lang.org "Scala language") (v. 2.10), using the [Akka library](http://akka.io "Akka library") (v 2.3). Configuration part is managed by the [Typesafe Config](https://github.com/typesafehub/config "Typesafe Config") (integrated version from the [Akka library](http://akka.io "Akka library")).
-PowerAPI project is fully managed by [Maven](http://maven.apache.org "Maven") (v. 3).
+PowerAPI project is fully managed by [Maven](http://maven.apache.org "Maven") (v3).
 
 ### How to acquire it
 
@@ -51,12 +50,14 @@ To acquire PowerAPI, simply clone it via your Git client:
 git clone git://github.com/mcolmant/powerapi.git
 ```
 
-As PowerAPI is a [Maven](http://maven.apache.org "Maven") managed project, you have to launch the `install` command at the root directory (here, `powerapi_akka_directory`) in order to compile and install it to your local machine:
+As PowerAPI is a [Maven](http://maven.apache.org "Maven") managed project, you have to launch the `install` command at the root directory (here, `powerapi`) in order to compile and install it to your local machine:
 
 ```bash
-cd $powerapi_akka_directory
+cd $powerapi
 mvn install
 ```
+
+Be careful, to use our last developments on hardware counters (which need the sudo privileges) you have to launch the install command as a sudoer.
 
 **By default, all modules are selected to be installed. Be careful to correctly selecting yours, depending on your environment and the use case you want to do** (see `pom.xml` file at the root directory for more details).
 
@@ -73,7 +74,7 @@ In the way you acquire PowerAPI from [Maven](http://maven.apache.org "Maven") re
 In the way you acquire PowerAPI from our Git repository, you can navigate to your desired module and use it as a standard [Maven](http://maven.apache.org "Maven") module:
 
 ```bash
-cd $powerapi_akka_directory/sensors/sensor-cpu-api
+cd $powerapi/sensors/sensor-cpu-api
 mvn test
 ```
 
@@ -145,8 +146,8 @@ The Library module defines the API that can be used by user to interact with Pow
 ### Tools
 
 The Tools module defines two default apps:
-* tool-PowerAPI: powerful tool to launch PowerAPI directly by a command line. See all the available options inside the corresponding README.
-* tool-sampling: default app defined to compute and get the energy profile of a processor. This tool is based on `stress`command which available on UNIX System. See all the details inside the module.
+* tool-PowerAPI: tool to launch PowerAPI with a bash script. See all the available options inside the corresponding README or by using `./run.sh -h`.
+* tool-sampling: tool used to learn the processor energy profiles. It depends on different tools and has to be configured. Read the README before to use it.
 
 <h2 id="api-details">API details</h2>
 
@@ -157,27 +158,23 @@ Process-level energy monitoring is based on a periodically computation that can 
 Assume that process run under Linux, using a [procfs](http://en.wikipedia.org/wiki/Procfs "Procfs") file system on a _standard_ CPU architecture.
 Thus, we need to use the _procfs_ CPU `Sensor` implementation and a given CPU `Formula` implementation, let's say the [DVFS](http://en.wikipedia.org/wiki/Voltage_and_frequency_scaling "DVFS") version. Add to this the desire to display CPU energy spent by process into a console. So we need to:
 
-1. Activate the desired modules:
+1. Choose the required modules.
+
+2. Create the API with its dependencies:
 
 ```scala
-Array(
-    classOf[fr.inria.powerapi.sensor.cpu.proc.times.CpuSensor],
-    classOf[fr.inria.powerapi.formula.cpu.dvfs.CpuFormula]
-).foreach(PowerAPI.startEnergyModule(_))
+val powerapi = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.cpu.proc.times.CpuProcTimes
+                                                  with fr.inria.powerapi.formula.cpu.dvfs.FormulaCpuDVFS
+                                                  with fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
 ```
-
-2. Ask to PowerAPI to provide the CPU energy spent by the 123 process, every 500 milliseconds, using a _console Reporter_ and aggregating results by timestamp produced every 500 milliseconds:
+3. Ask to PowerAPI to provide the CPU energy spent by the 123 process during 5 minutes, every 500 milliseconds, using a _console Reporter_ and aggregating results by timestamp produced every 500 milliseconds:
 
 ```scala
-PowerAPI.startMonitoring(
-    process = Process(123),
-    duration = 500 milliseconds,
-    processor = classOf[fr.inria.powerapi.processor.TimestampAggregator],
-    listener = classOf[fr.inria.powerapi.reporter.ConsoleReporter],
-)
+val monitoring = powerapi.start(PIDS(123), 500.milliseconds)
+monitoring.attachReporter(fr.inria.powerapi.reporter.console.ConsoleReporter)
+monitoring.waitFor(5.minutes)
+powerapi.stop()
 ```
-
-Note that we use `listener` as parameter instead of `reporter` for legacy reasons.
 
 ### Based on the first request, how can I display CPU energy information into a chart too?
 
@@ -185,20 +182,14 @@ Based on the previous code, we simply have to add a new `Reporter` which will be
 PowerAPI integrates a `Reporter` using the [JFreeChart](http://www.jfree.org/jfreechart "JFreeChart") Java graph library. So let's add it to the PowerAPI system:
 
 ```scala
-PowerAPI.startMonitoring(
-    listener = classOf[fr.inria.powerapi.reporter.JFreeChartReporter]
-)
+monitoring.attachReporter(fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter)
 ```
 
 That's all!
 
-<h2 id="last-features">Last features</h2>
-
-First version of BitWatts is available ! This new version allows to estimate the power consumption of a process inside a VM. To use it, plug `VirtioSensor` and `VirtioReporter` together. See README to know all the details.
-
 <h2 id="future-works">Future works</h2>
 
-We are working on new models to have better estimation for any situation (with performance counters). If you are interested to participate, feel free to contact us via our [GitHub](https://github.com/mcolmant/powerapi "GitHub") webpage or mail us at powerapi-user-list@googlegroups.com!
+If you are interested to participate or have a question, feel free to contact us via our [GitHub](https://github.com/mcolmant/powerapi "GitHub") webpage or mail us at powerapi-user-list@googlegroups.com!
 
 <h2 id="license">License</h2>
 
