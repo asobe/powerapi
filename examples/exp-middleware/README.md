@@ -1,4 +1,4 @@
-# Middleware example
+# Middleware experiments
 
 This example was used to do test different setups described as follows:
 * default: simple example which provides a graphical chart to compare the estimated power consumption to the real one;
