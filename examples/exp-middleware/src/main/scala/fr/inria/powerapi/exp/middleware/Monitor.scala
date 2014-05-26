@@ -22,11 +22,12 @@ package fr.inria.powerapi.exp.middleware
 
 import fr.inria.powerapi.core.{ Configuration, Energy, Process, ProcessedMessage, Reporter, Tick, TickSubscription }
 import fr.inria.powerapi.library.{ ALL, APPS, PAPI, PIDS }
-import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfm }
+import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfm, LibpfmSensorMessage, SensorLibpfmConfigured }
 import fr.inria.powerapi.formula.libpfm.FormulaLibpfm
 import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
 import fr.inria.powerapi.formula.powerspy.FormulaPowerspy
-import fr.inria.powerapi.processor.aggregator.timestamp.TimestampAggregator
+import fr.inria.powerapi.processor.aggregator.timestamp.{ TimestampAggregator, AggregatorTimestamp }
+import fr.inria.powerapi.reporter.file.FileReporter
 import fr.inria.powerapi.reporter.jfreechart.JFreeChartReporter
 import fr.inria.powerapi.reporter.console.ConsoleReporter
 
@@ -34,7 +35,10 @@ import scala.concurrent.duration.DurationInt
 import scala.sys.process._
 import scalax.file.Path
 import scalax.file.ImplicitConversions.string2path
-import scalax.io.Resource
+import scalax.io.{ Resource, SeekableByteChannel }
+import scalax.io.managed.SeekableByteChannelResource
+
+import akka.actor.{ Actor, Props }
 
 /**
  * Part of extended components. It's used to add the idle power into the estimations.
@@ -501,10 +505,132 @@ object StressExp extends StressExpConfiguration {
   }
 }
 
+// TODO: Remove the code. It's here for a testing purpose to analysis the counter evolutions.
+object AnalysisCountersExp {
+  class PowerspyReporter extends FileReporter {
+    override lazy val filePath = "output-powerspy.dat"
+
+    override def process(processedMessage: ProcessedMessage) {
+      val power = processedMessage.energy.power
+      val newLine = scalax.io.Line.Terminators.NewLine.sep
+      output.append(s"$power$newLine")
+    }
+  }
+
+  /**
+   * It is a specific component to handle directly the messages produce by the LibpfmSensor.
+   * We just want to write the counter values into a file.
+   */
+  class LibpfmListener extends Actor {
+    // Store all the streams to improve the speed processing.
+    val resources = scala.collection.mutable.HashMap[String, SeekableByteChannelResource[SeekableByteChannel]]()
+    
+    override def preStart() = {
+      context.system.eventStream.subscribe(self, classOf[LibpfmSensorMessage])
+    }
+
+    override def postStop() = {
+      resources.clear()
+    }
+
+    case class Line(sensorMessage: LibpfmSensorMessage) {
+      val counter = sensorMessage.counter.value
+      val newLine = scalax.io.Line.Terminators.NewLine.sep
+      
+      override def toString() = s"$counter$newLine"
+    }
+
+    def receive() = {
+      case sensorMessage: LibpfmSensorMessage => process(sensorMessage)
+    }
+
+    def process(sensorMessage: LibpfmSensorMessage) {
+      def updateResources(name: String): SeekableByteChannelResource[SeekableByteChannel] = {
+        val output = Resource.fromFile(s"output-libpfm-$name.dat")
+        resources += (name -> output)
+        output
+      }
+
+      val output = resources.getOrElse(sensorMessage.event.name, updateResources(sensorMessage.event.name))
+      output.append(Line(sensorMessage).toString)
+    }
+  }
+
+  def run() = {
+    implicit val codec = scalax.io.Codec.UTF8
+    val separator = "===="
+    val specpath = "/home/colmant/cpu2006"
+    val timestamp = System.nanoTime
+
+    val benchmarks = scala.collection.mutable.ArrayBuffer[String]()
+    // Float benchmarks
+    benchmarks ++= Array("410.bwaves", "416.gamess", "433.milc", "434.zeusmp", "435.gromacs", "436.cactusADM", "437.leslie3d", "444.namd", "450.soplex", "453.povray", "454.calculix", "459.GemsFDTD", "465.tonto", "470.lbm")
+    // Int benchmarks
+    benchmarks ++= Array("481.wrf", "482.sphinx3", "400.perlbench", "401.bzip2", "403.gcc", "429.mcf", "445.gobmk", "456.hmmer", "458.sjeng", "462.libquantum", "464.h264ref", "471.omnetpp", "473.asta", "483.xalancbmk")
+    // Kill all the running benchmarks (if there is still alive from another execution).
+    val benchsToKill = (Seq("bash", "-c", "ps -ef") #> Seq("bash", "-c", "grep _base.amd64-m64-gcc43-nn") #> Seq("bash", "-c", "head -n 1") #> Seq("bash", "-c", "cut -d '/' -f 6") #> Seq("bash", "-c", "cut -d ' ' -f1")).lines
+    benchsToKill.foreach(benchmark => Seq("bash", "-c", s"killall -s KILL specperl runspec specinvoke $benchmark &> /dev/null").run)
+    // To be sure that the benchmarks are compiled, we launch the compilation before all the monitorings (no noise).
+    benchmarks.foreach(benchmark => {
+      val res = Seq("bash", "./src/main/resources/compile_bench.bash", specpath, benchmark).!
+      if(res != 0) throw new RuntimeException("Umh, there is a problem with the compilation, maybe dependencies are missing.")
+    })
+
+    val events = scala.collection.mutable.ArrayBuffer[String]()
+    events ++= Array("PERF_COUNT_HW_CPU_CYCLES", "PERF_COUNT_HW_INSTRUCTIONS", "PERF_COUNT_HW_CACHE_REFERENCES", "PERF_COUNT_HW_CACHE_MISSES", "PERF_COUNT_HW_BRANCH_INSTRUCTIONS", "PERF_COUNT_HW_BRANCH_MISSES")
+    events ++= Array("PERF_COUNT_HW_BUS_CYCLES", "PERF_COUNT_HW_STALLED_CYCLES_FRONTEND", "PERF_COUNT_HW_STALLED_CYCLES_BACKEND", "PERF_COUNT_HW_REF_CPU_CYCLES")
+
+    LibpfmUtil.initialize()
+
+    val powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
+    // One libpfm sensor per event.
+    events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
+
+    for(benchmark <- benchmarks) {
+      // Cleaning phase
+      (Path(".") * "*.dat").foreach(path => path.delete(force = true))
+      // Start a monitoring to get the idle power.
+      // We add some time because of the sync. between PowerAPI & PowerSPY.
+      powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
+      Resource.fromFile("output-powerspy.dat").append(separator + scalax.io.Line.Terminators.NewLine.sep)
+
+      // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
+      val libpfmListener = powerapi.system.actorOf(Props[LibpfmListener])
+
+       // Launch stress command to stimulate all the features on the processor.
+      // Here, we used a specific bash script to be sure that the command in not launch before to open and reset the counters.
+      val buffer = Seq("bash", "./src/main/resources/start.bash", s"./src/main/resources/start_bench_test.bash $specpath $benchmark").lines
+      val ppid = buffer(0).trim.toInt
+
+      // Start a monitoring to get the values of the counters for the workload.
+      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+      Seq("kill", "-SIGCONT", ppid+"").!
+
+      while(Seq("kill", "-0", ppid+"").! == 0) {
+        Thread.sleep((1.minutes).toMillis)
+      }
+
+      powerapi.system.stop(libpfmListener)
+
+      // Move files to the right place, to save them for the future regression.
+      s"$timestamp/$benchmark".createDirectory(failIfExists=false)
+      (Path(".") * "*.dat").foreach(path => {
+        val name = path.name
+        val target: Path = s"$timestamp/$benchmark/$name"
+        path.moveTo(target=target, replace=true)
+      })
+    }
+
+    powerapi.stop()
+    LibpfmUtil.terminate()
+  }
+}
+
 // Object launcher.
 object Monitor extends App {
   //Default.run()
-  SpecCPUExp.run()
-  StressExp.run()
+  //SpecCPUExp.run()
+  //StressExp.run()
+  AnalysisCountersExp.run()
   System.exit(0)
 }

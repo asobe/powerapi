@@ -78,8 +78,11 @@ class PowerSpyDelegate(connection: StreamConnection, version: Int, in: Reader, o
 
   def receive = {
     case StartMonitoring => startPowerMonitoring()
-    case StopMonitoring => stopPowerMonitoring()
-    case Close => close()
+  }
+
+  override def postStop() = {
+    stopPowerMonitoring()
+    close()
   }
 
 }
@@ -90,7 +93,6 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
 }
 
 class PowerSpySensor extends Sensor with Configuration {
-
   lazy val powerSpySensorDelegate = context.actorOf(Props(PowerSpyDelegate(sppUrl, version).getOrElse(null)))
 
   lazy val powerSpySensorDelegateMessages = new collection.mutable.SynchronizedStack[PowerSpySensorDelegateMessage]()
@@ -127,15 +129,7 @@ class PowerSpySensor extends Sensor with Configuration {
   }
 
   override def messagesToListen = super.messagesToListen ++ Array(classOf[PowerSpySensorDelegateMessage])
-
-  override def postStop() {
-    powerSpySensorDelegate ! StopMonitoring
-    powerSpySensorDelegate ! Close
-    super.postStop()
-  }
-
   override def acquire: Receive = super.acquire orElse acquireDelegate
-
 }
 
 /**

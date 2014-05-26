@@ -97,27 +97,13 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * Sensor which opens one counter per event and pid (because of the implementation of perf_event_open method).
  */
 class LibpfmSensor(event: String) extends Sensor with Configuration {
-  import MonitoringMessages.CleanResources
-
   lazy val descriptors = new scala.collection.mutable.HashMap[Process, Int]
   // Used to close the file descriptors which are useless when a tick with a new timestamp is received.
   var tickProcesses = scala.collection.mutable.Set[Process]()
   lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Long]
   var timestamp = 0l
 
-  override def messagesToListen = super.messagesToListen ++ Array(classOf[CleanResources])
-
-  override def acquire: Receive = super.acquire orElse acquireStopMonitoring
-
-  def acquireStopMonitoring: Receive = {
-    case CleanResources => stopMonitoring()
-  }
-
   override def postStop() = {
-    stopMonitoring()
-  }
-
-  def stopMonitoring() = {
     descriptors.foreach {
       case (_, fd) => {
         LibpfmUtil.disableCounter(fd)

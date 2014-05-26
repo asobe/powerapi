@@ -48,8 +48,6 @@ object MonitoringMessages {
   case object StopMonitoringWorker
   case object AllReportersStopped
   case object MonitoringWorkerStopped
-  
-  case class CleanResources() extends Message
 }
 
 /**
@@ -101,8 +99,6 @@ class MonitoringSupervisor(clockSupervisor: ActorRef) extends Actor with ActorLo
     if(monitorings.contains(stopMonitoringRepr.clockid)) {
       monitorings -= stopMonitoringRepr.clockid
       Await.result(monitoringRef ? StopMonitoringWorker, timeout.duration)
-      // Allows to clean the subscriber resources when it's needed.
-      context.system.eventStream.publish(CleanResources())
       context.stop(monitoringRef)
     }
     
