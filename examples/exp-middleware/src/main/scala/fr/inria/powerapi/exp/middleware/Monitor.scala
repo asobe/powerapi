@@ -559,12 +559,12 @@ object AnalysisCountersExp {
   def run() = {
     implicit val codec = scalax.io.Codec.UTF8
     val separator = "===="
-    val specpath = "/home/colmant/cpu2006"
+    val specpath = "/home/powerapi/cpu2006"
     val timestamp = System.nanoTime
 
     val benchmarks = scala.collection.mutable.ArrayBuffer[String]()
     // Float benchmarks
-    benchmarks ++= Array("410.bwaves", "416.gamess", "433.milc", "434.zeusmp", "435.gromacs", "436.cactusADM", "437.leslie3d", "444.namd", "450.soplex", "453.povray", "454.calculix", "459.GemsFDTD", "465.tonto", "470.lbm")
+    benchmarks ++= Array("410.bwaves", "416.gamess", "433.milc", "434.zeusmp", "435.gromacs", "436.cactusADM", "437.leslie3d", "450.soplex", "453.povray", "454.calculix", "459.GemsFDTD", "465.tonto", "470.lbm")
     // Int benchmarks
     benchmarks ++= Array("481.wrf", "482.sphinx3", "400.perlbench", "401.bzip2", "403.gcc", "429.mcf", "445.gobmk", "456.hmmer", "458.sjeng", "462.libquantum", "464.h264ref", "471.omnetpp", "473.asta", "483.xalancbmk")
     // Kill all the running benchmarks (if there is still alive from another execution).
@@ -589,6 +589,10 @@ object AnalysisCountersExp {
     for(benchmark <- benchmarks) {
       // Cleaning phase
       (Path(".") * "*.dat").foreach(path => path.delete(force = true))
+      // Kill all the running benchmarks (if there is still alive from another execution).
+      val benchsToKill = (Seq("bash", "-c", "ps -ef") #> Seq("bash", "-c", "grep _base.amd64-m64-gcc43-nn") #> Seq("bash", "-c", "head -n 1") #> Seq("bash", "-c", "cut -d '/' -f 6") #> Seq("bash", "-c", "cut -d ' ' -f1")).lines
+      benchsToKill.foreach(benchmark => Seq("bash", "-c", s"killall -s KILL specperl runspec specinvoke $benchmark &> /dev/null").run)
+
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
       powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
@@ -609,6 +613,8 @@ object AnalysisCountersExp {
       while(Seq("kill", "-0", ppid+"").! == 0) {
         Thread.sleep((1.minutes).toMillis)
       }
+
+      monitoring.waitFor(1.milliseconds)
 
       powerapi.system.stop(libpfmListener)
 
