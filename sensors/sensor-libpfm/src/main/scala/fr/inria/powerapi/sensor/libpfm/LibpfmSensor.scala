@@ -100,7 +100,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
   lazy val descriptors = new scala.collection.mutable.HashMap[Process, Int]
   // Used to close the file descriptors which are useless when a tick with a new timestamp is received.
   var tickProcesses = scala.collection.mutable.Set[Process]()
-  lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Long]
+  lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Array[Long]]
   var timestamp = 0l
 
   override def postStop() = {
@@ -115,7 +115,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
     cache.clear()
   }
 
-  def refreshCache(subscription: TickSubscription, now: Long) = {
+  def refreshCache(subscription: TickSubscription, now: Array[Long]) = {
     cache += (subscription -> now)
   }
 
@@ -156,7 +156,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
       val old = cache.getOrElse(tick.subscription, now)
       refreshCache(tick.subscription, now)
 
-      val diff = now - old
+      val diff = scale(now, old)
       
       publish(LibpfmSensorMessage(
         counter = Counter(diff),
@@ -164,6 +164,29 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
         tick = tick
       ))
     }
+  }
+
+  /**
+   * Allows to scale the results by applying a ratio between the enabled/running times
+   * from the read and previous values.
+   */
+  private def scale(now: Array[Long], old: Array[Long]): Long = {
+   /* [0] = raw count
+    * [1] = TIME_ENABLED
+    * [2] = TIME_RUNNING
+    */
+    if(now(2) == 0 && now(1) == 0 && now(0) != 0) {
+      if(log.isWarningEnabled) log.warning("time_running = 0 = time_enabled, raw count not zero.")
+    }
+    if(now(2) > now(1)) {
+      if(log.isWarningEnabled) log.warning("time_running > time_enabled.")
+    }
+    if(now(2) - old(2) != 0) {
+      // toDouble used to get the true ratio
+      // round on the final value to obtain a Long
+      ((now(0) - old(0)) * ((now(1) - old(1)) / (now(2) - old(2))).toDouble).round
+    }
+    else 0l
   }
 }
 

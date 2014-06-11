@@ -85,8 +85,8 @@ class LibpfmUtilSpec extends FlatSpec with Matchers {
 
       while(i < 5) {
         Thread.sleep(1000)
-        var value = LibpfmUtil.readCounter(fd)
-        println("cycles: " + value)
+        var values = LibpfmUtil.readCounter(fd)
+        println("cycles: " + values(0) + "; enabled time: " + values(1) + "; running time: " + values(2))
         println("-----------------------------------")
         i += 1
       }
