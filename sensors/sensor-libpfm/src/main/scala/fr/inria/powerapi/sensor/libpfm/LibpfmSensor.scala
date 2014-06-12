@@ -100,8 +100,10 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
   lazy val descriptors = new scala.collection.mutable.HashMap[Process, Int]
   // Used to close the file descriptors which are useless when a tick with a new timestamp is received.
   var tickProcesses = scala.collection.mutable.Set[Process]()
-  lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Array[Long]]
   var timestamp = 0l
+
+  lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Array[Long]]
+  lazy val deltaScaledCache = new scala.collection.mutable.HashMap[TickSubscription, Long]
 
   override def postStop() = {
     descriptors.foreach {
@@ -113,10 +115,15 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
 
     descriptors.clear()
     cache.clear()
+    deltaScaledCache.clear()
   }
 
   def refreshCache(subscription: TickSubscription, now: Array[Long]) = {
     cache += (subscription -> now)
+  }
+
+  def refreshDeltaScaledCache(subscription: TickSubscription, value: Long) = {
+    deltaScaledCache += (subscription -> value)
   }
 
   def process(tick: Tick) = {
@@ -156,10 +163,18 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
       val old = cache.getOrElse(tick.subscription, now)
       refreshCache(tick.subscription, now)
 
-      val diff = scale(now, old)
+      var deltaScaledVal = scale(now, old)
+
+      // The diff can be set to 0 because of the enabled times read from the counters (same for the current reading and the old one).
+      if(deltaScaledVal == 0) {
+        val oldDeltaScaledVal = deltaScaledCache.getOrElse(tick.subscription, 0l)
+        deltaScaledVal = oldDeltaScaledVal
+      }
+      
+      else refreshDeltaScaledCache(tick.subscription, deltaScaledVal)
       
       publish(LibpfmSensorMessage(
-        counter = Counter(diff),
+        counter = Counter(deltaScaledVal),
         event = Event(event),
         tick = tick
       ))
