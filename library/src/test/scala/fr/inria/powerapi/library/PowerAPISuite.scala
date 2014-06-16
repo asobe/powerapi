@@ -74,7 +74,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
 
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
-    powerapi.start(PIDS(1, 2, 3), 1500.milliseconds).attachReporter(classOf[FileReporterMock1]).waitFor(7500.milliseconds)
+    powerapi.start(1500.milliseconds, PIDS(1, 2, 3)).attachReporter(classOf[FileReporterMock1]).waitFor(7500.milliseconds)
     powerapi.stop
 
     testFileM1.isFile should be (true)
@@ -87,21 +87,21 @@ class PowerAPISuite extends JUnitSuite with Matchers {
   @Test
   def testOneAPIWithAPPS {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
-    powerapi.start(APPS("firefox"), 1.seconds).attachReporter({println(_)}).waitFor(3.seconds)
+    powerapi.start(1.seconds, APPS("firefox")).attachReporter({println(_)}).waitFor(3.seconds)
     powerapi.stop
   }
 
   @Test
   def testOneAPIWithALL {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    powerapi.start(ALL(), 1.seconds).attachReporter({println(_)}).waitFor(5.seconds)
+    powerapi.start(1.seconds, ALL).attachReporter({println(_)}).waitFor(5.seconds)
     powerapi.stop
   }
 
   @Test
   def testOneAPIWithPIDSAPPS {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    powerapi.start(PIDS(currentPid), APPS("firefox"), 1.seconds).attachReporter({println(_)}).waitFor(3.seconds)
+    powerapi.start(1.seconds, PIDS(currentPid), APPS("firefox")).attachReporter({println(_)}).waitFor(3.seconds)
     powerapi.stop
   }
 
@@ -110,7 +110,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
 
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
-    val monitoring = powerapi.start(PIDS(1, 2), 500.milliseconds).attachReporter(classOf[FileReporterMock1])
+    val monitoring = powerapi.start(500.milliseconds, PIDS(1, 2)).attachReporter(classOf[FileReporterMock1])
     monitoring.attachProcess(Process(3)).waitFor(3.seconds)
     powerapi.stop
 
@@ -126,7 +126,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     val testFileM1 = Path.fromString(ConfigurationMock1.testPath)
 
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
-    val monitoring = powerapi.start(PIDS(1, 3), 1.seconds).attachReporter(classOf[FileReporterMock1])
+    val monitoring = powerapi.start(1.seconds, PIDS(1, 3)).attachReporter(classOf[FileReporterMock1])
     monitoring.detachProcess(Process(3)).attachProcess(Process(2))
     val processesList = monitoring.getMonitoredProcesses()
     processesList should contain allOf(Process(1), Process(2))
@@ -147,8 +147,8 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     val testFileM2 = Path.fromString(ConfigurationMock2.testPath)
 
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
-    powerapi.start(processes = Array(Process(1), Process(2)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock1])
-    powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
+    powerapi.start(1.seconds, PIDS(1, 2)).attachReporter(classOf[FileReporterMock1])
+    powerapi.start(500.milliseconds, PIDS(currentPid)).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
     powerapi.stop
 
     testFileM1.isFile should be (true)
@@ -181,7 +181,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
     implicit val system = ActorSystem("api-test")
     val reporter = system.actorOf(Props[FileReporterMock1])
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
-    powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(reporter).waitFor(5.seconds)
+    powerapi.start(500.milliseconds, PIDS(currentPid)).attachReporter(reporter).waitFor(5.seconds)
     powerapi.stop
 
     testFileM1.isFile should be (true)
@@ -195,7 +195,7 @@ class PowerAPISuite extends JUnitSuite with Matchers {
   def testOneAPIWithFunctionAsReporter {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorTimestamp
     
-    powerapi.start(processes = Array(Process(currentPid)), frequency = 500.milliseconds).attachReporter(processedMessage => {
+    powerapi.start(500.milliseconds, PIDS(currentPid)).attachReporter(processedMessage => {
       lazy val output = Resource.fromFile(ConfigurationMock1.testPath)
       output.append(LineMock(processedMessage).toString)
     }).waitFor(5.seconds)
@@ -213,11 +213,11 @@ class PowerAPISuite extends JUnitSuite with Matchers {
   @Test
   def testTwoAPI {
     val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
-    powerapi.start(processes = Array(Process(1)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock1]).waitFor(3.seconds)
+    powerapi.start(1.seconds, PIDS(1)).attachReporter(classOf[FileReporterMock1]).waitFor(3.seconds)
     powerapi.stop
 
     val powerapi2 = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
-    powerapi2.start(processes = Array(Process(2)), frequency = 1.seconds).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
+    powerapi2.start(1.seconds, PIDS(2)).attachReporter(classOf[FileReporterMock2]).waitFor(5.seconds)
     powerapi2.stop
 
     val testFileM1 = Path.fromString(ConfigurationMock1.testPath)

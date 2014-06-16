@@ -50,7 +50,7 @@ class Chart(title: String) {
         timeSeries += (value._1 -> serie)
         chart.getXYPlot().getRenderer().setSeriesStroke(dataset.getSeriesCount() - 1, new BasicStroke(3))
       }
-      timeSeries(value._1).add(new TimeSeriesDataItem(new FixedMillisecond(timestamp), value._2))
+      timeSeries(value._1).addOrUpdate(new TimeSeriesDataItem(new FixedMillisecond(timestamp), value._2))
     })
   }
 }

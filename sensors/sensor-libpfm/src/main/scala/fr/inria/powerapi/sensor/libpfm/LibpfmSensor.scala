@@ -97,13 +97,17 @@ trait Configuration extends fr.inria.powerapi.core.Configuration {
  * Sensor which opens one counter per event and pid (because of the implementation of perf_event_open method).
  */
 class LibpfmSensor(event: String) extends Sensor with Configuration {
-  lazy val descriptors = new scala.collection.mutable.HashMap[Process, Int]
-  // Used to close the file descriptors which are useless when a tick with a new timestamp is received.
-  var tickProcesses = scala.collection.mutable.Set[Process]()
+  // pid -> threads
+  lazy val processes = scala.collection.mutable.HashMap[Process, Set[Int]]()
+  lazy val tickProcesses = scala.collection.mutable.Set[Process]()
+  // tid -> fd
+  lazy val descriptors = scala.collection.mutable.HashMap[Int, Int]()
+  
   var timestamp = 0l
 
-  lazy val cache = new scala.collection.mutable.HashMap[TickSubscription, Array[Long]]
-  lazy val deltaScaledCache = new scala.collection.mutable.HashMap[TickSubscription, Long]
+  // fd -> values from counters
+  lazy val cache = scala.collection.mutable.HashMap[Int, Array[Long]]()
+  lazy val deltaScaledCache = scala.collection.mutable.HashMap[Int, Long]()
 
   override def postStop() = {
     descriptors.foreach {
@@ -113,72 +117,123 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
       }
     }
 
+    processes.clear()
+    tickProcesses.clear()
     descriptors.clear()
     cache.clear()
     deltaScaledCache.clear()
   }
 
-  def refreshCache(subscription: TickSubscription, now: Array[Long]) = {
-    cache += (subscription -> now)
+  def refreshCache(fd: Int, now: Array[Long]) = {
+    cache += (fd -> now)
   }
 
-  def refreshDeltaScaledCache(subscription: TickSubscription, value: Long) = {
-    deltaScaledCache += (subscription -> value)
+  def refreshDeltaScaledCache(fd: Int, value: Long) = {
+    deltaScaledCache += (fd -> value)
   }
 
   def process(tick: Tick) = {
     // Piece of code used to refresh the file descriptors which are read by the sensors, the old ones are closed.
     if(tick.timestamp > timestamp) {
-      val diff = descriptors -- tickProcesses
+      val diff = processes -- tickProcesses
+      
       diff.foreach {
-        case (process, fd) => {
-          LibpfmUtil.disableCounter(fd)
-          LibpfmUtil.closeCounter(fd)
-          descriptors -= process
+        case (process, tids) => {
+          tids.foreach(tid => {
+            LibpfmUtil.disableCounter(descriptors(tid))
+            LibpfmUtil.closeCounter(descriptors(tid))
+            cache -= tid
+            deltaScaledCache -= tid
+            descriptors -= tid
+          })
+          
+          processes -= process
         }
       }
 
       timestamp = tick.timestamp
-      tickProcesses = scala.collection.mutable.Set[Process]()
+      tickProcesses.clear()
     }
 
-    // Add the process into the cache of tick processes, it's a set, so we can just add it (no doublon).
     tickProcesses += tick.subscription.process
 
-    // Reset and enable the counter if the cache does not contain it.
-    if(!descriptors.contains(tick.subscription.process)) {
-      LibpfmUtil.configureCounter(tick.subscription.process, bitset, event) match {
+    // Get the associated threads for a given process.
+    val threads = {
+      if(bits(1) == 0) {
+        tick.subscription.process.threads + tick.subscription.process.pid
+      }
+      else Set[Int](tick.subscription.process.pid)
+    }
+
+    // Reset and enable the counters + update caches if it's a new process.
+    if(!processes.contains(tick.subscription.process)) {
+      threads.foreach(tid => {
+        LibpfmUtil.configureCounter(tid, bitset, event) match {
+          case Some(fd: Int) => {
+            LibpfmUtil.resetCounter(fd)
+            LibpfmUtil.enableCounter(fd)
+            descriptors(tid) = fd
+          }
+          case None => if(log.isWarningEnabled) log.warning("Libpfm is not able to open the counter for the tid " + tid + ".")
+        }
+      })
+
+      processes(tick.subscription.process) = threads
+    }
+
+    // Update the underlying threads for the given process.
+    val oldTids = processes(tick.subscription.process) -- threads
+    val newTids = threads -- processes(tick.subscription.process)
+
+    oldTids.foreach(tid => {
+      val fd = descriptors(tid)
+      LibpfmUtil.disableCounter(fd)
+      LibpfmUtil.closeCounter(fd)
+      cache -= fd
+      deltaScaledCache -= fd
+      processes(tick.subscription.process) = threads
+    })
+
+    newTids.foreach(tid => {
+      LibpfmUtil.configureCounter(tid, bitset, event) match {
         case Some(fd: Int) => {
           LibpfmUtil.resetCounter(fd)
           LibpfmUtil.enableCounter(fd)
-          descriptors(tick.subscription.process) = fd
+          descriptors(tid) = fd
         }
-        case None => if(log.isWarningEnabled) log.warning("Libpfm is not able to open the counter for the pid " + tick.subscription.process.pid + ".")
+        case None => if(log.isWarningEnabled) log.warning("Libpfm is not able to open the counter for the tid " + tid + ".")
       }
-    }
+    })
 
-    // Check if the counter was correctly opened.
-    if(descriptors.contains(tick.subscription.process)) {
-      val now = LibpfmUtil.readCounter(descriptors(tick.subscription.process))
-      val old = cache.getOrElse(tick.subscription, now)
-      refreshCache(tick.subscription, now)
+    var deltaScaledVal = 0l
 
-      var deltaScaledVal = scale(now, old)
+    processes(tick.subscription.process).foreach(tid => {
+      if(descriptors.contains(tid)) {
+        val fd = descriptors(tid)
 
-      // The diff can be set to 0 because of the enabled times read from the counters (same for the current reading and the old one).
-      if(deltaScaledVal == 0) {
-        val oldDeltaScaledVal = deltaScaledCache.getOrElse(tick.subscription, 0l)
-        deltaScaledVal = oldDeltaScaledVal
+        val now = LibpfmUtil.readCounter(fd)
+        val old = cache.getOrElse(fd, now)
+        refreshCache(fd, now)
+
+        var deltaScaledValTmp = scale(now, old)
+
+        // The diff can be set to 0 because of the enabled times read from the counters (same for the current reading and the old one).
+        if(deltaScaledValTmp == 0) {
+          val oldDeltaScaledVal = deltaScaledCache.getOrElse(fd, 0l)
+          deltaScaledValTmp = oldDeltaScaledVal
+        }
+        
+        else refreshDeltaScaledCache(fd, deltaScaledValTmp)
+
+        deltaScaledVal += deltaScaledValTmp
       }
-      
-      else refreshDeltaScaledCache(tick.subscription, deltaScaledVal)
-      
-      publish(LibpfmSensorMessage(
-        counter = Counter(deltaScaledVal),
-        event = Event(event),
-        tick = tick
-      ))
-    }
+    })
+
+    publish(LibpfmSensorMessage(
+      counter = Counter(deltaScaledVal),
+      event = Event(event),
+      tick = tick
+    ))
   }
 
   /**

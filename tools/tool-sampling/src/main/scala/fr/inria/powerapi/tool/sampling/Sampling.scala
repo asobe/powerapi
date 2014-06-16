@@ -162,7 +162,7 @@ class Sampling extends Configuration {
     
     // Start a monitoring to get the idle power.
     // We add some time because of the sync. between PowerAPI & PowerSPY.
-    powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
+    powerapi.start(1.seconds, PIDS(-1)).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
     Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
     // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
@@ -176,7 +176,7 @@ class Sampling extends Configuration {
       val ppid = buffer(0).trim.toInt
 
       // Start a monitoring to get the values of the counters for the workload.
-      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+      val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
       monitoring.waitFor(nbMessages.seconds)
 
@@ -189,7 +189,7 @@ class Sampling extends Configuration {
     for(thread <- 1 to threads) {
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -c $thread -t $nbSec").lines
       val ppid = buffer(0).trim.toInt
-      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+      val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
       // Get the worker pid corresponding to the stress.
       val lastWorkerPid = Seq("ps", "-C", "stress", "ho", "pid").lines.last.trim
@@ -233,7 +233,7 @@ class Sampling extends Configuration {
       // Pin the process on the first core (physical or logical).
       Seq("taskset", "-cp", "0", ppid+"").lines
 
-      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+      val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
       monitoring.waitFor(nbMessages.seconds)
       
@@ -248,7 +248,7 @@ class Sampling extends Configuration {
       val ppid = buffer(0).trim.toInt
       Seq("taskset", "-cp", "0", ppid+"").lines
 
-      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+      val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
       monitoring.waitFor(nbMessages.seconds)
 
@@ -348,7 +348,7 @@ class Sampling extends Configuration {
 
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
-      powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
+      powerapi.start(1.seconds, PIDS(-1)).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
       Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
       for(thread <- 1 to 8) {
@@ -371,7 +371,7 @@ class Sampling extends Configuration {
         Seq("taskset", "-cp", pinCores.mkString(","), ppid+"").lines
 
         // Start a monitoring to get the values of the counters for the workload.
-        val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+        val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
         Seq("kill", "-SIGCONT", ppid+"").!
         monitoring.waitFor(nbMessages.seconds)
 
@@ -396,7 +396,7 @@ class Sampling extends Configuration {
         // Pin the process on the first core (physical or logical).
         Seq("taskset", "-cp", "0", ppid+"").lines
 
-        val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+        val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
         Seq("kill", "-SIGCONT", ppid+"").!
         monitoring.waitFor(nbMessages.seconds)
         
@@ -411,7 +411,7 @@ class Sampling extends Configuration {
         val ppid = buffer(0).trim.toInt
         Seq("taskset", "-cp", "0", ppid+"").lines
 
-        val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+        val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
         Seq("kill", "-SIGCONT", ppid+"").!
         monitoring.waitFor(nbMessages.seconds)
         

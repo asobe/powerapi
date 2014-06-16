@@ -170,7 +170,7 @@ val powerapi = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.
 3. Ask to PowerAPI to provide the CPU energy spent by the 123 process during 5 minutes, every 500 milliseconds, using a _console Reporter_ and aggregating results by timestamp produced every 500 milliseconds:
 
 ```scala
-val monitoring = powerapi.start(PIDS(123), 500.milliseconds)
+val monitoring = powerapi.start(500.milliseconds, fr.inria.powerapi.library.PIDS(123))
 monitoring.attachReporter(fr.inria.powerapi.reporter.console.ConsoleReporter)
 monitoring.waitFor(5.minutes)
 powerapi.stop()

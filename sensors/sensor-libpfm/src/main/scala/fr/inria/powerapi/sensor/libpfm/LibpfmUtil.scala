@@ -93,13 +93,13 @@ object LibpfmUtil {
   }
 
   /**
-   * Opens a file descriptor for the givent event and PID, with the configuration precised by
+   * Opens a file descriptor for the given event and PID, with the configuration precised by
    * the BitSet.
-   * @param process: process to monitor.
+   * @param tid: thread identifier.
    * @param configuration: Set of bits used to configure the structure which will be used to initialize the counter.
    * @param name: event name.
    */
-  def configureCounter(process: Process, configuration: java.util.BitSet, name: String): Option[Int] = {
+  def configureCounter(tid: Int, configuration: java.util.BitSet, name: String): Option[Int] = {
     val cName = pointerToCString(name)
     val argEncoded = new pfm_perf_encode_arg_t
     var argEncodedPointer = pointerTo(argEncoded)
@@ -121,7 +121,7 @@ object LibpfmUtil {
       eventAttr.bits_config(convertBitsetToLong(configuration))
 
       // Opens the file descriptor.
-      val fd = CUtils.perf_event_open(eventAttrPointer, process.pid, -1, -1, 0)
+      val fd = CUtils.perf_event_open(eventAttrPointer, tid, -1, -1, 0)
 
       if(fd > 0) {
         Some(fd)

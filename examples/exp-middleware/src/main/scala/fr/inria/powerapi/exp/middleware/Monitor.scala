@@ -137,8 +137,8 @@ object Default {
     val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
     val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
 
-    libpfm.start(ALL(), 1.seconds).attachReporter(classOf[JFreeChartReporter])
-    powerspy.start(PIDS(-1), 1.seconds).attachReporter(classOf[JFreeChartReporter])
+    libpfm.start(1.seconds, ALL).attachReporter(classOf[JFreeChartReporter])
+    powerspy.start(1.seconds, PIDS(-1)).attachReporter(classOf[JFreeChartReporter])
     
     Thread.sleep((5.hours).toMillis)
     
@@ -182,8 +182,8 @@ object SpecCPUExp extends SpecExpConfiguration{
 
     for(run <- 1 to nbRuns) {
       benchmarks.foreach(benchmark => {
-        val monitoringLibpfm = libpfm.start(ALL(), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
-        val monitoringPspy = powerspy.start(PIDS(-1), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
+        val monitoringLibpfm = libpfm.start(1.seconds, ALL).attachReporter(classOf[ExtendedFileReporter])
+        val monitoringPspy = powerspy.start(1.seconds, PIDS(-1)).attachReporter(classOf[ExtendedFileReporter])
 
         // Waiting for the synchronization.
         Thread.sleep((20.seconds).toMillis)
@@ -358,8 +358,8 @@ object StressExp extends StressExpConfiguration {
     val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
 
     for(run <- 1 to nbRuns) {
-      var monitoringLibpfm = libpfm.start(ALL(), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
-      val monitoringPspy = powerspy.start(PIDS(-1), 1.seconds).attachReporter(classOf[ExtendedFileReporter])
+      var monitoringLibpfm = libpfm.start(1.seconds, ALL).attachReporter(classOf[ExtendedFileReporter])
+      val monitoringPspy = powerspy.start(1.seconds, PIDS(-1)).attachReporter(classOf[ExtendedFileReporter])
 
       // Waiting for the synchronization and to get idle powers.
       Thread.sleep((40.seconds).toMillis)
@@ -595,7 +595,7 @@ object AnalysisCountersExp {
 
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
-      powerapi.start(PIDS(-1), 1.seconds).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
+      powerapi.start(1.seconds, PIDS(-1)).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
       Resource.fromFile("output-powerspy.dat").append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
       // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
@@ -607,7 +607,7 @@ object AnalysisCountersExp {
       val ppid = buffer(0).trim.toInt
 
       // Start a monitoring to get the values of the counters for the workload.
-      val monitoring = powerapi.start(PIDS(ppid), 1.seconds).attachReporter(classOf[PowerspyReporter])
+      val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
 
       while(Seq("kill", "-0", ppid+"").! == 0) {
@@ -634,9 +634,9 @@ object AnalysisCountersExp {
 
 // Object launcher.
 object Monitor extends App {
-  //Default.run()
+  Default.run()
   //SpecCPUExp.run()
   //StressExp.run()
-  AnalysisCountersExp.run()
+  //AnalysisCountersExp.run()
   System.exit(0)
 }

@@ -79,6 +79,6 @@ class LibpfmSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
     libpfmSensor.underlyingActor.process(m1)
     libpfmSensor.underlyingActor.process(m2)
     libpfmSensor.underlyingActor.process(error)
-    listener.underlyingActor.received should equal(2)
+    listener.underlyingActor.received should equal(3)
   }
 }

@@ -47,7 +47,7 @@ class RestReporterSpec extends FunSpec with ShouldMatchersForJUnit with Scalates
   
   
   val powerapi = new PAPI with SensorCpuProcReg with FormulaCpuReg with AggregatorProcess
-  val monitoring = powerapi.start(PIDS(), 1.seconds)
+  val monitoring = powerapi.start(1.seconds, PIDS())
   def mon() = monitoring
   
   describe("The RestService") {

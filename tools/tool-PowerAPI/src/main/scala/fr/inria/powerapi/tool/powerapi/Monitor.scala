@@ -217,21 +217,21 @@ object Monitor extends App {
   var allPIDs = mutable.ListBuffer.empty[Int]
   
   var monitoring: fr.inria.powerapi.library.Monitoring = if(pids.isEmpty && apps.isEmpty) {
-    val allC = fr.inria.powerapi.library.ALL()
+    val allC = fr.inria.powerapi.library.ALL
     allPIDs ++= (for(process <- allC.monitoredProcesses.toArray) yield process.pid)
-    powerapi.start(allC, freq.millis)
+    powerapi.start(freq.millis, allC)
   }
 
   else if(!pids.isEmpty && apps.isEmpty) {
     val pidsC = fr.inria.powerapi.library.PIDS(pids: _*)
     allPIDs ++= (for(process <- pidsC.monitoredProcesses.toArray) yield process.pid)
-    powerapi.start(pidsC, freq.millis)
+    powerapi.start(freq.millis, pidsC)
   }
 
   else if(pids.isEmpty && !apps.isEmpty) {
     val appsC = fr.inria.powerapi.library.APPS(apps: _*)
     allPIDs ++= (for(process <- appsC.monitoredProcesses.toArray) yield process.pid)
-    powerapi.start(appsC, freq.millis)
+    powerapi.start(freq.millis, appsC)
   }
 
   else {
@@ -239,23 +239,12 @@ object Monitor extends App {
     val appsC = fr.inria.powerapi.library.APPS(apps: _*)
     allPIDs ++= (for(process <- pidsC.monitoredProcesses.toArray) yield process.pid)
     allPIDs ++= (for(process <- appsC.monitoredProcesses.toArray) yield process.pid)
-    powerapi.start(pidsC, appsC, freq.millis)
+    powerapi.start(freq.millis, pidsC, appsC)
   }
    
   var monitoringPowerspy: fr.inria.powerapi.library.Monitoring = null;
   if (powerspySet == 1) {
-    monitoringPowerspy = powerspy.start(fr.inria.powerapi.library.PIDS(-1), freq.millis)
-  }
-
-  /** 
-   * HOT FIX: we have to send a SIGCONT signal to the VM process because we have to get access to the port
-   * provided by virtio serial for the repporting. The code is here because the LibpfmSensors have to be 
-   * started to open the hardware counters (limitation of libpfm).
-   */
-  if(params.isDefinedAt("vm")) {
-    // We are waiting that first tick to be sure that the file descriptor for the pids are opened.
-    Thread.sleep(freq)
-    pids.foreach(pid => Seq("kill", "-SIGCONT", pid+"").!)
+    monitoringPowerspy = powerspy.start(freq.millis, fr.inria.powerapi.library.PIDS(-1))
   }
 
   if(reporters.isEmpty) reporters = Array("chart")

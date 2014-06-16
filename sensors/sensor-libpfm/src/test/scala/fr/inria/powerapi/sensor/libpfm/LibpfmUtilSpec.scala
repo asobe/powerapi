@@ -100,7 +100,7 @@ class LibpfmUtilSpec extends FlatSpec with Matchers {
 
     LibpfmUtil.initialize() should equal(true)
 
-    LibpfmUtil.configureCounter(fr.inria.powerapi.core.Process(ppid), bitset, "cycles") match {
+    LibpfmUtil.configureCounter(ppid, bitset, "cycles") match {
       case Some(fd) => run(fd)
       case None => fail("cycles is an existing counter, it should be work.")
     }

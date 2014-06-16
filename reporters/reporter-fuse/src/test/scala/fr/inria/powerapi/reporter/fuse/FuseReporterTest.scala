@@ -56,7 +56,7 @@ class FuseReporterTest extends JUnitSuite with ShouldMatchersForJUnit {
   
   @Before
   def setUp() {
-    val monitoring = powerapi.start(PIDS(), 1.seconds)
+    val monitoring = powerapi.start(1.seconds, PIDS())
     
     // create and start fuse interface actor
     val fuseService = powerapi.system.actorOf(

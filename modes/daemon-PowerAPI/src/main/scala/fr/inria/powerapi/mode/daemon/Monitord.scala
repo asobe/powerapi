@@ -42,7 +42,7 @@ class Monitord extends Daemon {
   val powerapi = new PAPI with SensorCpuProcReg with FormulaCpuReg with AggregatorProcess
   
   def beforeStart() {
-    val monitoring = powerapi.start(PIDS(), 1.seconds)
+    val monitoring = powerapi.start(1.seconds, PIDS())
     
     // create and start fuse interface actor
     val fuseService = powerapi.system.actorOf(
