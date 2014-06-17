@@ -144,10 +144,10 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
               val fd = descriptors(tid)
               LibpfmUtil.disableCounter(fd)
               LibpfmUtil.closeCounter(fd)
+              cache -= fd
+              deltaScaledCache -= fd
+              descriptors -= tid
             }
-            cache -= tid
-            deltaScaledCache -= tid
-            descriptors -= tid
           })
           
           processes -= process
@@ -195,6 +195,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
         LibpfmUtil.closeCounter(fd)
         cache -= fd
         deltaScaledCache -= fd
+        descriptors -= tid
       }
       
       processes(tick.subscription.process) = threads

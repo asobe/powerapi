@@ -69,7 +69,7 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>fr.inria.powerapi.tool.sampling.SamplingTool</mainClass>
+                    <mainClass>fr.inria.powerapi.tool.sampling.Launcher</mainClass>
                 </configuration>
             </plugin>
         </plugins>
