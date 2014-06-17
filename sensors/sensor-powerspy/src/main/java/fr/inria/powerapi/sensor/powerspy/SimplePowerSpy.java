@@ -142,7 +142,7 @@ public class SimplePowerSpy implements PowerSpy {
 				@Override
 				public void run() {
 					send();
-					// See specification §3.2 "Error management"
+					// See specification 3.2 "Error management"
 					// Edit: commented because it works fine without
 					// sleep(1000);
 				}
