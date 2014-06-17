@@ -128,7 +128,7 @@ object LibpfmUtil {
       }
 
       else {
-        if(logger.isEnabledFor(Level.WARN)) logger.warn("Libpfm can not open a file descriptor for the event " + name + ".")
+        if(logger.isEnabledFor(Level.WARN)) logger.warn(s"Libpfm is not able to open a counter for the tid $tid on the event $name.")
         None
       }
     }

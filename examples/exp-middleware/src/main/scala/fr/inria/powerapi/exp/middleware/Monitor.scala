@@ -137,7 +137,7 @@ object Default {
     val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
     val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
 
-    libpfm.start(1.seconds, ALL).attachReporter(classOf[JFreeChartReporter])
+    libpfm.start(1.seconds, APPS("java")).attachReporter(classOf[JFreeChartReporter])
     powerspy.start(1.seconds, PIDS(-1)).attachReporter(classOf[JFreeChartReporter])
     
     Thread.sleep((5.hours).toMillis)

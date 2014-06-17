@@ -102,7 +102,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
   lazy val tickProcesses = scala.collection.mutable.Set[Process]()
   // tid -> fd
   lazy val descriptors = scala.collection.mutable.HashMap[Int, Int]()
-  
+
   var timestamp = 0l
 
   // fd -> values from counters
@@ -130,7 +130,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
 
   def refreshDeltaScaledCache(fd: Int, value: Long) = {
     deltaScaledCache += (fd -> value)
-  }
+  } 
 
   def process(tick: Tick) = {
     // Piece of code used to refresh the file descriptors which are read by the sensors, the old ones are closed.
@@ -163,7 +163,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
     // Get the associated threads for a given process.
     val threads = {
       if(bits(1) == 0) {
-        tick.subscription.process.threads + tick.subscription.process.pid
+        tick.subscription.process.threads + tick.subscription.process.pid 
       }
       else Set[Int](tick.subscription.process.pid)
     }
@@ -177,7 +177,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
             LibpfmUtil.enableCounter(fd)
             descriptors(tid) = fd
           }
-          case None => if(log.isWarningEnabled) log.warning("Libpfm is not able to open the counter for the tid " + tid + ".")
+          case _ => None
         }
       })
 
@@ -207,7 +207,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
           LibpfmUtil.enableCounter(fd)
           descriptors(tid) = fd
         }
-        case None => if(log.isWarningEnabled) log.warning("Libpfm is not able to open the counter for the tid " + tid + ".")
+        case _ => None
       }
     })
 
