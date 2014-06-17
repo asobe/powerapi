@@ -140,8 +140,11 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
       diff.foreach {
         case (process, tids) => {
           tids.foreach(tid => {
-            LibpfmUtil.disableCounter(descriptors(tid))
-            LibpfmUtil.closeCounter(descriptors(tid))
+            if(descriptors.contains(tid)) {
+              val fd = descriptors(tid)
+              LibpfmUtil.disableCounter(fd)
+              LibpfmUtil.closeCounter(fd)
+            }
             cache -= tid
             deltaScaledCache -= tid
             descriptors -= tid
@@ -186,11 +189,14 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
     val newTids = threads -- processes(tick.subscription.process)
 
     oldTids.foreach(tid => {
-      val fd = descriptors(tid)
-      LibpfmUtil.disableCounter(fd)
-      LibpfmUtil.closeCounter(fd)
-      cache -= fd
-      deltaScaledCache -= fd
+      if(descriptors.contains(tid)) {
+        val fd = descriptors(tid)
+        LibpfmUtil.disableCounter(fd)
+        LibpfmUtil.closeCounter(fd)
+        cache -= fd
+        deltaScaledCache -= fd
+      }
+      
       processes(tick.subscription.process) = threads
     })
 
