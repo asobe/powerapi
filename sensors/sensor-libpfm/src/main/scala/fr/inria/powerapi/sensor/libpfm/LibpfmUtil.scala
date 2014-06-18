@@ -20,7 +20,7 @@
 */
 package fr.inria.powerapi.sensor.libpfm;
 
-import fr.inria.powerapi.core.Process
+import fr.inria.powerapi.core.{ TID, CID }
 import perfmon2.libpfm.{ LibpfmLibrary, perf_event_attr, pfm_perf_encode_arg_t }
 import perfmon2.libpfm.LibpfmLibrary.pfm_os_t
 
@@ -93,13 +93,13 @@ object LibpfmUtil {
   }
 
   /**
-   * Opens a file descriptor for the given event and PID, with the configuration precised by
+   * Opens a file descriptor for the given event and identifier, with the configuration precised by
    * the BitSet.
-   * @param tid: thread identifier.
+   * @param identifier: core/thread identifier.
    * @param configuration: Set of bits used to configure the structure which will be used to initialize the counter.
    * @param name: event name.
    */
-  def configureCounter(tid: Int, configuration: java.util.BitSet, name: String): Option[Int] = {
+  def configureCounter(identifier: Any, configuration: java.util.BitSet, name: String): Option[Int] = {
     val cName = pointerToCString(name)
     val argEncoded = new pfm_perf_encode_arg_t
     var argEncodedPointer = pointerTo(argEncoded)
@@ -120,15 +120,24 @@ object LibpfmUtil {
       eventAttr.read_format(perfFormatScale)
       eventAttr.bits_config(convertBitsetToLong(configuration))
 
+      var id = -1
+
       // Opens the file descriptor.
-      val fd = CUtils.perf_event_open(eventAttrPointer, tid, -1, -1, 0)
+      val fd = identifier match {
+        case TID(tid) => id = tid; CUtils.perf_event_open(eventAttrPointer, tid, -1, -1, 0)
+        case CID(cid) => id = cid; CUtils.perf_event_open(eventAttrPointer, -1, cid, -1, 0)
+        case _ => {
+          if(logger.isEnabledFor(Level.ERROR)) logger.error("The type of the first parameter is unknown.")
+          -1
+        }
+      }
 
       if(fd > 0) {
         Some(fd)
       }
 
       else {
-        if(logger.isEnabledFor(Level.WARN)) logger.warn(s"Libpfm is not able to open a counter for the tid $tid on the event $name.")
+        if(logger.isEnabledFor(Level.WARN)) logger.warn(s"Libpfm is not able to open a counter for the identifier $id on the event $name.")
         None
       }
     }
@@ -182,6 +191,30 @@ object LibpfmUtil {
       counts.getCLongs()
     }
     else Array(0L, 0L, 0L)
+  }
+
+
+  /**
+   * Allows to scale the results by applying a ratio between the enabled/running times
+   * from the read and previous values.
+   */
+  def scale(now: Array[Long], old: Array[Long]): Long = {
+   /* [0] = raw count
+    * [1] = TIME_ENABLED
+    * [2] = TIME_RUNNING
+    */
+    if(now(2) == 0 && now(1) == 0 && now(0) != 0) {
+      if(logger.isEnabledFor(Level.WARN)) logger.warn("time_running = 0 = time_enabled, raw count not zero.")
+    }
+    if(now(2) > now(1)) {
+      if(logger.isEnabledFor(Level.WARN)) logger.warn("time_running > time_enabled.")
+    }
+    if(now(2) - old(2) != 0) {
+      // toDouble used to get the true ratio
+      // round on the final value to obtain a Long
+      ((now(0) - old(0)) * ((now(1) - old(1)) / (now(2) - old(2))).toDouble).round
+    }
+    else 0l
   }
 
   /**

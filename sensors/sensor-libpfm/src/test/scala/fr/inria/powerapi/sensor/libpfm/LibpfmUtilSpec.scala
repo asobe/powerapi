@@ -20,6 +20,8 @@
  */
 package fr.inria.powerapi.sensor.libpfm
 
+import fr.inria.powerapi.core.TID
+
 import java.lang.management.ManagementFactory
 
 import scala.concurrent.duration.DurationInt
@@ -100,7 +102,7 @@ class LibpfmUtilSpec extends FlatSpec with Matchers {
 
     LibpfmUtil.initialize() should equal(true)
 
-    LibpfmUtil.configureCounter(ppid, bitset, "cycles") match {
+    LibpfmUtil.configureCounter(TID(ppid), bitset, "cycles") match {
       case Some(fd) => run(fd)
       case None => fail("cycles is an existing counter, it should be work.")
     }

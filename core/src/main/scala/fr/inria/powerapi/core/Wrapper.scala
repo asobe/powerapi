@@ -48,3 +48,9 @@ case class Process(pid: Int) extends ThreadsConfiguration {
     (threadSet - pid).toSet
   }
 }
+
+/**
+ * Wrappers used for the pattern matching.
+ */
+case class TID(tid: Int)
+case class CID(cid: Int)

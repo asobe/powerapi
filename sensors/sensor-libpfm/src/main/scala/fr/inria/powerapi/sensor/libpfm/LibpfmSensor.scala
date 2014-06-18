@@ -20,83 +20,14 @@
  */
 package fr.inria.powerapi.sensor.libpfm
 
-import fr.inria.powerapi.core.{ Sensor, SensorMessage, Process, Tick, TickSubscription }
-import fr.inria.powerapi.library.MonitoringMessages
+import fr.inria.powerapi.core.{ Sensor, Process, Tick, TID }
 
 import scala.collection
-import scala.collection.JavaConversions
-
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
-
-import com.typesafe.config.Config
-
-/**
- * Libpfm sensor messages.
- */
-case class Counter(value: Long)
-case class Event(name: String)
-
-case class LibpfmSensorMessage(
-  counter: Counter = Counter(0),
-  event: Event = Event("none"),
-  tick: Tick
-) extends SensorMessage
-
-/**
- * Libpfm sensor configuration.
- */
-trait Configuration extends fr.inria.powerapi.core.Configuration {
-  /** Read all bit fields from the configuration. */
-  lazy val bits = {
-    collection.immutable.HashMap[Int, Int](
-      0 -> load { _.getInt("powerapi.libpfm.configuration.disabled") }(0),
-      1 -> load { _.getInt("powerapi.libpfm.configuration.inherit") }(0),
-      2 -> load { _.getInt("powerapi.libpfm.configuration.pinned") }(0),
-      3 -> load { _.getInt("powerapi.libpfm.configuration.exclusive") }(0),
-      4 -> load { _.getInt("powerapi.libpfm.configuration.exclude_user") }(0),
-      5 -> load { _.getInt("powerapi.libpfm.configuration.exclude_kernel") }(0),
-      6 -> load { _.getInt("powerapi.libpfm.configuration.exclude_hv") }(0),
-      7 -> load { _.getInt("powerapi.libpfm.configuration.exclude_idle") }(0),
-      8 -> load { _.getInt("powerapi.libpfm.configuration.mmap") }(0),
-      9 -> load { _.getInt("powerapi.libpfm.configuration.comm") }(0),
-      10 -> load { _.getInt("powerapi.libpfm.configuration.freq") }(0),
-      11 -> load { _.getInt("powerapi.libpfm.configuration.inherit_stat") }(0),
-      12 -> load { _.getInt("powerapi.libpfm.configuration.enable_on_exec") }(0),
-      13 -> load { _.getInt("powerapi.libpfm.configuration.task") }(0),
-      14 -> load { _.getInt("powerapi.libpfm.configuration.watermark") }(0),
-      15 -> load { _.getInt("powerapi.libpfm.configuration.precise_ip_1") }(0),
-      16 -> load { _.getInt("powerapi.libpfm.configuration.precise_ip_2") }(0),
-      17 -> load { _.getInt("powerapi.libpfm.configuration.mmap_data") }(0),
-      18 -> load { _.getInt("powerapi.libpfm.configuration.sample_id_all") }(0),
-      19 -> load { _.getInt("powerapi.libpfm.configuration.exclude_host") }(0),
-      20 -> load { _.getInt("powerapi.libpfm.configuration.exclude_guest") }(0),
-      21 -> load { _.getInt("powerapi.libpfm.configuration.exclude_callchain_kernel") }(0),
-      22 -> load { _.getInt("powerapi.libpfm.configuration.exclude_callchain_user") }(0)
-    )
-  }
-
-  /** Create the corresponding BitSet used to open the file descriptor. */
-  lazy val bitset = {
-    val tmp = new java.util.BitSet()
-    bits.filter { 
-      case (idx, bit) => bit == 1
-    }.keys.foreach(idx => tmp.set(idx))
-    
-    tmp
-  }
-
-  /** Events to monitor. */
-  lazy val events = load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.events")))
-        yield (item.asInstanceOf[Config].getString("event"))).toArray
-  }(Array[String]())
-}
 
 /**
  * Sensor which opens one counter per event and pid (because of the implementation of perf_event_open method).
  */
-class LibpfmSensor(event: String) extends Sensor with Configuration {
+class LibpfmSensor(event: String) extends Sensor with LibfpmConfiguration {
   // pid -> threads
   lazy val processes = scala.collection.mutable.HashMap[Process, Set[Int]]()
   lazy val tickProcesses = scala.collection.mutable.Set[Process]()
@@ -171,7 +102,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
     // Reset and enable the counters + update caches if it's a new process.
     if(!processes.contains(tick.subscription.process)) {
       threads.foreach(tid => {
-        LibpfmUtil.configureCounter(tid, bitset, event) match {
+        LibpfmUtil.configureCounter(TID(tid), bitset, event) match {
           case Some(fd: Int) => {
             LibpfmUtil.resetCounter(fd)
             LibpfmUtil.enableCounter(fd)
@@ -202,7 +133,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
     })
 
     newTids.foreach(tid => {
-      LibpfmUtil.configureCounter(tid, bitset, event) match {
+      LibpfmUtil.configureCounter(TID(tid), bitset, event) match {
         case Some(fd: Int) => {
           LibpfmUtil.resetCounter(fd)
           LibpfmUtil.enableCounter(fd)
@@ -222,7 +153,7 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
         val old = cache.getOrElse(fd, now)
         refreshCache(fd, now)
 
-        var deltaScaledValTmp = scale(now, old)
+        var deltaScaledValTmp = LibpfmUtil.scale(now, old)
 
         // The diff can be set to 0 because of the enabled times read from the counters (same for the current reading and the old one).
         if(deltaScaledValTmp == 0) {
@@ -241,29 +172,6 @@ class LibpfmSensor(event: String) extends Sensor with Configuration {
       event = Event(event),
       tick = tick
     ))
-  }
-
-  /**
-   * Allows to scale the results by applying a ratio between the enabled/running times
-   * from the read and previous values.
-   */
-  private def scale(now: Array[Long], old: Array[Long]): Long = {
-   /* [0] = raw count
-    * [1] = TIME_ENABLED
-    * [2] = TIME_RUNNING
-    */
-    if(now(2) == 0 && now(1) == 0 && now(0) != 0) {
-      if(log.isWarningEnabled) log.warning("time_running = 0 = time_enabled, raw count not zero.")
-    }
-    if(now(2) > now(1)) {
-      if(log.isWarningEnabled) log.warning("time_running > time_enabled.")
-    }
-    if(now(2) - old(2) != 0) {
-      // toDouble used to get the true ratio
-      // round on the final value to obtain a Long
-      ((now(0) - old(0)) * ((now(1) - old(1)) / (now(2) - old(2))).toDouble).round
-    }
-    else 0l
   }
 }
 
@@ -287,7 +195,7 @@ class SensorLibpfmConfigured(val event: String) extends fr.inria.powerapi.core.A
 /**
  * Use to cook the bake.
  */
-trait SensorLibpfm extends Configuration {
+trait SensorLibpfm extends LibfpmConfiguration {
   self: fr.inria.powerapi.core.API =>
 
   // One sensor per event.

@@ -36,11 +36,11 @@ import java.lang.management.ManagementFactory
 import fr.inria.powerapi.core.{ Tick, TickSubscription, Process }
 
 @RunWith(classOf[JUnitRunner])
-class LibpfmSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
+class LibpfmCoreSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
   implicit val system = ActorSystem("LibpfmTest")
 
-  val libpfmSensor = TestActorRef(new LibpfmSensor("instructions"))
+  val libpfmSensor = TestActorRef(new LibpfmCoreSensor("cycles"))
   val listener = TestActorRef[Listener]
 
   before {
@@ -51,21 +51,19 @@ class LibpfmSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
     LibpfmUtil.terminate()
   }
 
-  "A LibpfmSensor" should "have to be configured" in {
+  "A LibpfmCoreSensor" should "have to be configured" in {
     val bitset = new java.util.BitSet()
     bitset.set(0)
     bitset.set(1)
     libpfmSensor.underlyingActor.bitset should equal(bitset)
   }
 
-  "A LibpfmSensor" should "process a Tick message" in {
-    val m1 = Tick(1, TickSubscription(1, Process(currentPid), 1.seconds), 1)
-    val m2 = Tick(1, TickSubscription(1, Process(currentPid), 1.seconds), 2)
-    val error = Tick(1, TickSubscription(1, Process(-1), 1.seconds), 1)
+  "A LibpfmCoreSensor" should "process a Tick message" in {
+    val m1 = Tick(1, TickSubscription(1, Process(-1), 1.seconds), 1)
+    val m2 = Tick(1, TickSubscription(1, Process(-1), 1.seconds), 2)
 
     libpfmSensor.underlyingActor.process(m1)
     libpfmSensor.underlyingActor.process(m2)
-    libpfmSensor.underlyingActor.process(error)
-    listener.underlyingActor.received should equal(3)
+    listener.underlyingActor.received should equal(2)
   }
 }
