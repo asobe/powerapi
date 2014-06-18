@@ -209,8 +209,11 @@ class LibpfmFormula extends Formula with Configuration {
       frequencies ++= libpfmListenerMessage.timeInStates.times.keys.map(_.toLong).toArray
       frequencies = frequencies.sorted
 
-      if(frequencies.size > 1) {
-        // The min frequency (so the frequency used when the processor is idle) is removed because it means no activities.
+      val timeWithoutFMin = (libpfmListenerMessage.timeInStates.times - frequencies.min.toInt).values.sum
+
+      // If the processor used the frequencies greater than the min freq, we consider the time spent on it as the idle time.
+      if(frequencies.size > 1 && timeWithoutFMin > 0) {
+        // The min frequency (so the frequency used when the processor is idle) is removed because it means no activity.
         frequencies -= frequencies.min
       }
 

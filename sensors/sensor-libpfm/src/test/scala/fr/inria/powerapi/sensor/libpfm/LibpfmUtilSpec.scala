@@ -91,7 +91,7 @@ class LibpfmUtilSpec extends FlatSpec with Matchers {
         i += 1
       }
 
-      Seq("pkill", "-9", "-P", ppid+"") !
+      Seq("kill", "-9", ppid.toString) !
 
       LibpfmUtil.disableCounter(fd) should equal(true)
       LibpfmUtil.closeCounter(fd) should equal(true)
