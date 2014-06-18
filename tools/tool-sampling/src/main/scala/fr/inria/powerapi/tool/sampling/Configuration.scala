@@ -20,7 +20,7 @@
  */
 package fr.inria.powerapi.tool.sampling
 
-trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.powerapi.sensor.libpfm.Configuration {
+trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
   /** Thread numbers. */
   lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
   /** Cache available (all levels, only for the data) in KB. */
@@ -37,7 +37,6 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
   lazy val processingPath = load { _.getString("powerapi.tool.processing.path") }("pr-data")
   /** Path used to store the formulae computed by a multiple linear regression. */
   lazy val formulaePath = load { _.getString("powerapi.tool.formulae.path") }("formulae")
-
   /**
    * Scaling frequencies information, giving information about the available frequencies for each core.
    * This information is typically given by the cpufrequtils utils.

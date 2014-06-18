@@ -27,7 +27,7 @@ import scala.collection
 /**
  * Sensor which opens one counter per event and pid (because of the implementation of perf_event_open method).
  */
-class LibpfmSensor(event: String) extends Sensor with LibfpmConfiguration {
+class LibpfmSensor(event: String) extends Sensor with LibpfmConfiguration {
   // pid -> threads
   lazy val processes = scala.collection.mutable.HashMap[Process, Set[Int]]()
   lazy val tickProcesses = scala.collection.mutable.Set[Process]()
@@ -195,7 +195,7 @@ class SensorLibpfmConfigured(val event: String) extends fr.inria.powerapi.core.A
 /**
  * Use to cook the bake.
  */
-trait SensorLibpfm extends LibfpmConfiguration {
+trait SensorLibpfm extends LibpfmConfiguration {
   self: fr.inria.powerapi.core.API =>
 
   // One sensor per event.

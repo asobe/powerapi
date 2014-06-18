@@ -57,7 +57,7 @@ class ExtendGnuplotReporter extends fr.inria.powerapi.reporter.gnuplot.GnuplotRe
   override lazy val devices = Monitor.allDevs
 }
 
-object Initializer extends fr.inria.powerapi.sensor.libpfm.Configuration {
+object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
   var devs = List[String]("cpu")
 
   def start(cpuSensor:String, cpuFormula:String,

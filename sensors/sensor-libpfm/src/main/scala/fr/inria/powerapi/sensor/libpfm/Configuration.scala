@@ -27,7 +27,7 @@ import com.typesafe.config.Config
 /**
  * Libpfm sensor configuration.
  */
-trait LibfpmConfiguration extends fr.inria.powerapi.core.Configuration {
+trait LibpfmConfiguration extends fr.inria.powerapi.core.Configuration {
   /** Read all bit fields from the configuration. */
   lazy val bits = {
     collection.immutable.HashMap[Int, Int](
@@ -78,7 +78,7 @@ trait LibfpmConfiguration extends fr.inria.powerapi.core.Configuration {
 /**
 * Libpfm sensor configuration.
 */
-trait LibpfmCoreConfiguration extends LibfpmConfiguration {
+trait LibpfmCoreConfiguration extends LibpfmConfiguration {
   /** Thread numbers. */
   lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
 }
