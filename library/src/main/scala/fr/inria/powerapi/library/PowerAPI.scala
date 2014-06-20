@@ -51,9 +51,12 @@ object PowerAPIMessages {
 
 /**
  * Used to monitor a process, processes or an app.
+ * Here, the overhead of PowerAPI is not considered.
+ * It's possible to get its energy consumption by following its PID with the corresponding case class.
  */
 trait Target {
   var monitoredProcesses = mutable.Set[Process]()
+  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
   // Get the pids for the monitoring.
   def getPids() 
@@ -109,7 +112,8 @@ case class APPS(names: String*) extends Target {
     monitoredProcesses.clear()
     names.foreach(name => {
       // Redirects errors or displaying
-      val lines = Seq("ps", "-C", name, "ho", "pid") lines_! ProcessLogger(line => ())
+      var lines = Seq("pgrep", name) lines_! ProcessLogger(line => ())
+      lines = lines.filter(line => line.trim.toInt != currentPid)
       monitoredProcesses ++= (for(line <- lines) yield Process(line.trim.toInt))
     })
   }
@@ -121,7 +125,8 @@ case object ALL extends Target {
   // Get the pids of the processes hidden by the given names.
   def getPids() = {
     monitoredProcesses.clear()
-    val lines = Seq("ps", "-A", "ho", "pid").lines
+    var lines = Seq("ps", "-A", "ho", "pid").lines
+    lines = lines.filter(line => line.trim.toInt != currentPid)
     monitoredProcesses ++= (for(line <- lines) yield Process(line.trim.toInt))
   }
 }

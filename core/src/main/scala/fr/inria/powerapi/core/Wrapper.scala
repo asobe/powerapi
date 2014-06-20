@@ -41,7 +41,7 @@ case class Process(pid: Int) extends ThreadsConfiguration {
 
     // Test whether the pid exists or not. When true, get all the associated threads.
     if(entry.isDirectory()) {
-      threadSet ++= (for(tid <- scala.sys.process.Process("ls", new File(taskPath.replace("$pid", pid.toString))).lines.toArray) yield tid.trim.toInt)
+      threadSet ++= (for(tid <- Seq("ls", taskPath.replace("$pid", pid.toString)).lines.toArray) yield tid.trim.toInt)
     }
 
     // The main thread is removed because of it corresponds to the PID (main thread).

@@ -141,6 +141,32 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
  * Example: one file for multiple reporters, it's not the better solution.
  */
 object Monitor extends App {
+  var powerapi: fr.inria.powerapi.library.PAPI = null
+  var powerspy: fr.inria.powerapi.library.PAPI = null
+  val mainThread = Thread.currentThread()
+  @volatile var running = true
+
+  scala.sys.ShutdownHookThread {
+    println("\nPowerAPI is going to shutdown ...")
+    running = false
+  }
+
+  private def addClasspath(classpath: String) = {
+    try {
+      val f = new java.io.File(classpath)
+      val u = f.toURI()
+      val urlClassLoader = ClassLoader.getSystemClassLoader()
+      val urlClass = classOf[java.net.URLClassLoader]
+      val method = urlClass.getDeclaredMethod("addURL", classOf[java.net.URL])
+      method.setAccessible(true)
+      method.invoke(urlClassLoader, u.toURL())
+    }
+    catch {
+      case e: Exception => println("There was a problem during the path loading.")
+    }
+  }
+
+  lazy val ClasspathFormat  = """-classpath\s+(.+)""".r
   lazy val PidsFormat       = """-pid\s+(\d+[,\d]*)""".r
   lazy val VmsFormat        = """-vm\s+(\d+:\d+[,\d+:\d]*)""".r
   lazy val AppsFormat       = """-app\s+(.+[,.]*)""".r
@@ -156,10 +182,11 @@ object Monitor extends App {
   lazy val DiskSensorFormat  = """-disksensor\s+(disk-proc|disk-atop)""".r
   lazy val DiskFormulaFormat = """-diskformula\s+(disk-single)""".r
   lazy val PowerspyFormat = """-powerspy\s+(1|0)""".r
-  
+
   val params =
   (for (arg <- args) yield {
     arg match {
+      case ClasspathFormat(classpath)     => ("classpath" -> classpath) 
       case PidsFormat(pids)               => ("pids" -> pids)
       case VmsFormat(vm)                  => ("vm" -> vm)
       case AppsFormat(app)                => ("app" -> app)
@@ -178,15 +205,17 @@ object Monitor extends App {
       case _ => ("none" -> "")
     }
   }).toMap
+
+  val classpath = params.getOrElse("classpath", "") 
+  if(classpath != "") addClasspath(classpath)
   
-  val powerapi = Initializer.start(
+  powerapi = Initializer.start(
     params.getOrElse("cpuSensor", "cpu-proc"), params.getOrElse("cpuFormula", "cpu-max"),
     params.getOrElse("memSensor", ""), params.getOrElse("memFormula", ""),
     params.getOrElse("diskSensor", ""), params.getOrElse("diskFormula", ""),
     params.getOrElse("agg", "timestamp")
   )
   val powerspySet = params.getOrElse("powerspySet", "0").toInt
-  var powerspy: fr.inria.powerapi.library.PAPI = null;
   
   if (powerspySet == 1) {
     powerspy = Initializer.start("powerspy","powerspy","","","","","device") 
@@ -263,16 +292,24 @@ object Monitor extends App {
     monitoringPowerspy.attachReporter(classOf[ExtendedPowerspyReporter])
   }
 
-  Thread.sleep((time.minute).toMillis)
-  powerapi.stop
-  if (powerspySet == 1) {
+  val start = System.nanoTime
+  val end = start + (time.minute).toNanos
+
+  while(running && System.nanoTime < end) {
+    Thread.sleep((freq.millis).toMillis)
+  }
+
+  if(powerapi != null) {
+    powerapi.stop
+  }
+  if (powerspy != null) {
     powerspy.stop
   }
 
   val allDevs = Initializer.devs.distinct.sortWith(_.compareTo(_) < 0)
   
   // Create the gnuplot script to generate the graph
-  if (reporters.contains("gnuplot")) {
+  if(running && reporters.contains("gnuplot")) {
     if (allPIDs.nonEmpty) GnuplotScript.create(allPIDs.map(_.toString).toList, filePath)
     else GnuplotScript.create(allDevs, filePath)
   }
