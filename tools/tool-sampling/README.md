@@ -13,7 +13,7 @@ Several external libraries are used in this module. See the list below:
 * `stress`
 * `cpulimit`
 * On linux platform, OpenBLAS from `http://www.openblas.net/` is required. The compilation from source is preferable. Then, please add these symlinks:
-  * ln -s $installation_dir/libopenblas_$library_name-r0.2.8.so libblas.so.3
-  * ln -s $installation_dir/libopenblas_$library_name-r0.2.8.so liblapack.so.3
+  * ln -s $installation_dir/libopenblas_$library_name-r0.2.8.so /usr/lib/libblas.so.3
+  * ln -s $installation_dir/libopenblas_$library_name-r0.2.8.so /usr/lib/liblapack.so.3
 
 Please read the documentation of the `sensor-powerspy` before to use this module.
