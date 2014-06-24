@@ -82,14 +82,14 @@ object Sampling extends Configuration {
       val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
       // Get the worker pid corresponding to the stress.
-      val lastWorkerPid = Seq("ps", "-C", "stress", "ho", "pid").lines.last.trim
+      val lastWorkerPid = Seq("ps", "-C", "stress", "ho", "pid").lines.toArray.last.trim
       var cpulimitPid = ""
 
       // Core load.
       for(i <- 100 to 25 by -25) {
         Seq("cpulimit", "-l", i+"", "-p", lastWorkerPid).run
         if(cpulimitPid != "") Seq("kill", "-9", cpulimitPid).!
-        cpulimitPid = Seq("ps", "-C", "cpulimit", "ho", "pid").lines.last.trim
+        cpulimitPid = Seq("ps", "-C", "cpulimit", "ho", "pid").lines.toArray.last.trim
         Thread.sleep((nbMessages.seconds).toMillis)
         (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
         Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
@@ -99,12 +99,12 @@ object Sampling extends Configuration {
       monitoring.waitFor(1.milliseconds)
 
       // To be sure, we kill all the processes.
-      Seq("killall", "cpulimit").run
-      Seq("kill", "-9", ppid+"").run
+      Seq("killall", "cpulimit").!
+      Seq("kill", "-9", ppid+"").!
     }
 
     // To be sure, we kill all the processes.
-    Seq("killall", "cpulimit", "stress").run
+    Seq("killall", "cpulimit", "stress").!
 
     // Move files to the right place, to save them for the future regression.
     s"$samplingPath/$index/$frequency/cpu".createDirectory(failIfExists=false)
@@ -121,7 +121,7 @@ object Sampling extends Configuration {
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $bytes -t $nbMessages").lines
       val ppid = buffer(0).trim.toInt
       // Pin the process on the first core (physical or logical).
-      Seq("taskset", "-cp", "0", ppid+"").lines
+      Seq("taskset", "-cp", "0", ppid+"").run
 
       val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
@@ -136,7 +136,7 @@ object Sampling extends Configuration {
       val bytes = l3Cache * 1024
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $bytes -t $nbMessages").lines
       val ppid = buffer(0).trim.toInt
-      Seq("taskset", "-cp", "0", ppid+"").lines
+      Seq("taskset", "-cp", "0", ppid+"").run
 
       val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
@@ -234,12 +234,12 @@ object Sampling extends Configuration {
       // 4GHz <= 4 cores enabled
       // 3.4GHz > 4 cores enabled
       for(thread <- 0 until 4) {
-        val maxFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_max_freq").lines.apply(0).trim
+        val maxFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_max_freq").lines.toArray.apply(0).trim
         Seq("bash", "-c", s"echo $maxFreq > /sys/devices/system/cpu/cpu$thread/cpufreq/scaling_min_freq").!
       }
 
       for(thread <- 4 until 8) {
-        val minFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_min_freq").lines.apply(0).trim
+        val minFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_min_freq").lines.toArray.apply(0).trim
         Seq("bash", "-c", s"echo $minFreq > /sys/devices/system/cpu/cpu$thread/cpufreq/scaling_max_freq").!
       }
 
@@ -253,7 +253,7 @@ object Sampling extends Configuration {
 
         if(coreIndex > 3) {
           for(threadTmp <- 4 until 8) {
-            val maxFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$threadTmp/cpufreq/cpuinfo_max_freq").lines.apply(0).trim
+            val maxFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$threadTmp/cpufreq/cpuinfo_max_freq").lines.toArray.apply(0).trim
             Seq("bash", "-c", s"echo $maxFreq > /sys/devices/system/cpu/cpu$threadTmp/cpufreq/scaling_max_freq").!
             Seq("bash", "-c", s"echo $maxFreq > /sys/devices/system/cpu/cpu$threadTmp/cpufreq/scaling_min_freq").!
           }
@@ -265,7 +265,7 @@ object Sampling extends Configuration {
         val ppid = buffer(0).trim.toInt
         // Pin the process on the cores (in a sequential way).
         pinCores += coreIndex + ""
-        Seq("taskset", "-cp", pinCores.mkString(","), ppid+"").lines
+        Seq("taskset", "-cp", pinCores.mkString(","), ppid+"").run
 
         // Start a monitoring to get the values of the counters for the workload.
         val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
@@ -291,7 +291,7 @@ object Sampling extends Configuration {
         val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $bytes -t $nbMessages").lines
         val ppid = buffer(0).trim.toInt
         // Pin the process on the first core (physical or logical).
-        Seq("taskset", "-cp", "0", ppid+"").lines
+        Seq("taskset", "-cp", "0", ppid+"").run
 
         val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
         Seq("kill", "-SIGCONT", ppid+"").!
@@ -306,7 +306,7 @@ object Sampling extends Configuration {
         val bytes = l3Cache * 1024
         val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $bytes -t $nbMessages").lines
         val ppid = buffer(0).trim.toInt
-        Seq("taskset", "-cp", "0", ppid+"").lines
+        Seq("taskset", "-cp", "0", ppid+"").run
 
         val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
         Seq("kill", "-SIGCONT", ppid+"").!
@@ -328,8 +328,8 @@ object Sampling extends Configuration {
       
       // Reset the frequencies.
       for(thread <- 0 until 8) {
-        val maxFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_max_freq").lines.apply(0).trim
-        val minFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_min_freq").lines.apply(0).trim
+        val maxFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_max_freq").lines.toArray.apply(0).trim
+        val minFreq = Seq("bash", "-c", s"cat /sys/devices/system/cpu/cpu$thread/cpufreq/cpuinfo_min_freq").lines.toArray.apply(0).trim
         Seq("bash", "-c", s"echo $minFreq > /sys/devices/system/cpu/cpu$thread/cpufreq/scaling_min_freq").!
         Seq("bash", "-c", s"echo $maxFreq > /sys/devices/system/cpu/cpu$thread/cpufreq/scaling_max_freq").!
       }

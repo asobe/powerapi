@@ -114,8 +114,7 @@ case class APPS(names: String*) extends Target {
   def getPids() = {
     monitoredProcesses.clear()
     names.foreach(name => {
-      // Redirects errors or displaying
-      var lines = Seq("pgrep", name) lines_! ProcessLogger(line => ())
+      var lines = Seq("pgrep", name).lines_!.toArray
       lines = lines.filter(line => line.trim.toInt != currentPid)
       monitoredProcesses ++= (for(line <- lines) yield Process(line.trim.toInt))
     })
@@ -128,7 +127,7 @@ case object ALL extends Target {
   // Get the pids of the processes hidden by the given names.
   def getPids() = {
     monitoredProcesses.clear()
-    var lines = Seq("ps", "-A", "ho", "pid").lines
+    var lines = Seq("ps", "-A", "ho", "pid").lines_!.toArray
     lines = lines.filter(line => line.trim.toInt != currentPid)
     monitoredProcesses ++= (for(line <- lines) yield Process(line.trim.toInt))
   }

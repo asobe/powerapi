@@ -24,7 +24,7 @@ package fr.inria.powerapi.tool.sampling
  * Main launcher.
  */
 object Launcher extends App {
-  //Sampling.run()
+  Sampling.run()
   Processing.run()
   MultipleLinearRegression.run()
   System.exit(0)

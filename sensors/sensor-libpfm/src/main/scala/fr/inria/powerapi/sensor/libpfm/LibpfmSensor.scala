@@ -37,6 +37,10 @@ class LibpfmSensor(event: String) extends Sensor with LibpfmConfiguration {
   var timestamp = 0l
 
   // fd -> values from counters
+  /* [0] = raw count
+   * [1] = TIME_ENABLED
+   * [2] = TIME_RUNNING
+   */
   lazy val cache = scala.collection.mutable.HashMap[Int, Array[Long]]()
   lazy val deltaScaledCache = scala.collection.mutable.HashMap[Int, Long]()
 
@@ -154,17 +158,23 @@ class LibpfmSensor(event: String) extends Sensor with LibpfmConfiguration {
         val old = cache.getOrElse(fd, now)
         refreshCache(fd, now)
 
-        var deltaScaledValTmp = LibpfmUtil.scale(now, old)
+        val deltaScaledValTid = {
+          // This may appear when the process exists but it does not execute any instructions, so we don't want to get the previous value.
+          if(now(1) == old(1) && now(2) == old(2)) {
+            // Put the ratio to one to get the non scaled value (see the scaling method).
+            val fakeValues: Array[Long] = Array(old(0), (now(1) - 1), (now(2) - 1))
+            LibpfmUtil.scale(now, fakeValues)
+          }
+          // This may appear if libpfm was not able to read the correct value (problem with the access to the counter).
+          else if(now(2) == old(2)) {
+            deltaScaledCache.getOrElse(fd, 0l)
+          }
 
-        // The diff can be set to 0 because of the enabled times read from the counters (same for the current reading and the old one).
-        if(deltaScaledValTmp == 0) {
-          val oldDeltaScaledVal = deltaScaledCache.getOrElse(fd, 0l)
-          deltaScaledValTmp = oldDeltaScaledVal
+          else LibpfmUtil.scale(now, old)
         }
-        
-        else refreshDeltaScaledCache(fd, deltaScaledValTmp)
 
-        deltaScaledVal += deltaScaledValTmp
+        refreshDeltaScaledCache(fd, deltaScaledValTid)
+        deltaScaledVal += deltaScaledValTid
       }
     })
 
