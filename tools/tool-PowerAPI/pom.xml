@@ -173,6 +173,7 @@
                 <version>2.4</version>
                 <configuration>
                     <appendAssemblyId>false</appendAssemblyId>
+                    <attach>false</attach>
                     <finalName>${project.artifactId}</finalName>
                     <descriptors>
                         <descriptor>src/main/resources/jar.xml</descriptor>

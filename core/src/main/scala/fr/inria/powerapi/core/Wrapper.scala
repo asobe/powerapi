@@ -36,16 +36,21 @@ trait ThreadsConfiguration extends Configuration {
 case class Process(pid: Int) extends ThreadsConfiguration {
   // Allows to get the associated threads for a PID.
   def threads = {
-    val entry = new File(taskPath.replace("$pid", pid.toString))
-    val threadSet = scala.collection.mutable.Set[Int]()
+    val dir = new File(taskPath.replace("$pid", pid.toString))
+    var threadSet = scala.collection.immutable.Set[Int]()
 
     // Test whether the pid exists or not. When true, get all the associated threads.
-    if(entry.isDirectory()) {
-      threadSet ++= (for(tid <- Seq("ls", taskPath.replace("$pid", pid.toString)).lines.toArray) yield tid.trim.toInt)
+    if(dir.exists && dir.isDirectory()) {
+      try {
+        threadSet = dir.listFiles.filter(_.isDirectory).map(_.getName.toInt).toSet
+      }
+      catch {
+        case _: Exception => None
+      }
     }
 
     // The main thread is removed because of it corresponds to the PID (main thread).
-    (threadSet - pid).toSet
+    (threadSet - pid)
   }
 }
 

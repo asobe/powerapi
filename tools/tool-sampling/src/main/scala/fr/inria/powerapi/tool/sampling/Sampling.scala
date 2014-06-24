@@ -20,82 +20,28 @@
  */
 package fr.inria.powerapi.tool.sampling
 
-import fr.inria.powerapi.core.{ ProcessedMessage, Reporter }
 import fr.inria.powerapi.library.{ PAPI, PIDS }
 import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
 import fr.inria.powerapi.formula.powerspy.FormulaPowerspy
-import fr.inria.powerapi.sensor.libpfm.{ LibpfmSensorMessage, LibpfmUtil, SensorLibpfmConfigured }
+import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfmConfigured, SensorLibpfmCoreConfigured }
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
-import fr.inria.powerapi.reporter.file.FileReporter
 
-import akka.actor.{ Actor, Props }
+import akka.actor.Props
 
 import scala.concurrent.duration.DurationInt
 import scala.sys.process._
 
 import scalax.file.Path
 import scalax.file.ImplicitConversions.string2path
-import scalax.io.{ Resource, SeekableByteChannel }
-import scalax.io.managed.SeekableByteChannelResource
-
-import nak.regress.LinearRegression
-import breeze.linalg._
-
-class PowerspyReporter extends FileReporter with Configuration {
-  override lazy val filePath = outPathPowerspy
-
-  override def process(processedMessage: ProcessedMessage) {
-    val power = processedMessage.energy.power
-    val newLine = scalax.io.Line.Terminators.NewLine.sep
-    output.append(s"$power$newLine")
-  }
-}
-
-/**
- * It is a specific component to handle directly the messages produce by the LibpfmSensor.
- * We just want to write the counter values into a file.
- */
-class LibpfmListener extends Actor with Configuration {
-  // Store all the streams to improve the speed processing.
-  val resources = scala.collection.mutable.HashMap[String, SeekableByteChannelResource[SeekableByteChannel]]()
-  
-  override def preStart() = {
-    context.system.eventStream.subscribe(self, classOf[LibpfmSensorMessage])
-  }
-
-  override def postStop() = {
-    context.system.eventStream.unsubscribe(self, classOf[LibpfmSensorMessage])
-    resources.clear()
-  }
-
-  case class Line(sensorMessage: LibpfmSensorMessage) {
-    val counter = sensorMessage.counter.value
-    val newLine = scalax.io.Line.Terminators.NewLine.sep
-    
-    override def toString() = s"$counter$newLine"
-  }
-
-  def receive() = {
-    case sensorMessage: LibpfmSensorMessage => process(sensorMessage)
-  }
-
-  def process(sensorMessage: LibpfmSensorMessage) {
-    def updateResources(name: String): SeekableByteChannelResource[SeekableByteChannel] = {
-      val output = Resource.fromFile(s"$outBasePathLibpfm$name.dat")
-      resources += (name -> output)
-      output
-    }
-
-    val output = resources.getOrElse(sensorMessage.event.name, updateResources(sensorMessage.event.name))
-    output.append(Line(sensorMessage).toString)
-  }
-}
+import scalax.io.Resource
 
 /** 
- * Allows to run the sampling step (collect the data related to several stress).
+ * Allows to run the sampling step (collect the data related to several stress) by following the PPID and use the inherit option.
  * Be careful, we need the root access to write in sys virtual filesystem, else, we can not control the frequency.
  */
 object Sampling extends Configuration {
+  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
+
   private def sampling(powerapi: PAPI, index: Int, frequency: Long) = {
     implicit val codec = scalax.io.Codec.UTF8
     val pathMatcher = s"$outBasePathLibpfm*.dat"
@@ -106,7 +52,7 @@ object Sampling extends Configuration {
     
     // Start a monitoring to get the idle power.
     // We add some time because of the sync. between PowerAPI & PowerSPY.
-    powerapi.start(1.seconds, PIDS(-1)).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
+    powerapi.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
     Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
     // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
@@ -227,8 +173,15 @@ object Sampling extends Configuration {
     (Path(".") * "*.dat").foreach(path => path.delete(force = true))
 
     val powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
+
     // One libpfm sensor per event.
-    events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
+    if(samplingByCore) {
+      events.distinct.foreach(event => powerapi.configure(new SensorLibpfmCoreConfigured(event)))
+    }
+
+    else {
+      events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
+    }
 
     for(index <- 1 to samples) {
       if(cpuFreq) {
@@ -253,7 +206,7 @@ object Sampling extends Configuration {
   }
 
   /**
-   * ----- EXPERIMENTAL PART -----
+   * EXPERIMENTAL PART
    * This is used for the processor AMD FX-8120 with the TurboCore2.0.
    * It has to be extended to other complex AMD architectures. So used only for testing purpose.
    */
@@ -292,7 +245,7 @@ object Sampling extends Configuration {
 
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
-      powerapi.start(1.seconds, PIDS(-1)).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
+      powerapi.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[PowerspyReporter]).waitFor(nbMessages.seconds + 10.seconds)
       Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
       for(thread <- 1 to 8) {

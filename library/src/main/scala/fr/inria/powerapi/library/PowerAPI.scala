@@ -98,10 +98,13 @@ case class PIDS(pids: Int*) extends Target {
   getPids()
 
   def getPids() = {
-    monitoredProcesses ++= (for(pid <- pids) yield Process(pid))
-  }
+    monitoredProcesses.clear()
+    for(pid <- pids) {
+      var isAlive = Seq("kill", "-0", pid.toString).!
 
-  override def update(clockSupervisor: ActorRef, clockid: Long, frequency: FiniteDuration) = {}
+      if(isAlive == 0) monitoredProcesses += Process(pid)
+    }
+  }
 }
 
 case class APPS(names: String*) extends Target {

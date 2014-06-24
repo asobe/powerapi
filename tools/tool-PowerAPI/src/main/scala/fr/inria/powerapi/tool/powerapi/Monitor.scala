@@ -141,14 +141,23 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
  * Example: one file for multiple reporters, it's not the better solution.
  */
 object Monitor extends App {
+  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
+
   var powerapi: fr.inria.powerapi.library.PAPI = null
   var powerspy: fr.inria.powerapi.library.PAPI = null
   val mainThread = Thread.currentThread()
   @volatile var running = true
 
-  scala.sys.ShutdownHookThread {
+  val shutdownThread = scala.sys.ShutdownHookThread {
     println("\nPowerAPI is going to shutdown ...")
-    running = false
+    
+    if(powerapi != null) {
+      powerapi.stop
+    }
+  
+    if (powerspy != null) {
+      powerspy.stop
+    }
   }
 
   private def addClasspath(classpath: String) = {
@@ -273,7 +282,7 @@ object Monitor extends App {
    
   var monitoringPowerspy: fr.inria.powerapi.library.Monitoring = null;
   if (powerspySet == 1) {
-    monitoringPowerspy = powerspy.start(freq.millis, fr.inria.powerapi.library.PIDS(-1))
+    monitoringPowerspy = powerspy.start(freq.millis, fr.inria.powerapi.library.PIDS(currentPid))
   }
 
   if(reporters.isEmpty) reporters = Array("chart")
@@ -295,16 +304,7 @@ object Monitor extends App {
   val start = System.nanoTime
   val end = start + (time.minute).toNanos
 
-  while(running && System.nanoTime < end) {
-    Thread.sleep((freq.millis).toMillis)
-  }
-
-  if(powerapi != null) {
-    powerapi.stop
-  }
-  if (powerspy != null) {
-    powerspy.stop
-  }
+  Thread.sleep((time.minute).toMillis)
 
   val allDevs = Initializer.devs.distinct.sortWith(_.compareTo(_) < 0)
   
@@ -314,5 +314,8 @@ object Monitor extends App {
     else GnuplotScript.create(allDevs, filePath)
   }
 
+  shutdownThread.start()
+  shutdownThread.join()
+  shutdownThread.remove()
   System.exit(0)
 }

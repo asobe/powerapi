@@ -22,7 +22,7 @@ package fr.inria.powerapi.exp.middleware
 
 import fr.inria.powerapi.core.{ Configuration, Energy, Process, ProcessedMessage, Reporter, Tick, TickSubscription }
 import fr.inria.powerapi.library.{ ALL, APPS, PAPI, PIDS }
-import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfm, LibpfmSensorMessage, SensorLibpfmConfigured }
+import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfmCore, SensorLibpfm, LibpfmSensorMessage, SensorLibpfmConfigured }
 import fr.inria.powerapi.formula.libpfm.FormulaLibpfm
 import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
 import fr.inria.powerapi.formula.powerspy.FormulaPowerspy
@@ -132,13 +132,15 @@ object Tool {
  * Object for simple experimentation, to observe the results directly in a chart.
  */
 object Default {
+  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
+
   def run() = {
     LibpfmUtil.initialize()
     val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
     val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
 
     libpfm.start(1.seconds, APPS("java")).attachReporter(classOf[JFreeChartReporter])
-    powerspy.start(1.seconds, PIDS(-1)).attachReporter(classOf[JFreeChartReporter])
+    powerspy.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[JFreeChartReporter])
     
     Thread.sleep((5.hours).toMillis)
     
@@ -153,6 +155,8 @@ object Default {
  * Object for the experiments with SPEC CPU 2006.
  */
 object SpecCPUExp extends SpecExpConfiguration{
+  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
+
   implicit val codec = scalax.io.Codec.UTF8
   val benchmarks = Array("calculix", "h264ref", "bwaves", "gamess", "milc", "hmmer", "wrf")
   val dataPath = "host-spec-cpu-data"
@@ -183,7 +187,7 @@ object SpecCPUExp extends SpecExpConfiguration{
     for(run <- 1 to nbRuns) {
       benchmarks.foreach(benchmark => {
         val monitoringLibpfm = libpfm.start(1.seconds, ALL).attachReporter(classOf[ExtendedFileReporter])
-        val monitoringPspy = powerspy.start(1.seconds, PIDS(-1)).attachReporter(classOf[ExtendedFileReporter])
+        val monitoringPspy = powerspy.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[ExtendedFileReporter])
 
         // Waiting for the synchronization.
         Thread.sleep((20.seconds).toMillis)
@@ -341,6 +345,8 @@ object SpecCPUExp extends SpecExpConfiguration{
  * Object used for the experiments with stress command, to show the non-linearity of complex processors.
  */
 object StressExp extends StressExpConfiguration {
+  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
+
   val dataPath = "host-stress-data"
   val separator = "====="
   val duration = "30"
@@ -359,7 +365,7 @@ object StressExp extends StressExpConfiguration {
 
     for(run <- 1 to nbRuns) {
       var monitoringLibpfm = libpfm.start(1.seconds, ALL).attachReporter(classOf[ExtendedFileReporter])
-      val monitoringPspy = powerspy.start(1.seconds, PIDS(-1)).attachReporter(classOf[ExtendedFileReporter])
+      val monitoringPspy = powerspy.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[ExtendedFileReporter])
 
       // Waiting for the synchronization and to get idle powers.
       Thread.sleep((40.seconds).toMillis)
@@ -507,6 +513,8 @@ object StressExp extends StressExpConfiguration {
 
 // TODO: Remove the code. It's here for a testing purpose to analysis the counter evolutions.
 object AnalysisCountersExp {
+  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
+
   class PowerspyReporter extends FileReporter {
     override lazy val filePath = "output-powerspy.dat"
 
@@ -595,7 +603,7 @@ object AnalysisCountersExp {
 
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
-      powerapi.start(1.seconds, PIDS(-1)).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
+      powerapi.start(1.seconds, PIDS(currentPid).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
       Resource.fromFile("output-powerspy.dat").append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
       // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.

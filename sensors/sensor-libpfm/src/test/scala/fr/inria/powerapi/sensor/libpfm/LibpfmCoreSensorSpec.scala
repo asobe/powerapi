@@ -59,8 +59,8 @@ class LibpfmCoreSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   "A LibpfmCoreSensor" should "process a Tick message" in {
-    val m1 = Tick(1, TickSubscription(1, Process(-1), 1.seconds), 1)
-    val m2 = Tick(1, TickSubscription(1, Process(-1), 1.seconds), 2)
+    val m1 = Tick(1, TickSubscription(1, Process(currentPid), 1.seconds), 1)
+    val m2 = Tick(1, TickSubscription(1, Process(currentPid), 1.seconds), 2)
 
     libpfmSensor.underlyingActor.process(m1)
     libpfmSensor.underlyingActor.process(m2)
