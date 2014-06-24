@@ -603,7 +603,7 @@ object AnalysisCountersExp {
 
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
-      powerapi.start(1.seconds, PIDS(currentPid).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
+      powerapi.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
       Resource.fromFile("output-powerspy.dat").append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
       // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
