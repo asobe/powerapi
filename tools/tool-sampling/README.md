@@ -6,7 +6,7 @@ Hardware counters are collected during each of them.
 Then, we applied a multivariate regression to obtain the energy profiles corresponding to all the available frequencies of the processor.
 The obtained model is available in `libpfm_formula.conf` in this folder.
 
-# System configuration
+### System configuration
 
 Check all the `.conf` files. Several hardware informations are required.
 Several external libraries are used in this module. See the list below:
@@ -17,3 +17,7 @@ Several external libraries are used in this module. See the list below:
   * ln -s $installation_dir/libopenblas_$library_name-r0.2.8.so /usr/lib/liblapack.so.3
 
 Please read the documentation of the `sensor-powerspy` before to use this module.
+
+### How to use it ?
+
+`./run.sh`

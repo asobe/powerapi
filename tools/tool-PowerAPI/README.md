@@ -17,4 +17,6 @@ A simple tool to create a PowerAPI app supporting the following parameters:
 * -vm PID1:portnr1,PID2:portnr2 ...
 * -powerspy 1|0
 
- See run.sh to use PowerAPI with a command line.
+### How to use it ?
+
+`./run.sh [parameters]`

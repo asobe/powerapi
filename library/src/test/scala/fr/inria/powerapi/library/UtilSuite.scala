@@ -18,32 +18,23 @@
  *
  * Contact: powerapi-user-list@googlegroups.com.
  */
-package fr.inria.powerapi.tool.sampling
+package fr.inria.powerapi.library
 
-/**
- * Main launcher.
- */
-object Launcher extends App {
-  lazy val ClasspathFormat  = """-classpath\s+(.+)""".r
+import org.scalatest.junit.JUnitSuite
+import org.junit.Test
+import org.scalatest.Matchers
 
-  val params =
-    (for (arg <- args) yield {
-      arg match {
-        case ClasspathFormat(classpath) => ("classpath" -> classpath) 
-        case _ => ("none" -> "")
-      }
-    }).toMap
-
-  val classpath = params.getOrElse("classpath", "") 
-
-  if(classpath != "") {
-    if(!fr.inria.powerapi.library.Util.addResourceToClasspath(classpath)) {
-      println("There was a problem during the classpath loading ! The tool will be not configured correctly.")
-    }
+class UtilSuite extends JUnitSuite with Matchers {
+  @Test
+  def testAddResourceToClasspath() = {
+    Util.addResourceToClasspath("src/test/resources-test/folder") should equal(true)
+    classOf[UtilSuite].getClassLoader().getResource("readme.md").toString should endWith("src/test/resources-test/folder/readme.md")
+    Util.addResourceToClasspath("whereistheresource") should equal(false)
   }
 
-  Sampling.run()
-  Processing.run()
-  MultipleLinearRegression.run()
-  System.exit(0)
+  @Test
+  def testStringToLong() = {
+    Util.stringToLong("15").get should equal(15)
+    Util.stringToLong("a number, why ?") should equal(None)
+  }
 }

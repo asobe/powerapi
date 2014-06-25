@@ -138,15 +138,13 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
 
 /**
  * TODO: refactor the tool, a lot of stuffs here have many dependencies. We have to keep it simple.
- * Example: one file for multiple reporters, it's not the better solution.
+ * Example: one file for multiple reporters, it's not the best solution.
  */
 object Monitor extends App {
   val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
   var powerapi: fr.inria.powerapi.library.PAPI = null
   var powerspy: fr.inria.powerapi.library.PAPI = null
-  val mainThread = Thread.currentThread()
-  @volatile var running = true
 
   val shutdownThread = scala.sys.ShutdownHookThread {
     println("\nPowerAPI is going to shutdown ...")
@@ -158,20 +156,9 @@ object Monitor extends App {
     if (powerspy != null) {
       powerspy.stop
     }
-  }
 
-  private def addClasspath(classpath: String) = {
-    try {
-      val f = new java.io.File(classpath)
-      val u = f.toURI()
-      val urlClassLoader = ClassLoader.getSystemClassLoader()
-      val urlClass = classOf[java.net.URLClassLoader]
-      val method = urlClass.getDeclaredMethod("addURL", classOf[java.net.URL])
-      method.setAccessible(true)
-      method.invoke(urlClassLoader, u.toURL())
-    }
-    catch {
-      case e: Exception => println("There was a problem during the path loading.")
+    if(cpuSensor == "sensor-libpfm") {
+      fr.inria.powerapi.sensor.libpfm.LibpfmUtil.terminate()
     }
   }
 
@@ -216,14 +203,27 @@ object Monitor extends App {
   }).toMap
 
   val classpath = params.getOrElse("classpath", "") 
-  if(classpath != "") addClasspath(classpath)
   
-  powerapi = Initializer.start(
-    params.getOrElse("cpuSensor", "cpu-proc"), params.getOrElse("cpuFormula", "cpu-max"),
-    params.getOrElse("memSensor", ""), params.getOrElse("memFormula", ""),
-    params.getOrElse("diskSensor", ""), params.getOrElse("diskFormula", ""),
-    params.getOrElse("agg", "timestamp")
-  )
+  if(classpath != "") {
+    if(!fr.inria.powerapi.library.Util.addResourceToClasspath(classpath)) {
+      println("There was a problem during the classpath loading ! The tool will be not configured correctly.")
+    }
+  }
+  
+  val cpuSensor = params.getOrElse("cpuSensor", "cpu-proc")
+  val cpuFormula = params.getOrElse("cpuFormula", "cpu-max")
+  val memSensor = params.getOrElse("memSensor", "")
+  val memFormula = params.getOrElse("memFormula", "")
+  val diskSensor = params.getOrElse("diskSensor", "")
+  val diskFormula = params.getOrElse("diskFormula", "")
+  val agg = params.getOrElse("agg", "timestamp")
+
+  if(cpuSensor == "sensor-libpfm") {
+    fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()
+  }
+  
+  powerapi = Initializer.start(cpuSensor, cpuFormula, memSensor, memFormula, diskSensor, diskFormula, agg)
+
   val powerspySet = params.getOrElse("powerspySet", "0").toInt
   
   if (powerspySet == 1) {
@@ -309,7 +309,7 @@ object Monitor extends App {
   val allDevs = Initializer.devs.distinct.sortWith(_.compareTo(_) < 0)
   
   // Create the gnuplot script to generate the graph
-  if(running && reporters.contains("gnuplot")) {
+  if(reporters.contains("gnuplot")) {
     if (allPIDs.nonEmpty) GnuplotScript.create(allPIDs.map(_.toString).toList, filePath)
     else GnuplotScript.create(allDevs, filePath)
   }

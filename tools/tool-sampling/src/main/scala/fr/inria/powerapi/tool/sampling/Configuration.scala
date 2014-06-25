@@ -54,6 +54,6 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
   lazy val elements = Array("cache", "cpu")
   lazy val eltIdlePower = "cpu"
   lazy val csvDelimiter = ";"
-  /** Default value when cpufreq-utils is disable (used to create the directory hierarchy). */
+  /** Default value when cpufreq-utils is disable (used to create the folder hierarchy). */
   lazy val defaultFrequency = 0L
 }

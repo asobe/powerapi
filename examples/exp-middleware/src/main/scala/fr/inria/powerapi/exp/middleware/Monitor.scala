@@ -134,20 +134,15 @@ object Tool {
 object Default {
   val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
 
-  def run() = {
-    LibpfmUtil.initialize()
-    val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
-    val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
-
+  def run(libpfm: PAPI, powerspy: PAPI) = {
     libpfm.start(1.seconds, APPS("java")).attachReporter(classOf[JFreeChartReporter])
     powerspy.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[JFreeChartReporter])
     
     Thread.sleep((5.hours).toMillis)
-    
-    powerspy.stop()
-    libpfm.stop()
-    
-    LibpfmUtil.terminate()
+
+    Monitor.shutdownThread.start()
+    Monitor.shutdownThread.join()
+    Monitor.shutdownThread.remove()
   }
 }
 
@@ -164,7 +159,7 @@ object SpecCPUExp extends SpecExpConfiguration{
   val nbRuns = warmup + 3
   val separator = "====="
 
-  def collect() = {
+  private def collect(libpfm: PAPI, powerspy: PAPI) = {
     // Cleaning phase
     Path.fromString(dataPath).deleteRecursively(force = true)
     (Path(".") * "*.dat").foreach(path => path.delete(force = true))
@@ -178,11 +173,6 @@ object SpecCPUExp extends SpecExpConfiguration{
       val res = Seq("bash", "./src/main/resources/compile_bench.bash", specpath, benchmark).!
       if(res != 0) throw new RuntimeException("Umh, there is a problem with the compilation, maybe dependencies are missing.")
     })
-    
-
-    LibpfmUtil.initialize()
-    val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
-    val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
 
     for(run <- 1 to nbRuns) {
       benchmarks.foreach(benchmark => {
@@ -210,13 +200,12 @@ object SpecCPUExp extends SpecExpConfiguration{
       })
     }
 
-    powerspy.stop()
-    libpfm.stop()
-
-    LibpfmUtil.terminate()
+    Monitor.shutdownThread.start()
+    Monitor.shutdownThread.join()
+    Monitor.shutdownThread.remove()
   }
 
-  def process() = {
+  private def process() = {
     implicit val codec = scalax.io.Codec.UTF8
 
     lazy val PathRegex = (s"$dataPath" + """/\w+/(\d+)/.*""").r
@@ -335,8 +324,8 @@ object SpecCPUExp extends SpecExpConfiguration{
     })
   }
 
-  def run() = {
-    collect()
+  def run(libpfm: PAPI, powerspy: PAPI) = {
+    collect(libpfm, powerspy)
     process()
   }
 }
@@ -353,15 +342,11 @@ object StressExp extends StressExpConfiguration {
   val warmup = 0
   val nbRuns = warmup + 3
   
-  def collect() = {
+  def collect(libpfm: PAPI, powerspy: PAPI) = {
     Path.fromString(dataPath).deleteRecursively(force = true)
     (Path(".") * "*.dat").foreach(path => path.delete(force = true))
 
     Seq("bash", "-c", "killall stress &> /dev/null").run
-
-    LibpfmUtil.initialize()
-    val libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
-    val powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
 
     for(run <- 1 to nbRuns) {
       var monitoringLibpfm = libpfm.start(1.seconds, ALL).attachReporter(classOf[ExtendedFileReporter])
@@ -389,10 +374,9 @@ object StressExp extends StressExpConfiguration {
       })
     }
 
-    powerspy.stop()
-    libpfm.stop()
-
-    LibpfmUtil.terminate()
+    Monitor.shutdownThread.start()
+    Monitor.shutdownThread.join()
+    Monitor.shutdownThread.remove()
   }
 
   def process() = {
@@ -505,8 +489,8 @@ object StressExp extends StressExpConfiguration {
     })
   }
 
-  def run() = {
-    collect()
+  def run(libpfm: PAPI, powerspy: PAPI) = {
+    collect(libpfm, powerspy)
     process()
   }
 }
@@ -564,7 +548,7 @@ object AnalysisCountersExp {
     }
   }
 
-  def run() = {
+  def run(libpfm: PAPI) = {
     implicit val codec = scalax.io.Codec.UTF8
     val separator = "===="
     val specpath = "/home/powerapi/cpu2006"
@@ -588,11 +572,8 @@ object AnalysisCountersExp {
     events ++= Array("PERF_COUNT_HW_CPU_CYCLES", "PERF_COUNT_HW_INSTRUCTIONS", "PERF_COUNT_HW_CACHE_REFERENCES", "PERF_COUNT_HW_CACHE_MISSES", "PERF_COUNT_HW_BRANCH_INSTRUCTIONS", "PERF_COUNT_HW_BRANCH_MISSES")
     events ++= Array("PERF_COUNT_HW_BUS_CYCLES", "PERF_COUNT_HW_STALLED_CYCLES_FRONTEND", "PERF_COUNT_HW_STALLED_CYCLES_BACKEND", "PERF_COUNT_HW_REF_CPU_CYCLES")
 
-    LibpfmUtil.initialize()
-
-    val powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
     // One libpfm sensor per event.
-    events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
+    events.distinct.foreach(event => libpfm.configure(new SensorLibpfmConfigured(event)))
 
     for(benchmark <- benchmarks) {
       // Cleaning phase
@@ -603,11 +584,11 @@ object AnalysisCountersExp {
 
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
-      powerapi.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
+      libpfm.start(1.seconds, PIDS(currentPid)).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
       Resource.fromFile("output-powerspy.dat").append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
       // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
-      val libpfmListener = powerapi.system.actorOf(Props[LibpfmListener])
+      val libpfmListener = libpfm.system.actorOf(Props[LibpfmListener])
 
        // Launch stress command to stimulate all the features on the processor.
       // Here, we used a specific bash script to be sure that the command in not launch before to open and reset the counters.
@@ -615,7 +596,7 @@ object AnalysisCountersExp {
       val ppid = buffer(0).trim.toInt
 
       // Start a monitoring to get the values of the counters for the workload.
-      val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
+      val monitoring = libpfm.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
 
       while(Seq("kill", "-0", ppid+"").! == 0) {
@@ -624,7 +605,7 @@ object AnalysisCountersExp {
 
       monitoring.waitFor(1.milliseconds)
 
-      powerapi.system.stop(libpfmListener)
+      libpfm.system.stop(libpfmListener)
 
       // Move files to the right place, to save them for the future regression.
       s"$timestamp/$benchmark".createDirectory(failIfExists=false)
@@ -635,16 +616,56 @@ object AnalysisCountersExp {
       })
     }
 
-    powerapi.stop()
-    LibpfmUtil.terminate()
+    Monitor.shutdownThread.start()
+    Monitor.shutdownThread.join()
+    Monitor.shutdownThread.remove()
   }
 }
 
 // Object launcher.
 object Monitor extends App {
-  Default.run()
-  //SpecCPUExp.run()
-  //StressExp.run()
-  //AnalysisCountersExp.run()
+  lazy val ClasspathFormat  = """-classpath\s+(.+)""".r
+
+  val params =
+    (for (arg <- args) yield {
+      arg match {
+        case ClasspathFormat(classpath) => ("classpath" -> classpath) 
+        case _ => ("none" -> "")
+      }
+    }).toMap
+
+  val classpath = params.getOrElse("classpath", "") 
+
+  if(classpath != "") {
+    if(!fr.inria.powerapi.library.Util.addResourceToClasspath(classpath)) {
+      println("There was a problem during the classpath loading ! The tool will be not configured correctly.")
+    }
+  }
+  
+  var libpfm: PAPI = null
+  var powerspy: PAPI = null
+
+  val shutdownThread = scala.sys.ShutdownHookThread {
+    println("\nPowerAPI is going to shutdown ...")
+    
+    if(libpfm != null) {
+      libpfm.stop
+      LibpfmUtil.terminate()
+    }
+
+    if(powerspy != null) {
+      powerspy.stop
+    }
+  }
+
+  LibpfmUtil.initialize()
+  libpfm = new PAPI with SensorLibpfm with FormulaLibpfm with AggregatorExtendedDevice
+  powerspy = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorExtendedDevice
+  
+  Default.run(libpfm, powerspy)
+  //SpecCPUExp.run(libpfm, powerspy)
+  //StressExp.run(libpfm, powerspy)
+  //AnalysisCountersExp.run(libpfm)
+
   System.exit(0)
 }

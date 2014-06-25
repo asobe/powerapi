@@ -1,6 +1,5 @@
 #!/bin/bash
 
-cd tools/tool-PowerAPI
 if [[ "$#" -eq 1 && $1 == "-h" ]]
 then
   echo "Options:"

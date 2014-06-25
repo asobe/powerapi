@@ -3,7 +3,7 @@
     <groupId>fr.inria.powerapi.tool</groupId>
     <artifactId>tool-sampling</artifactId>
     <name>${project.artifactId}</name>
-    <description>Tool for the Data sampling to compute the formula of a new processor.</description>
+    <description>Sample the processor to get the corresponding formula.</description>
     <inceptionYear>2014</inceptionYear>
 
     <parent>
@@ -66,11 +66,30 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>scala-maven-plugin</artifactId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>2.4</version>
                 <configuration>
-                    <mainClass>fr.inria.powerapi.tool.sampling.Launcher</mainClass>
+                    <appendAssemblyId>false</appendAssemblyId>
+                    <attach>false</attach>
+                    <finalName>${project.artifactId}</finalName>
+                    <descriptors>
+                        <descriptor>src/main/resources/jar.xml</descriptor>
+                    </descriptors>
+                    <archive>
+                        <manifest>
+                            <mainClass>fr.inria.powerapi.tool.sampling.Launcher</mainClass>
+                        </manifest>
+                    </archive>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id> <!-- this is used for inheritance merges -->
+                        <phase>package</phase> <!--  bind to the packaging phase -->
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
