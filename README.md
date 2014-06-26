@@ -42,7 +42,7 @@ After that, you just have to put on your `pom.xml` file your desired modules.
 
 #### Without Maven repositories
 
-Without Maven repositories, you have to deal with our Git repository as explain bellow:
+Without Maven repositories, you have to deal with our Git repository as explain below:
 
 To acquire PowerAPI, simply clone it via your Git client:
 
@@ -50,14 +50,13 @@ To acquire PowerAPI, simply clone it via your Git client:
 git clone git://github.com/mcolmant/powerapi.git
 ```
 
-As PowerAPI is a [Maven](http://maven.apache.org "Maven") managed project, you have to launch the `install` command at the root directory (here, `powerapi`) in order to compile and install it to your local machine:
+As PowerAPI is a [Maven](http://maven.apache.org "Maven") managed project, you have to launch the `install` command at the root directory (here, `powerapi`) in order to compile and install it to your local machine.
+To be able to use the metrics from the hardware counters or to install the daemon, PowerAPI has to be installed and used as a root user.
 
 ```bash
 cd $powerapi
-mvn install
+sudo mvn install
 ```
-
-Be careful, to use our last developments on hardware counters (which need the sudo privileges) you have to launch the install command as a sudoer.
 
 **By default, all modules are selected to be installed. Be careful to correctly selecting yours, depending on your environment and the use case you want to do** (see `pom.xml` file at the root directory for more details).
 
