@@ -259,6 +259,13 @@ class Monitoring(clockid: Long, monitoringSupervisor: ActorRef, monitoringRef: A
   import ClockMessages.{ ListProcesses, WaitFor }
 
   /**
+   * Get the reference of the underlying actor.
+   */
+  def actorRef = {
+    monitoringRef
+  }
+
+  /**
    * Allows to attach a reporter with its component type.
    * @param reporterType: Type of the reporter.
    */
@@ -322,6 +329,14 @@ class Monitoring(clockid: Long, monitoringSupervisor: ActorRef, monitoringRef: A
     val futureAck = Await.result(monitoringRef ? WaitFor(clockid, duration), timeout.duration).asInstanceOf[Future[Object]]
     Await.result(futureAck, duration + 1.seconds)
     // Now, we can stop this monitoring
+    Await.result(monitoringSupervisor ? StopMonitoringRepr(clockid), timeout.duration)
+  }
+
+  /**
+   * This method allows to stop the given monitoring. It could be useful when the waitFor method is not used.
+   */
+  def stop() = {
+    implicit val timeout = Timeout(5.seconds)
     Await.result(monitoringSupervisor ? StopMonitoringRepr(clockid), timeout.duration)
   }
 }

@@ -603,7 +603,7 @@ object AnalysisCountersExp {
         Thread.sleep((1.minutes).toMillis)
       }
 
-      monitoring.waitFor(1.milliseconds)
+      monitoring.stop()
 
       libpfm.system.stop(libpfmListener)
 

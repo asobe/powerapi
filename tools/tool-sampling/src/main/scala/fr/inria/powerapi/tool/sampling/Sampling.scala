@@ -123,8 +123,7 @@ object Sampling extends Configuration {
         Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
       }
 
-      // For the moment, is the only way to stop the monitoring.
-      monitoring.waitFor(1.milliseconds)
+      monitoring.stop()
 
       // To be sure, we kill all the processes.
       Seq("killall", "cpulimit").!

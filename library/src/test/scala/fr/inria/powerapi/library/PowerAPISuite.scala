@@ -35,7 +35,7 @@ import org.junit.Test
 import scala.concurrent.duration.Duration
 
 import akka.actor.{ ActorSystem, Props }
-import akka.testkit.TestActorRef
+import akka.testkit.{ TestActorRef, TestProbe }
 import scalax.io.Resource
 import scalax.file.Path
 
@@ -57,6 +57,14 @@ trait ConfigurationMock2 extends fr.inria.powerapi.reporter.file.Configuration {
 
 class FileReporterMock1 extends FileReporter with ConfigurationMock1
 class FileReporterMock2 extends FileReporter with ConfigurationMock2
+
+class Listener extends Reporter {
+  var acc = 0
+
+  def process(processedMessage: ProcessedMessage) = {
+    acc += 1
+  }
+}
 
 case class LineMock(processedMessage: ProcessedMessage) {
   override def toString() =
@@ -139,6 +147,21 @@ class PowerAPISuite extends JUnitSuite with Matchers {
 
     testFileM1.delete(true)
     Thread.sleep(1000)
+  }
+
+  @Test
+  def testStopMonitoring {
+    implicit val system = ActorSystem("PowerAPISuite")
+    val probe = TestProbe()
+
+    val powerapi = new PAPI with SensorCpuProc with FormulaCpuMax with AggregatorProcess
+    val monitoring = powerapi.start(1.seconds, PIDS(1))
+    probe.watch(monitoring.actorRef)
+
+    Thread.sleep(3000)
+    monitoring.stop()
+
+    probe.expectTerminated(monitoring.actorRef)
   }
 
   @Test
