@@ -33,7 +33,7 @@ import scala.sys.process._
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, Props }
 import akka.event.LoggingReceive
-import akka.pattern.ask
+import akka.pattern.{ ask, gracefulStop }
 import akka.util.Timeout
 
 /**
@@ -42,7 +42,7 @@ import akka.util.Timeout
 object PowerAPIMessages {
   case class StartComponent[U <: APIComponent](companion: U)
   case class StartSubscription(actorRef: ActorRef)
-  case class StartMonitoring(frequency: FiniteDuration, targets: List[Target])
+  case class StartMonitoring(frequency: FiniteDuration, targets: Set[Target])
 
   case object StopAll
   case object PowerAPIStopped
@@ -182,7 +182,7 @@ class PowerAPI extends Actor with ActorLogging {
    * @param frequency: duration period monitoring.
    * @param targets: combination of PIDS/APPS/ALL.
    */
-  def startMonitoring(sender: ActorRef, frequency: FiniteDuration, targets: List[Target]) {
+  def startMonitoring(sender: ActorRef, frequency: FiniteDuration, targets: Set[Target]) {
     val allPids = scala.collection.mutable.Set[Process]()
 
     for(target <- targets) {
@@ -214,7 +214,9 @@ class PowerAPI extends Actor with ActorLogging {
     components.foreach(component => {
       val messages = Await.result(component ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
       messages.foreach(message => context.system.eventStream.unsubscribe(component, message))
-      context.stop(component)
+      
+      Await.result(gracefulStop(component, 5.seconds), 5.seconds)
+
       if(log.isDebugEnabled) log.debug("component stopped.")
     })
     components.clear()
@@ -267,7 +269,7 @@ class PAPI extends fr.inria.powerapi.core.API {
    * @param targets: combination of PIDS/APPS/ALL.
    */ 
   def start(frequency: FiniteDuration, targets: Target*): Monitoring = {
-    Await.result(engine ? StartMonitoring(frequency, targets.toList), timeout.duration).asInstanceOf[Monitoring]
+    Await.result(engine ? StartMonitoring(frequency, targets.toSet), timeout.duration).asInstanceOf[Monitoring]
   }
 
   /**

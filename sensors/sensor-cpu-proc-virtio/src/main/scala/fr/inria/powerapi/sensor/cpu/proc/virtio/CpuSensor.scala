@@ -67,41 +67,47 @@ case class CpuVirtioSensorMessage(
   tick: Tick) extends SensorMessage
 
 /**
- * CPU sensor component that collects data from virtio serial port
+ * Delegate class collecting time information contained into virtio file, providing process utilization and VM consumption from host
  */
-class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor with Configuration {
+class VMConsumptionFromHost extends Configuration {
+  lazy val cache = collection.mutable.Map[Long, Double]()
+  var timestampHandled = 0l
+ 
+  def refreshCache(timestamp: Long, hostConsumption: Double) {
+    cache += (timestamp -> hostConsumption)
+  }
+  
+  def process(timestamp: Long) = {
+    var power = cache.getOrElse(timestamp, 0.0)
 
-  /**
-   * Delegate class collecting time information contained into virtio file, providing process utilization and VM consumption from host
-   */
-  class VMConsumptionFromHost {
-    lazy val cache = collection.mutable.Map[Long, Double]()
-    
-    def refreshCache(timestamp: Long, hostConsumption: Double) {
-      cache += (timestamp -> hostConsumption)
+    // Clean the cache when a new tick is received.
+    if(timestamp > timestampHandled) {
+      cache -= timestampHandled
+      timestampHandled = timestamp
     }
-    
-    def process(timestamp: Long) = {
-      var power = cache.getOrElse(timestamp, 0.0)
 
-      // Value not found in the cache, we have to read the consumption in the buffer
-      if(power == 0.0) {
-        if (br != null) {
-          val readPower = br.readLine
-          
-          if (readPower == null) power = 0.0
-          else {
-            power = readPower.toDouble
-            refreshCache(timestamp, power)
-          }
+    // Value not found in the cache, we have to read the consumption in the buffer
+    if(power == 0.0) {
+      if (br != null) {
+        val readPower = br.readLine
+        
+        if (readPower == null) power = 0.0
+        else {
+          power = readPower.toDouble
+          refreshCache(timestamp, power)
         }
       }
-
-      if (logger.isEnabledFor(Level.INFO)) logger.info("read power value from host: " + power)
-      Energy.fromPower(power)
     }
-  }
 
+    if (logger.isEnabledFor(Level.INFO)) logger.info("read power value from host: " + power)
+    Energy.fromPower(power)
+  }
+}
+
+/**
+ * CPU sensor component that collects data from virtio serial port
+ */
+class CpuSensor extends fr.inria.powerapi.sensor.cpu.proc.reg.CpuSensor {
   lazy val vmConsumption = new VMConsumptionFromHost
 
   override def process(tick: Tick) {
