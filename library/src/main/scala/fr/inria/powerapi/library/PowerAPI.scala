@@ -50,6 +50,13 @@ object PowerAPIMessages {
 }
 
 /**
+ * Object used to share the timeout.
+ */
+object DefaultTimeout {
+  val timeout = Timeout(10.seconds)
+}
+
+/**
  * Used to monitor a process, processes or an app.
  * Here, the overhead of PowerAPI is not considered.
  * It's possible to get its energy consumption by following its PID with the corresponding case class.
@@ -141,7 +148,7 @@ class PowerAPI extends Actor with ActorLogging {
   import ClockMessages.StopAllClocks
   import MonitoringMessages.StartMonitoringRepr
 
-  implicit val timeout = Timeout(5.seconds)
+  implicit val timeout = DefaultTimeout.timeout
   // Stores the actor references for all the components (excepts the ClockSupervisor).
   val components = new mutable.ArrayBuffer[ActorRef] with mutable.SynchronizedBuffer[ActorRef]
   var clockSupervisor: ActorRef = null
@@ -215,7 +222,7 @@ class PowerAPI extends Actor with ActorLogging {
       val messages = Await.result(component ? MessagesToListen, timeout.duration).asInstanceOf[Array[Class[_ <: Message]]]
       messages.foreach(message => context.system.eventStream.unsubscribe(component, message))
       
-      Await.result(gracefulStop(component, 5.seconds), 5.seconds)
+      Await.result(gracefulStop(component, timeout.duration), timeout.duration)
 
       if(log.isDebugEnabled) log.debug("component stopped.")
     })
@@ -253,7 +260,7 @@ class PAPI extends fr.inria.powerapi.core.API {
 
   implicit lazy val system = ActorSystem(System.currentTimeMillis + "")
   lazy val engine = system.actorOf(Props[PowerAPI], "powerapi")
-  implicit val timeout = Timeout(5.seconds)
+  implicit val timeout = DefaultTimeout.timeout
   
   /**
    * Starts the component associated to the given type.

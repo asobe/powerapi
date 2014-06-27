@@ -81,7 +81,6 @@ class PowerSpyDelegate(connection: StreamConnection, version: Int, in: Reader, o
   }
 
   override def postStop() = {
-    stopPowerMonitoring()
     close()
   }
 
