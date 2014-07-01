@@ -123,7 +123,8 @@ object Sampling extends Configuration {
         Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
       }
 
-      monitoring.stop()
+      // For the moment, is the only way to stop the monitoring.
+      monitoring.waitFor(1.milliseconds)
 
       // To be sure, we kill all the processes.
       Seq("killall", "cpulimit").!
@@ -210,11 +211,14 @@ object Sampling extends Configuration {
       events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
     }
 
+    if(cpuFreq) {
+      // Set the default governor with the userspace governor. It allows us to control the frequency.
+      Seq("bash", "-c", "echo userspace | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
+    }
+
     for(index <- 1 to samples) {
       if(cpuFreq) {
         for(frequency <- availableFreqs) {
-          // Set the default governor with the userspace governor. It allows us to control the frequency.
-          Seq("bash", "-c", "echo userspace | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
           // Set the frequency
           Seq("bash", "-c", s"echo $frequency | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed > /dev/null").!
           
