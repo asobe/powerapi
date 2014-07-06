@@ -72,6 +72,8 @@ object Sampling extends Configuration {
 
   private def sampling(index: Int, frequency: Long) = {
     implicit val codec = scalax.io.Codec.UTF8
+    val outputs = scala.collection.mutable.ListBuffer[String]()
+    val logger = ProcessLogger(out => outputs += out, err => {})
     val pathMatcher = s"$outBasePathLibpfm*.dat"
     val base = 8
 
@@ -109,30 +111,44 @@ object Sampling extends Configuration {
       val ppid = buffer(0).trim.toInt
       val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
+      
       // Get the worker pid corresponding to the stress.
-      val lastWorkerPid = Seq("ps", "-C", "stress", "ho", "pid").lines.toArray.last.trim
-      var cpulimitPid = ""
+      while(outputs.size < 1) {
+        Seq("pgrep", "stress").!(logger)
+      }
+
+      val lastWorkerPid = outputs.last.trim.toInt
+      outputs.clear
+      var cpulimitPid = -1
 
       // Core load.
       for(i <- 100 to 25 by -25) {
-        Seq("cpulimit", "-l", i+"", "-p", lastWorkerPid).run
-        if(cpulimitPid != "") Seq("kill", "-9", cpulimitPid).!
-        cpulimitPid = Seq("ps", "-C", "cpulimit", "ho", "pid").lines.toArray.last.trim
+        Seq("cpulimit", "-l", i+"", "-p", lastWorkerPid.toString).run(logger)
+        if(cpulimitPid != -1) Seq("kill", "-9", cpulimitPid.toString).!(logger)
+        outputs.clear
+        
+        while(outputs.size < 1) {
+          Seq("pgrep", "cpulimit").!(logger)
+        }
+        cpulimitPid = outputs.last.trim.toInt
+        outputs.clear
+        
         Thread.sleep((nbMessages.seconds).toMillis)
         (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
         Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
       }
 
-      // For the moment, is the only way to stop the monitoring.
       monitoring.waitFor(1.milliseconds)
 
       // To be sure, we kill all the processes.
-      Seq("killall", "cpulimit").!
-      Seq("kill", "-9", ppid+"").!
+      Seq("killall", "cpulimit").!(logger)
+      Seq("kill", "-9", ppid+"").!(logger)
+      outputs.clear
     }
 
     // To be sure, we kill all the processes.
-    Seq("killall", "cpulimit", "stress").!
+    Seq("killall", "cpulimit", "stress").!(logger)
+    outputs.clear
 
     // Move files to the right place, to save them for the future regression.
     s"$samplingPath/$index/$frequency/cpu".createDirectory(failIfExists=false)
@@ -149,7 +165,8 @@ object Sampling extends Configuration {
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $bytes -t $nbMessages").lines
       val ppid = buffer(0).trim.toInt
       // Pin the process on the first core (physical or logical).
-      Seq("taskset", "-cp", "0", ppid+"").run
+      Seq("taskset", "-cp", "0", ppid+"").run(logger)
+      outputs.clear
 
       val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
@@ -164,7 +181,8 @@ object Sampling extends Configuration {
       val bytes = l3Cache * 1024
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $bytes -t $nbMessages").lines
       val ppid = buffer(0).trim.toInt
-      Seq("taskset", "-cp", "0", ppid+"").run
+      Seq("taskset", "-cp", "0", ppid+"").run(logger)
+      outputs.clear
 
       val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
@@ -194,6 +212,9 @@ object Sampling extends Configuration {
       (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
         availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
       })
+      
+      // Set the default governor with the userspace governor. It allows us to control the frequency.
+      Seq("bash", "-c", "echo userspace | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
     }
 
     // Cleaning phase
@@ -209,11 +230,6 @@ object Sampling extends Configuration {
 
     else {
       events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
-    }
-
-    if(cpuFreq) {
-      // Set the default governor with the userspace governor. It allows us to control the frequency.
-      Seq("bash", "-c", "echo userspace | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!
     }
 
     for(index <- 1 to samples) {
