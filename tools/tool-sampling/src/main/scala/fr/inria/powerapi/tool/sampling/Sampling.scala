@@ -23,7 +23,7 @@ package fr.inria.powerapi.tool.sampling
 import fr.inria.powerapi.library.{ PAPI, PIDS }
 import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
 import fr.inria.powerapi.formula.powerspy.FormulaPowerspy
-import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfmConfigured, SensorLibpfmCoreConfigured }
+import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfmConfigured }
 import fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
 
 import akka.actor.{ ActorRef, Props }
@@ -222,15 +222,7 @@ object Sampling extends Configuration {
     (Path(".") * "*.dat").foreach(path => path.delete(force = true))
 
     powerapi = new PAPI with SensorPowerspy with FormulaPowerspy with AggregatorTimestamp
-
-    // One libpfm sensor per event.
-    if(samplingByCore) {
-      events.distinct.foreach(event => powerapi.configure(new SensorLibpfmCoreConfigured(event)))
-    }
-
-    else {
-      events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
-    }
+    events.distinct.foreach(event => powerapi.configure(new SensorLibpfmConfigured(event)))
 
     for(index <- 1 to samples) {
       if(cpuFreq) {

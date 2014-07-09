@@ -50,6 +50,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
   lazy val outBasePathLibpfm = "output-libpfm-"
   lazy val outPathPowerspy = "output-powerspy.dat"
   lazy val separator = "======="
+  lazy val separatorSymbol = "="
   /** Default values for data processing. */
   lazy val elements = Array("cache", "cpu")
   lazy val eltIdlePower = "cpu"

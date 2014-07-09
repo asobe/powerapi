@@ -21,7 +21,7 @@
 
 package fr.inria.powerapi.sensor.libpfm;
 
-import fr.inria.powerapi.core.{ TID, CID }
+import fr.inria.powerapi.core.{ Identifier, TID }
 import perfmon2.libpfm.{ LibpfmLibrary, perf_event_attr, pfm_perf_encode_arg_t }
 import perfmon2.libpfm.LibpfmLibrary.pfm_os_t
 
@@ -96,11 +96,11 @@ object LibpfmUtil {
   /**
    * Opens a file descriptor for the given event and identifier, with the configuration precised by
    * the BitSet.
-   * @param identifier: core/thread identifier.
+   * @param identifier: identifier.
    * @param configuration: Set of bits used to configure the structure which will be used to initialize the counter.
    * @param name: event name.
    */
-  def configureCounter(identifier: Any, configuration: java.util.BitSet, name: String): Option[Int] = {
+  def configureCounter(identifier: Identifier, configuration: java.util.BitSet, name: String): Option[Int] = {
     val cName = pointerToCString(name)
     val argEncoded = new pfm_perf_encode_arg_t
     var argEncodedPointer = pointerTo(argEncoded)
@@ -126,7 +126,6 @@ object LibpfmUtil {
       // Opens the file descriptor.
       val fd = identifier match {
         case TID(tid) => id = tid; CUtils.perf_event_open(eventAttrPointer, tid, -1, -1, 0)
-        case CID(cid) => id = cid; CUtils.perf_event_open(eventAttrPointer, -1, cid, -1, 0)
         case _ => {
           if(logger.isEnabledFor(Level.ERROR)) logger.error("The type of the first parameter is unknown.")
           -1

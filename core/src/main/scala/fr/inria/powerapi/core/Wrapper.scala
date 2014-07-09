@@ -57,5 +57,5 @@ case class Process(pid: Int) extends ThreadsConfiguration {
 /**
  * Wrappers used for the pattern matching.
  */
-case class TID(tid: Int)
-case class CID(cid: Int)
+class Identifier
+case class TID(tid: Int) extends Identifier

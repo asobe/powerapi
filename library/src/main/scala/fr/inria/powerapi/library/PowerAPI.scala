@@ -53,7 +53,7 @@ object PowerAPIMessages {
  * Object used to share the timeout.
  */
 object DefaultTimeout {
-  val timeout = Timeout(20.seconds)
+  val timeout = Timeout(30.seconds)
 }
 
 /**

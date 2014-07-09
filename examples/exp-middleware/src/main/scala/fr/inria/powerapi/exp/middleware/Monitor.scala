@@ -22,7 +22,7 @@ package fr.inria.powerapi.exp.middleware
 
 import fr.inria.powerapi.core.{ Configuration, Energy, Process, ProcessedMessage, Reporter, Tick, TickSubscription }
 import fr.inria.powerapi.library.{ ALL, APPS, PAPI, PIDS }
-import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfmCore, SensorLibpfm, LibpfmSensorMessage, SensorLibpfmConfigured }
+import fr.inria.powerapi.sensor.libpfm.{ LibpfmUtil, SensorLibpfm, LibpfmSensorMessage, SensorLibpfmConfigured }
 import fr.inria.powerapi.formula.libpfm.FormulaLibpfm
 import fr.inria.powerapi.sensor.powerspy.SensorPowerspy
 import fr.inria.powerapi.formula.powerspy.FormulaPowerspy

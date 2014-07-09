@@ -82,10 +82,10 @@ object Processing extends Configuration {
           var index = 0
           while(!data(path).isEmpty) {
             val existing = eventData.getOrElse(index, scala.collection.mutable.ArrayBuffer[Double]())
-            val buffer = data(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
+            val buffer = data(path).takeWhile(_.contains(separatorSymbol) == false).filter(line => line != "" && line != "0").map(_.toDouble)
             
             // tail is used to remove the separator.
-            var tmpData = data(path).dropWhile(_ != separator)
+            var tmpData = data(path).dropWhile(_.contains(separatorSymbol) == false)
 
             if(!tmpData.isEmpty) {
               data(path) = tmpData.tail
@@ -120,7 +120,7 @@ object Processing extends Configuration {
         // Special case for the file wich contains the idle power. We have to remove the first values.
         if(path.path.endsWith(s"$eltIdlePower/$outPathPowerspy")) {
           // tail is used to remove the separator.
-          var tmpData = powers(path).dropWhile(_ != separator)
+          var tmpData = powers(path).dropWhile(_.contains(separatorSymbol) == false)
 
           if(!tmpData.isEmpty) {
             powers(path) = tmpData.tail
@@ -131,10 +131,10 @@ object Processing extends Configuration {
         var index = 0
         while(!powers(path).isEmpty) {
           val existing = powersData.getOrElse(index, scala.collection.mutable.ArrayBuffer[Double]())
-          existing ++= powers(path).takeWhile(_ != separator).filter(line => line != "" && line != "0").map(_.toDouble)
+          existing ++= powers(path).takeWhile(_.contains(separatorSymbol) == false).filter(line => line != "" && line != "0").map(_.toDouble)
           powersData(index) = existing
           // tail is used to remove the separator.
-          val tmpData = powers(path).dropWhile(_ != separator)
+          val tmpData = powers(path).dropWhile(_.contains(separatorSymbol) == false)
 
           if(!tmpData.isEmpty) {
             powers(path) = tmpData.tail
