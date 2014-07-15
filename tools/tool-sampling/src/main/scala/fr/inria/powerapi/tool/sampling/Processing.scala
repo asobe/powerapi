@@ -182,8 +182,12 @@ object Processing extends Configuration {
       // Get the available frequencies from sys virtual filesystem.
       (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
         availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
-      })
+      }) 
 
+      val turbo = availableFreqs.max
+      availableFreqs.clear
+      availableFreqs += turbo
+      
       for(frequency <- availableFreqs) {
         process(frequency)
       }

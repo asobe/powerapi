@@ -76,9 +76,13 @@ trait LibpfmConfiguration extends fr.inria.powerapi.core.Configuration {
 }
 
 /**
-* Libpfm sensor configuration.
+* LibpfmCoreSensor configuration.
 */
 trait LibpfmCoreConfiguration extends LibpfmConfiguration {
-  /** Thread numbers. */
-  lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
+  /** Hyperthread identifiers */
+  lazy val htIndexes = load {
+    conf =>
+      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.hyperthread-indexes")))
+        yield (item.asInstanceOf[Config].getInt("ht-index"))).toArray
+  }(Array[Int]())
 }

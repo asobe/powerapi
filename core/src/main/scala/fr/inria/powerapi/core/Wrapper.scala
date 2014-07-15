@@ -59,3 +59,4 @@ case class Process(pid: Int) extends ThreadsConfiguration {
  */
 class Identifier
 case class TID(tid: Int) extends Identifier
+case class CID(cid: Int) extends Identifier

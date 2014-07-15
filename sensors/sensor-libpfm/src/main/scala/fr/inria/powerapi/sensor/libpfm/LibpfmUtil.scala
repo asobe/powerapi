@@ -21,7 +21,7 @@
 
 package fr.inria.powerapi.sensor.libpfm;
 
-import fr.inria.powerapi.core.{ Identifier, TID }
+import fr.inria.powerapi.core.{ Identifier, CID, TID }
 import perfmon2.libpfm.{ LibpfmLibrary, perf_event_attr, pfm_perf_encode_arg_t }
 import perfmon2.libpfm.LibpfmLibrary.pfm_os_t
 
@@ -126,6 +126,7 @@ object LibpfmUtil {
       // Opens the file descriptor.
       val fd = identifier match {
         case TID(tid) => id = tid; CUtils.perf_event_open(eventAttrPointer, tid, -1, -1, 0)
+        case CID(cid) => id = cid; CUtils.perf_event_open(eventAttrPointer, -1, cid, -1, 0)
         case _ => {
           if(logger.isEnabledFor(Level.ERROR)) logger.error("The type of the first parameter is unknown.")
           -1

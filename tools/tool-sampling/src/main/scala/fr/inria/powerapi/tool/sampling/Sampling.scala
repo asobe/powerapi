@@ -87,25 +87,43 @@ object Sampling extends Configuration {
 
     // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
     val libpfmListener = powerapi.system.actorOf(Props[LibpfmListener])
+    val threadIds = scala.collection.mutable.ArrayBuffer[String]()
 
     // Stress only the processor, without cache (full core load).
     for(thread <- 1 to threads) {
+      threadIds += (thread - 1).toString
       // Launch stress command to stimulate all the features on the processor.
       // Here, we used a specific bash script to be sure that the command in not launch before to open and reset the counters.
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -c $thread -t $nbMessages").lines
       val ppid = buffer(0).trim.toInt
+      //Seq("taskset", "-cp", threadIds.mkString(","), ppid.toString).run(logger)
+      //outputs.clear
 
       // Start a monitoring to get the values of the counters for the workload.
       val monitoring = powerapi.start(1.seconds, PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
       Seq("kill", "-SIGCONT", ppid+"").!
+      
+      // Get the worker pid corresponding to the stress. 
+      while(outputs.size < 1) { 
+        Seq("pgrep", "stress").!(logger) 
+      }
+      
+      outputs -= ppid.toString
+      for(tmpThread <- 0 until thread) {
+        Seq("taskset", "-cp", tmpThread.toString, outputs(tmpThread)).run
+      }
+      outputs.clear
+
       monitoring.waitFor(nbMessages.seconds)
 
       (Path(".") * pathMatcher).foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
       Resource.fromFile(outPathPowerspy).append(separator + scalax.io.Line.Terminators.NewLine.sep)
     }
 
+    threadIds.clear
+
     // Stress only the processor, without cache (decreasing load).
-    val nbSec = (100 / 25) * nbMessages
+    /*val nbSec = (100 / 25) * nbMessages
     for(thread <- 1 to threads) {
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -c $thread -t $nbSec").lines
       val ppid = buffer(0).trim.toInt
@@ -148,7 +166,7 @@ object Sampling extends Configuration {
 
     // To be sure, we kill all the processes.
     Seq("killall", "cpulimit", "stress").!(logger)
-    outputs.clear
+    outputs.clear*/
 
     // Move files to the right place, to save them for the future regression.
     s"$samplingPath/$index/$frequency/cpu".createDirectory(failIfExists=false)
@@ -159,7 +177,7 @@ object Sampling extends Configuration {
     })
 
     // We stress only one core (we consider that the environment is heterogeneous).
-    for(kbytes <- Iterator.iterate(1)(_ * base).takeWhile(_ < l3Cache)) {
+    /*for(kbytes <- Iterator.iterate(1)(_ * base).takeWhile(_ < l3Cache)) {
       val bytes = kbytes * 1024
       // Launch stress command to stimulate the available cache on the processor.
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"stress -m 1 --vm-bytes $bytes -t $nbMessages").lines
@@ -198,7 +216,7 @@ object Sampling extends Configuration {
       val name = path.name
       val target: Path = s"$samplingPath/$index/$frequency/cache/$name"
       path.moveTo(target=target, replace=true)
-    })
+    })*/
 
     powerapi.system.stop(libpfmListener)
   }
@@ -212,6 +230,12 @@ object Sampling extends Configuration {
       (for(thread <- 0 until threads) yield (scalingFreqPath.replace("%?", thread.toString))).foreach(filepath => {
         availableFreqs ++= scala.io.Source.fromFile(filepath).mkString.trim.split(" ").map(_.toLong)
       })
+
+      val turbo = availableFreqs.max
+      availableFreqs.clear
+      availableFreqs += turbo
+
+      println(availableFreqs)
       
       // Set the default governor with the userspace governor. It allows us to control the frequency.
       Seq("bash", "-c", "echo userspace | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null").!

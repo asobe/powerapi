@@ -52,7 +52,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
   lazy val separator = "======="
   lazy val separatorSymbol = "="
   /** Default values for data processing. */
-  lazy val elements = Array("cache", "cpu")
+  lazy val elements = Array("cpu")
   lazy val eltIdlePower = "cpu"
   lazy val csvDelimiter = ";"
   /** Default value when cpufreq-utils is disable (used to create the folder hierarchy). */
