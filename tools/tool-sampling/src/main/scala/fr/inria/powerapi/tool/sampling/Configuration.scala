@@ -23,12 +23,10 @@ package fr.inria.powerapi.tool.sampling
 trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
   /** Thread numbers. */
   lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
-  /** Cache available (all levels, only for the data) in KB. */
-  lazy val l3Cache = load { _.getInt("powerapi.cpu.L3-cache") }(0)
+  /** Turbo mode ? */
+  lazy val turbo = load { _.getBoolean("powerapi.cpu.turbo") }(false)
   /** Option used to know if cpufreq is enable or not. */
   lazy val cpuFreq = load { _.getBoolean("powerapi.cpu.cpufreq-utils") }(false)
-  /** Sampling by process / core */
-  lazy val samplingByCore = load { _.getBoolean("powerapi.tool.sampling.core") }(false)
   /** Number of samples .*/
   lazy val samples = load { _.getInt("powerapi.tool.sampling.samples") }(0)
   /** Number of required messages per step. */
@@ -46,6 +44,8 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
    * @see http://www.kernel.org/pub/linux/utils/kernel/cpufreq/cpufreq-info.html
    */
   lazy val scalingFreqPath = load { _.getString("powerapi.cpu.scaling-available-frequencies") }("/sys/devices/system/cpu/cpu%?/cpufreq/scaling_available_frequencies")
+  /** Default common values. */
+  lazy val nbSteps = (100 / 25)
   /** Default values for the output files. */
   lazy val outBasePathLibpfm = "output-libpfm-"
   lazy val outPathPowerspy = "output-powerspy.dat"

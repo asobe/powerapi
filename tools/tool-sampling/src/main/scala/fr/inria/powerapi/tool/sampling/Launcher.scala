@@ -44,6 +44,7 @@ object Launcher extends App {
 
   Sampling.run()
   Processing.run()
-  MultipleLinearRegression.run()
+  PolynomialRegression.run()
+  
   System.exit(0)
 }

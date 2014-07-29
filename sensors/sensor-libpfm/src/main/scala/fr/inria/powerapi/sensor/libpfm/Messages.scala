@@ -26,10 +26,19 @@ import fr.inria.powerapi.core.{ SensorMessage, Tick }
 /**
  * Libpfm sensor messages.
  */
+case class Pcore(id: Int)
 case class Counter(value: Long)
 case class Event(name: String)
 
 case class LibpfmSensorMessage(
+  counter: Counter = Counter(0),
+  event: Event = Event("none"),
+  tick: Tick
+) extends SensorMessage
+
+
+case class LibpfmCoreSensorMessage(
+  core: Pcore = Pcore(-1),
   counter: Counter = Counter(0),
   event: Event = Event("none"),
   tick: Tick

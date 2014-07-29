@@ -20,17 +20,18 @@
  */
 package fr.inria.powerapi.sensor.libpfm
 
+import fr.inria.powerapi.core.SensorMessage
 import akka.actor.Actor
 
 class Listener extends Actor {
   var received = 0
   
   override def preStart() = {
-    context.system.eventStream.subscribe(self, classOf[LibpfmSensorMessage])
+    context.system.eventStream.subscribe(self, classOf[SensorMessage])
   }
 
   def receive() = {
-    case _: LibpfmSensorMessage => received += 1
+    case _: SensorMessage => received += 1
     case unknown => println("umh, I'm not able to process this message " + unknown + ".")
   }
 }

@@ -25,24 +25,24 @@ import fr.inria.powerapi.core.{ CID, Sensor, Tick }
 /**
 * Sensor which opens one counter per event and core/thread (because of the implementation of perf_event_open method).
 */
-class LibpfmCoreSensor(event: String, bitset: java.util.BitSet, htIndexes: Array[Int]) extends Sensor {
-  // [hyperthreadid -> fd]
+class LibpfmCoreSensor(val event: String, val bitset: java.util.BitSet, val core: Int, val osIndexes: Array[Int]) extends Sensor {
+  // [os_index -> fd]
   lazy val descriptors = {
     val buffer = scala.collection.mutable.HashMap[Int, Int]()
-    htIndexes.foreach(htIndex => {
-      val fd = LibpfmUtil.configureCounter(CID(htIndex), bitset, event) match {
+    osIndexes.foreach(osIndex => {
+      val fd = LibpfmUtil.configureCounter(CID(osIndex), bitset, event) match {
         case Some(fd: Int) => {
           LibpfmUtil.resetCounter(fd)
           LibpfmUtil.enableCounter(fd)
           fd
         }
         case None => {
-          if(log.isWarningEnabled) log.warning(s"Libpfm is not able to open the counter for the thread #$htIndex.")
+          if(log.isWarningEnabled) log.warning(s"Libpfm is not able to open the counter for the thread #$osIndex on the core#$core.")
           -1
         }
       }
 
-      buffer += (htIndex -> fd)
+      buffer += (osIndex -> fd)
     })
 
     buffer
@@ -64,26 +64,26 @@ class LibpfmCoreSensor(event: String, bitset: java.util.BitSet, htIndexes: Array
     deltaScaledCache.clear()
   }
 
-  def refreshCache(htIndex: Int, now: Array[Long]) = {
-    cache += (htIndex -> now)
+  def refreshCache(osIndex: Int, now: Array[Long]) = {
+    cache += (osIndex -> now)
   }
 
-  def refreshDeltaScaledCache(htIndex: Int, value: Long) = {
-    deltaScaledCache += (htIndex -> value)
+  def refreshDeltaScaledCache(osIndex: Int, value: Long) = {
+    deltaScaledCache += (osIndex -> value)
   }
 
   def process(tick: Tick) = {
-    var deltaScaledVal = 0l
+    var coreValue = 0l
 
-    htIndexes.foreach(htIndex => {
-      if(descriptors.contains(htIndex)) {
-        val fd = descriptors(htIndex)
+    osIndexes.foreach(osIndex => {
+      if(descriptors.contains(osIndex)) {
+        val fd = descriptors(osIndex)
       
-        val now = LibpfmUtil.readCounter(descriptors(htIndex))
-        val old = cache.getOrElse(htIndex, now)
-        refreshCache(htIndex, now)
+        val now = LibpfmUtil.readCounter(descriptors(osIndex))
+        val old = cache.getOrElse(osIndex, now)
+        refreshCache(osIndex, now)
       
-        deltaScaledVal = {
+        val deltaScaledVal = {
           // This may appear when the process exists but it does not execute any instructions, so we don't want to get the previous value.
           if(now(1) == old(1) && now(2) == old(2)) {
             // Put the ratio to one to get the non scaled value (see the scaling method).
@@ -97,15 +97,17 @@ class LibpfmCoreSensor(event: String, bitset: java.util.BitSet, htIndexes: Array
           else LibpfmUtil.scale(now, old)
         }
       
-        refreshDeltaScaledCache(htIndex, deltaScaledVal)
+        refreshDeltaScaledCache(osIndex, deltaScaledVal)
+        coreValue += deltaScaledVal 
       }
-
-      publish(LibpfmSensorMessage(
-        counter = Counter(deltaScaledVal),
-        event = Event(event),
-        tick = tick
-      ))
     })
+
+    publish(LibpfmCoreSensorMessage(
+      core = Pcore(core),
+      counter = Counter(coreValue),
+      event = Event(event),
+      tick = tick
+    ))
   }
 }
 
@@ -122,16 +124,17 @@ trait LibpfmCoreSensorComponent {
 * Class used to create this given component.
 * Here, it is not a companion object because we have to configure multiple sensors.
 */
-class SensorLibpfmCoreConfigured(val event: String, val bitset: java.util.BitSet, val threads: Array[Int]) extends fr.inria.powerapi.core.APIComponent with LibpfmCoreSensorComponent {
-  override lazy val args = List(event, bitset, threads)
+class SensorLibpfmCoreConfigured(val event: String, val bitset: java.util.BitSet, val core: Int, val osIndexes: Array[Int]) extends fr.inria.powerapi.core.APIComponent with LibpfmCoreSensorComponent {
+  override lazy val args = List(event, bitset, core, osIndexes)
 }
 
 /**
-* Use to cook the bake.
+* Used to cook the bake.
+* TODO: Use hwloc to get the processor topology and configure the right number of component.
 */
-trait SensorLibpfmCore extends LibpfmCoreConfiguration {
+/*trait SensorLibpfmCore extends LibpfmCoreConfiguration {
   self: fr.inria.powerapi.core.API =>
 
   // One sensor per event.
-  events.distinct.foreach(event => configure(new SensorLibpfmCoreConfigured(event, bitset, htIndexes)))
-}
+  events.distinct.foreach(event => configure(new SensorLibpfmCoreConfigured(event, bitset, -1, )))
+}*/

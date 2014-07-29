@@ -22,18 +22,32 @@ package fr.inria.powerapi.tool.sampling
 
 import akka.actor.Actor
 import fr.inria.powerapi.core.{ ProcessedMessage, Reporter }
-import fr.inria.powerapi.sensor.libpfm.LibpfmSensorMessage
+import fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage
 import fr.inria.powerapi.reporter.file.FileReporter
 
 import scalax.io.{ Resource, SeekableByteChannel }
 import scalax.io.managed.SeekableByteChannelResource
 
-object Util {
+object Util extends Configuration {
   // Method used to compute the median of any array type.
   def median[T](s: Seq[T])(implicit n: Fractional[T]) = {
     import n._
     val (lower, upper) = s.sortWith(_<_).splitAt(s.size / 2)
     if (s.size % 2 == 0) (lower.last + upper.head) / fromInt(2) else upper.head
+  }
+  
+  // Allows to get all the available frequencies for the processor. All the core used the same frequencies so we used the first HT/Core see by the OS.
+  def availableFrequencies: Option[Array[Long]] = {
+    if(cpuFreq) {
+      Some(scala.io.Source.fromFile(scalingFreqPath.replace("%?", "0")).mkString.trim.split(" ").map(_.toLong).sorted)
+    }
+    else None
+  }
+
+  // Used to get the processor topology.
+  def topology: Map[Int, Array[Int]] = {
+     // TODO: refactor to use hwloc
+    Map(0 -> Array(0,4), 1 -> Array(1,5), 2 -> Array(2,6), 3 -> Array(3,7))
   }
 }
 
@@ -56,15 +70,15 @@ class LibpfmListener extends Actor with Configuration {
   val resources = scala.collection.mutable.HashMap[String, SeekableByteChannelResource[SeekableByteChannel]]()
   
   override def preStart() = {
-    context.system.eventStream.subscribe(self, classOf[LibpfmSensorMessage])
+    context.system.eventStream.subscribe(self, classOf[LibpfmCoreSensorMessage])
   }
 
   override def postStop() = {
-    context.system.eventStream.unsubscribe(self, classOf[LibpfmSensorMessage])
+    context.system.eventStream.unsubscribe(self, classOf[LibpfmCoreSensorMessage])
     resources.clear()
   }
 
-  case class Line(sensorMessage: LibpfmSensorMessage) {
+  case class Line(sensorMessage: LibpfmCoreSensorMessage) {
     val counter = sensorMessage.counter.value
     val newLine = scalax.io.Line.Terminators.NewLine.sep
     
@@ -72,17 +86,17 @@ class LibpfmListener extends Actor with Configuration {
   }
 
   def receive() = {
-    case sensorMessage: LibpfmSensorMessage => process(sensorMessage)
+    case sensorMessage: LibpfmCoreSensorMessage => process(sensorMessage)
   }
 
-  def process(sensorMessage: LibpfmSensorMessage) {
-    def updateResources(name: String): SeekableByteChannelResource[SeekableByteChannel] = {
-      val output = Resource.fromFile(s"$outBasePathLibpfm$name.dat")
-      resources += (name -> output)
+  def process(sensorMessage: LibpfmCoreSensorMessage) {
+    def updateResources(name: String, osIndex: Int): SeekableByteChannelResource[SeekableByteChannel] = {
+      val output = Resource.fromFile(s"$outBasePathLibpfm$name-$osIndex.dat")
+      resources += (name + "-" + osIndex -> output)
       output
     }
 
-    val output = resources.getOrElse(sensorMessage.event.name, updateResources(sensorMessage.event.name))
+    val output = resources.getOrElse(sensorMessage.event.name + "-" + sensorMessage.core.id, updateResources(sensorMessage.event.name, sensorMessage.core.id))
     output.append(Line(sensorMessage).toString)
   }
 }
