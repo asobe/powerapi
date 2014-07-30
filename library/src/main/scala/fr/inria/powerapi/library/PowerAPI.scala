@@ -112,6 +112,8 @@ case class PIDS(pids: Int*) extends Target {
       if(isAlive == 0) monitoredProcesses += Process(pid)
     }
   }
+
+  override def update(clockSupervisor: ActorRef, clockid: Long, frequency: FiniteDuration) = {}
 }
 
 case class APPS(names: String*) extends Target {
