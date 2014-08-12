@@ -107,4 +107,10 @@ class LibpfmUtilSpec extends FlatSpec with Matchers {
       case None => fail("cycles is an existing counter, it should be work.")
     }
   }
+
+  "getAllSpecificEvents" should "returns all the specific events available on the processor" in {
+    LibpfmUtil.getAllSpecificEvents.isEmpty should equal(true)
+    LibpfmUtil.initialize
+    LibpfmUtil.getAllSpecificEvents.isEmpty should equal(false)
+  }
 }

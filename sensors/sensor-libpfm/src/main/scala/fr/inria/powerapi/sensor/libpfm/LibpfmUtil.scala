@@ -22,8 +22,8 @@
 package fr.inria.powerapi.sensor.libpfm;
 
 import fr.inria.powerapi.core.{ Identifier, CID, TID }
-import perfmon2.libpfm.{ LibpfmLibrary, perf_event_attr, pfm_perf_encode_arg_t }
-import perfmon2.libpfm.LibpfmLibrary.pfm_os_t
+import perfmon2.libpfm.{ LibpfmLibrary, perf_event_attr, pfm_perf_encode_arg_t, pfm_event_info_t, pfm_pmu_info_t, pfm_event_attr_info_t }
+import perfmon2.libpfm.LibpfmLibrary.{ pfm_os_t, pfm_pmu_t, pfm_attr_t }
 
 import org.bridj.Pointer
 import org.bridj.Pointer.{ allocateCLongs, pointerTo, pointerToCString }
@@ -114,7 +114,7 @@ object LibpfmUtil {
     // PFM_PLM0: measure at kernel level.
     // PFM_PLMH: measure at hypervisor level.
     // PFM_OS_PERF_EVENT_EXT is used to extend the default perf_event library with libpfm.
-    val ret = LibpfmLibrary.pfm_get_os_event_encoding(cName, LibpfmLibrary.PFM_PLM0|LibpfmLibrary.PFM_PLM3|LibpfmLibrary.PFM_PLMH,  pfm_os_t.PFM_OS_PERF_EVENT_EXT, argEncodedPointer)
+    val ret = LibpfmLibrary.pfm_get_os_event_encoding(cName, LibpfmLibrary.PFM_PLM0|LibpfmLibrary.PFM_PLM3|LibpfmLibrary.PFM_PLMH, pfm_os_t.PFM_OS_PERF_EVENT, argEncodedPointer)
 
     if(ret == LibpfmLibrary.PFM_SUCCESS) {
       // Sets the bits in the structure.
@@ -216,6 +216,70 @@ object LibpfmUtil {
       ((now(0) - old(0)) * ((now(1) - old(1)) / (now(2) - old(2))).toDouble).round
     }
     else 0l
+  }
+  
+  def getAllSpecificEvents = {
+    /**
+     * Returns the specifics PMU detected on the processor. All the generic PMUs are removed because they used the specifics ones for the encoding.
+     */
+    def specificPMUS = {
+      // See the outputs of ./check_events from the examples folder in the libpfm library.
+      val generics = Array(pfm_pmu_t.PFM_PMU_INTEL_X86_ARCH, pfm_pmu_t.PFM_PMU_PERF_EVENT, pfm_pmu_t.PFM_PMU_PERF_EVENT_RAW)
+      val allSupportedPMUS = pfm_pmu_t.values().to[scala.collection.mutable.ArrayBuffer] -- generics
+      val activePMUS = scala.collection.mutable.ArrayBuffer[pfm_pmu_info_t]()
+
+      // The bit is_present is checked to know if a PMU is available or not. A shift is done because of a jnaerator/bridj limitation with bit fields struct.
+      for(pmu <- allSupportedPMUS) {
+        val pinfo = new pfm_pmu_info_t
+        val pinfoPointer = pointerTo(pinfo)
+        val ret = LibpfmLibrary.pfm_get_pmu_info(pmu, pinfoPointer)
+
+        if(ret == LibpfmLibrary.PFM_SUCCESS && ((pinfo.bits_def >> 32) & 1) == 1) {
+          activePMUS += pinfo
+        }
+      }
+    
+      activePMUS.toArray
+    }
+  
+    /**
+     * Get all the events contained in a PMU (with different UMASK).
+     */
+    def getEventsByPMU(pmu: pfm_pmu_info_t) = {
+      val einfo = new pfm_event_info_t
+      val einfoPointer = pointerTo(einfo)
+      var i = pmu.first_event
+      val events = scala.collection.mutable.ArrayBuffer[String]()
+
+      while(i != -1) {
+        if(LibpfmLibrary.pfm_get_event_info(i, pfm_os_t.PFM_OS_PERF_EVENT, einfoPointer) == LibpfmLibrary.PFM_SUCCESS) {
+          // If there is no equivalent event, we can keep the event.
+          if(einfo.equiv == null) {
+            val eventName = einfo.name.getCString()
+        
+            // We keep only the events with at least one UMASK. The event with only modifiers are shortcuts.
+            for(i <- 0 until einfo.nattrs) {
+              val ainfo = new pfm_event_attr_info_t
+              val ainfoPointer = pointerTo(ainfo)
+              val ret = LibpfmLibrary.pfm_get_event_attr_info(einfo.idx, i, pfm_os_t.PFM_OS_PERF_EVENT, ainfoPointer)
+
+              if(ret == LibpfmLibrary.PFM_SUCCESS) {
+                // Filter on the type because it could be also a MODIFIER.
+                if(ainfo.`type`.value == pfm_attr_t.PFM_ATTR_UMASK.value) {
+                  events += eventName + ":" + ainfo.name.getCString()
+                }
+              }
+            }
+          }
+
+          i = LibpfmLibrary.pfm_get_event_next(i)
+        }
+      }
+
+      events.toArray
+    }
+
+    (for(pmu <- specificPMUS) yield(getEventsByPMU(pmu))).flatten
   }
 
   /**
