@@ -21,6 +21,11 @@
         </dependency>
         <dependency>
             <groupId>fr.inria.powerapi.processor</groupId>
+            <artifactId>process-aggregator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.inria.powerapi.processor</groupId>
             <artifactId>timestamp-aggregator</artifactId>
             <version>${project.version}</version>
         </dependency>

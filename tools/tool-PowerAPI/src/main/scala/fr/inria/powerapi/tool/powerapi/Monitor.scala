@@ -73,7 +73,7 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
       // Special cases for libpfm sensor & formula.
       if(cpuSensor == "sensor-libpfm") {
         // One sensor per event.
-        events.distinct.foreach(event => powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmConfigured(event)))
+        events.distinct.foreach(event => powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmConfigured(event, bitset)))
       }
 
       if(cpuFormula == "formula-libpfm") {
