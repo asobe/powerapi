@@ -888,7 +888,7 @@ object SpearmansCountersExp extends fr.inria.powerapi.sensor.libpfm.LibpfmConfig
 
     val begin = System.nanoTime
     val parsecP = "/home/powerapi/parsec-2.1"
-    val benchmarks = Array("blackscholes", "bodytrack", "ferret", "freqmine", "raytrace", "swaptions", "vips", "x264")
+    val benchmarks = Array("vips", "x264", "dedup", "blackscholes", "bodytrack", "swaptions", "canneal", "ferret")
     val allEvents = LibpfmUtil.getAllSpecificEvents
     val nbEventPerSubset = 4
     var subEvents = Array[String]()
