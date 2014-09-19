@@ -97,7 +97,7 @@ class LibpfmSensor(event: String) extends Sensor with LibpfmConfiguration {
 
     // Get the associated threads for a given process.
     val threads = {
-      if(bits(1) == 0) {
+      if(bits(1) == 1) {
         tick.subscription.process.threads + tick.subscription.process.pid 
       }
       else Set[Int](tick.subscription.process.pid)
