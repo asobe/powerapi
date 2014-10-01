@@ -21,7 +21,7 @@
 package fr.inria.powerapi.tool.sampling
 
 import akka.actor.Actor
-import fr.inria.powerapi.core.{ ProcessedMessage, Reporter }
+import fr.inria.powerapi.core.{ ProcessedMessage, Reporter, Tick }
 import fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage
 import fr.inria.powerapi.reporter.file.FileReporter
 
@@ -38,51 +38,93 @@ object Util extends Configuration {
   
   // Allows to get all the available frequencies for the processor. All the core used the same frequencies so we used the first HT/Core see by the OS.
   def availableFrequencies: Option[Array[Long]] = {
-    if(cpuFreq) {
+    if(dvfs) {
       Some(scala.io.Source.fromFile(scalingFreqPath.replace("%?", "0")).mkString.trim.split(" ").map(_.toLong).sorted)
     }
     else None
   }
+}
 
-  // Used to get the processor topology.
-  def topology: Map[Int, Array[Int]] = {
-     // TODO: refactor to use hwloc
-    Map(0 -> Array(0,4), 1 -> Array(1,5), 2 -> Array(2,6), 3 -> Array(3,7))
+// Redirect the writes to the Writer actor.
+class PowerspyReporter extends FileReporter with Configuration {
+  override def process(processedMessage: ProcessedMessage) {
+    context.system.eventStream.publish(LineToWrite(outPathPowerspy, processedMessage.energy.power + "\n"))
   }
 }
 
-class PowerspyReporter extends FileReporter with Configuration {
-  override lazy val filePath = outPathPowerspy
+case class LineToWrite(filename: String, str: String)
 
-  override def process(processedMessage: ProcessedMessage) {
-    val power = processedMessage.energy.power
-    val newLine = scalax.io.Line.Terminators.NewLine.sep
-    output.append(s"$power$newLine")
+class Writer extends Actor with akka.actor.ActorLogging {
+  val resources = scala.collection.mutable.HashMap[String, java.io.FileWriter]()
+
+  override def preStart() = {
+    context.system.eventStream.subscribe(self, classOf[LineToWrite])
+  }
+
+  override def postStop() = {
+    context.system.eventStream.unsubscribe(self, classOf[LineToWrite])
+    resources.foreach {
+      case (_, writer) => writer.close()
+    }
+  }
+
+  def receive() = {
+    case line: LineToWrite => process(line)
+    case _ => println("ooops ... the message cannot be handled!")
+  }
+
+  def process(line: LineToWrite) {
+    if(!resources.contains(line.filename)) {
+      val filewriter = try {
+        new java.io.FileWriter(line.filename, true)
+      }   
+      catch {
+        case e: java.io.IOException => if(log.isErrorEnabled) log.error("Oops, the Writer actor is not able to store the data in the givent files ..."); null
+      }
+      
+      if(filewriter != null) {  
+        resources += (line.filename -> filewriter)
+      }
+    }
+    
+    if(resources.contains(line.filename)) {
+      resources(line.filename).write(line.str)
+      resources(line.filename).flush()
+    }
   }
 }
 
 /**
- * It is a specific component to handle directly the messages produce by the LibpfmSensor.
- * We just want to write the counter values into a file.
+ * It is a specific component to handle directly the messages produce by the LibpfmCoreSensor component.
  */
 class LibpfmListener extends Actor with Configuration {
-  // Store all the streams to improve the speed processing.
-  val resources = scala.collection.mutable.HashMap[String, SeekableByteChannelResource[SeekableByteChannel]]()
-  
+  var timestamp = -1l
+  val cache = scala.collection.mutable.HashMap[String, scala.collection.mutable.ListBuffer[LibpfmCoreSensorMessage]]()
+ 
   override def preStart() = {
     context.system.eventStream.subscribe(self, classOf[LibpfmCoreSensorMessage])
   }
 
   override def postStop() = {
     context.system.eventStream.unsubscribe(self, classOf[LibpfmCoreSensorMessage])
-    resources.clear()
+    timestamp = -1l
+    cache.clear()
   }
 
-  case class Line(sensorMessage: LibpfmCoreSensorMessage) {
-    val counter = sensorMessage.counter.value
-    val newLine = scalax.io.Line.Terminators.NewLine.sep
-    
-    override def toString() = s"$counter$newLine"
+  case class Line(messages: List[LibpfmCoreSensorMessage]) {
+    val aggregated = messages.foldLeft(0l)((acc, message) => acc + message.counter.value)
+    override def toString() = s"$aggregated\n"
+  }
+  
+  def addToCache(event: String, sensorMessage: LibpfmCoreSensorMessage) = {
+    cache.get(event) match {
+      case Some(buffer) => buffer += sensorMessage
+      case None => {
+        val buffer = scala.collection.mutable.ListBuffer[LibpfmCoreSensorMessage]()
+        buffer += sensorMessage
+        cache += (event -> buffer)
+      }
+    }
   }
 
   def receive() = {
@@ -90,13 +132,18 @@ class LibpfmListener extends Actor with Configuration {
   }
 
   def process(sensorMessage: LibpfmCoreSensorMessage) {
-    def updateResources(name: String, osIndex: Int): SeekableByteChannelResource[SeekableByteChannel] = {
-      val output = Resource.fromFile(s"$outBasePathLibpfm$name-$osIndex.dat")
-      resources += (name + "-" + osIndex -> output)
-      output
+    if(timestamp == -1) timestamp = sensorMessage.tick.timestamp
+    
+    if(sensorMessage.tick.timestamp > timestamp) {
+      cache.par.foreach {
+        case (event, messages) => {
+          context.system.eventStream.publish(LineToWrite(s"$outBasePathLibpfm$event.dat", Line(messages.toList).toString))
+        }
+      }
+      timestamp = sensorMessage.tick.timestamp
+      cache.clear()
     }
 
-    val output = resources.getOrElse(sensorMessage.event.name + "-" + sensorMessage.core.id, updateResources(sensorMessage.event.name, sensorMessage.core.id))
-    output.append(Line(sensorMessage).toString)
+    addToCache(sensorMessage.event.name, sensorMessage)
   }
 }

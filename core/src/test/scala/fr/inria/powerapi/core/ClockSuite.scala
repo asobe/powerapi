@@ -48,7 +48,7 @@ class ByClockTickReceiver extends akka.actor.Actor with ActorLogging {
   }
 
   def receive = {
-    case tick: Tick => increment(tick.clockid)
+    case tick: Tick => increment(tick.subscription.clockid)
     case unknown => throw new UnsupportedOperationException("unable to process message " + unknown)
   }
 }

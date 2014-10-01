@@ -51,8 +51,13 @@ case class TickSubscription(clockid: Long, process: Process, duration: FiniteDur
  * Each time period is "ticked", as a clock "tick", according to a specific timestamp.
  * A Tick is a wrapper of this specific clockid (so, a specific monitoring) and timestamp, according a given TickSubscription.
  */
-case class Tick(clockid: Long, subscription: TickSubscription, timestamp: Long = System.currentTimeMillis) extends Message with Ordering[Tick] {
-  def compare(a: Tick, b: Tick) = a.timestamp compare b.timestamp
+case class Tick(subscription: TickSubscription, timestamp: Long = System.currentTimeMillis) extends Message with Ordering[Tick] {
+  def compare(a: Tick, b: Tick) = {
+    if(a.subscription.clockid == b.subscription.clockid) {
+      a.timestamp compare b.timestamp
+    }
+    else -1
+  }
 }
 
 /**

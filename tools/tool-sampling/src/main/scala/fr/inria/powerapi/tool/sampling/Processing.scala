@@ -27,7 +27,7 @@ import scalax.io.Resource
 /**
  * Allows to process the data collected and create the csv files used during the regression step.
  */
-object Processing extends Configuration {
+/*object Processing extends Configuration {
   private def process(frequency: Long, turboMode: Boolean) = {
     implicit val codec = scalax.io.Codec.UTF8
 
@@ -239,4 +239,4 @@ object Processing extends Configuration {
 
     else process(defaultFrequency, false)
   }
-}
+}*/

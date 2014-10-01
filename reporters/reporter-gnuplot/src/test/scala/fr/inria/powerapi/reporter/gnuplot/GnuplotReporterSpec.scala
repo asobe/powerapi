@@ -72,18 +72,18 @@ case class ProcessedMessageMock(tick: Tick, energy: Energy, device: String = "mo
 
 class GnuplotReporterMock extends GnuplotReporter with ConfigurationMock
 
-// TODO: Rewrite the GnuplotReporter, too many dependencies with the too module (just write the values in a file ..)
+// TODO: Rewrite the GnuplotReporter, too many dependencies (just write the values in a file ..)
 @RunWith(classOf[JUnitRunner])
 class GnuplotReporterSpec extends FlatSpec with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("gnuplot-reporter-spec")
   val gnuplotReporter = TestActorRef[GnuplotReporterMock]
 
-  val prM1 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(123), 1 second), 1), Energy.fromPower(1))
-  val prM2 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(456), 1 second), 1), Energy.fromPower(6))
-  val prM3 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(123), 1 second), 2), Energy.fromPower(2))
-  val prM4 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(456), 1 second), 2), Energy.fromPower(8))
-  val prM5 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(123), 1 second), 3), Energy.fromPower(4))
-  val prM6 = ProcessedMessageMock(Tick(1, TickSubscription(1, Process(456), 1 second), 3), Energy.fromPower(10))
+  val prM1 = ProcessedMessageMock(Tick(TickSubscription(1, Process(123), 1 second), 1), Energy.fromPower(1))
+  val prM2 = ProcessedMessageMock(Tick(TickSubscription(1, Process(456), 1 second), 1), Energy.fromPower(6))
+  val prM3 = ProcessedMessageMock(Tick(TickSubscription(1, Process(123), 1 second), 2), Energy.fromPower(2))
+  val prM4 = ProcessedMessageMock(Tick(TickSubscription(1, Process(456), 1 second), 2), Energy.fromPower(8))
+  val prM5 = ProcessedMessageMock(Tick(TickSubscription(1, Process(123), 1 second), 3), Energy.fromPower(4))
+  val prM6 = ProcessedMessageMock(Tick(TickSubscription(1, Process(456), 1 second), 3), Energy.fromPower(10))
 
   "A GnuplotReporter" should "process a ProcessedMessage" in {
     gnuplotReporter.underlyingActor.process(prM1)

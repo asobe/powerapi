@@ -31,24 +31,18 @@ import scala.collection
  * Aggregates FormulaMessages by their clockids (which represent the different monitorings), timestamps and processes.
  */
 class ProcessAggregator extends TimestampAggregator {
-  def byProcesses(implicit timestamp: Long): Iterable[AggregatedMessage] = {
-    val base = cache(timestamp)
-    val messages = collection.mutable.ArrayBuffer.empty[AggregatedMessage]
+  // clockid, timestamp
+  def byProcesses(implicit args: List[Long]): Iterable[AggregatedMessage] = {
+    val base = cache(args(0))(args(1))
     
-    for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) {
-      for (byProcess <- byMonitoring._2.groupBy(_.tick.subscription.process)) {
-        messages += AggregatedMessage(
-          tick = Tick(byMonitoring._1, TickSubscription(byMonitoring._1, byProcess._1, base.tick.subscription.duration), timestamp),
-          device = "all",
-          messages = byProcess._2
-        )
-      }
-    }
-
-    messages
+    for (byProcess <- base.messages.groupBy(_.tick.subscription.process)) yield (AggregatedMessage(
+      tick = Tick(TickSubscription(args(0), byProcess._1, base.tick.subscription.duration), args(1)),
+      device = "all",
+      messages = byProcess._2)
+    )
   }
 
-  override def send(implicit timestamp: Long) {
+  override def send(implicit args: List[Long]) {
     byProcesses foreach publish
   }
 }

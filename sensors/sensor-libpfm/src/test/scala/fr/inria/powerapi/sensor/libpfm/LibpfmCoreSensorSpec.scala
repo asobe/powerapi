@@ -35,6 +35,7 @@ import java.lang.management.ManagementFactory
 
 import fr.inria.powerapi.core.{ Tick, TickSubscription, Process }
 
+// TODO: Improve the tests coverage.
 @RunWith(classOf[JUnitRunner])
 class LibpfmCoreSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
   val currentPid = ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
@@ -42,8 +43,8 @@ class LibpfmCoreSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   val bitset = new java.util.BitSet()
 
-  val libpfmCore0Sensor = TestActorRef(new LibpfmCoreSensor("instructions", bitset, 0, Array(0,4)))
-  val libpfmCore1Sensor = TestActorRef(new LibpfmCoreSensor("instructions", bitset, 1, Array(1,5))) 
+  val libpfmCore0Sensor0 = TestActorRef(new LibpfmCoreSensor("instructions", bitset, 0, Array(0)))
+  val libpfmCore0Sensor1 = TestActorRef(new LibpfmCoreSensor("cycles", bitset, 0, Array(0))) 
   val listener = TestActorRef[Listener]
 
   before {
@@ -56,14 +57,16 @@ class LibpfmCoreSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
   "A LibpfmCoreSensor" should "have to be configured" in {
     val bitset = new java.util.BitSet()
-    libpfmCore0Sensor.underlyingActor.bitset should equal(bitset)
-    libpfmCore1Sensor.underlyingActor.bitset should equal(bitset)
+    libpfmCore0Sensor0.underlyingActor.bitset should equal(bitset)
+    libpfmCore0Sensor0.underlyingActor.osIndexes should equal(Array(0))
+    libpfmCore0Sensor1.underlyingActor.bitset should equal(bitset)
+    libpfmCore0Sensor1.underlyingActor.osIndexes should equal(Array(0))
   }
 
   "A LibpfmCoreSensor" should "process a Tick message" in {
-    val m1 = Tick(1, TickSubscription(1, Process(currentPid), 1.seconds), 1)
-    libpfmCore0Sensor.underlyingActor.process(m1)
-    libpfmCore1Sensor.underlyingActor.process(m1)
+    val m1 = Tick(TickSubscription(1, Process(currentPid), 1.seconds), 1)
+    libpfmCore0Sensor0.underlyingActor.process(m1)
+    libpfmCore0Sensor1.underlyingActor.process(m1)
     listener.underlyingActor.received should equal(2)
   }
 }

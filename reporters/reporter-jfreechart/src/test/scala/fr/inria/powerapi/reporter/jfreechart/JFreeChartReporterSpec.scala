@@ -50,7 +50,7 @@ class JFreeChartReporterSpec extends FlatSpec with Matchers with AssertionsForJU
     var current = begin
 
     while(current <= (begin + (5.seconds).toMillis)) {
-      jfreechartReporter.underlyingActor.process(ProcessedMessageMock(Tick(1, TickSubscription(1, Process(123), 1 second), current), Energy.fromPower(5)))
+      jfreechartReporter.underlyingActor.process(ProcessedMessageMock(Tick(TickSubscription(1, Process(123), 1 second), current), Energy.fromPower(5)))
       current += (1.seconds).toMillis
       Thread.sleep((1.seconds).toMillis)
     }

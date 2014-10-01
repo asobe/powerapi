@@ -33,24 +33,18 @@ import fr.inria.powerapi.core.Process
  * Note that Process(-1) means "all processes".
  */
 class DeviceAggregator extends TimestampAggregator {
-  def byDevices(implicit timestamp: Long): Iterable[AggregatedMessage] = {
-    val base = cache(timestamp)
-    val messages = collection.mutable.ArrayBuffer.empty[AggregatedMessage]
+  // clockid, timestamp
+  def byDevices(implicit args: List[Long]): Iterable[AggregatedMessage] = {
+    val base = cache(args(0))(args(1))
 
-    for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) {
-      for (byDevice <- byMonitoring._2.groupBy(_.device)) {
-        messages += AggregatedMessage(
-          tick = Tick(byMonitoring._1, TickSubscription(byMonitoring._1, Process(-1), base.tick.subscription.duration), timestamp),
-          device = byDevice._1,
-          messages = byDevice._2
-        )
-      }
-    }
-
-    messages
+    for (byDevice <- base.messages.groupBy(_.device)) yield (AggregatedMessage(
+      tick = Tick(TickSubscription(args(0), Process(-1), duration = base.tick.subscription.duration), args(1)),
+      device = byDevice._1,
+      messages = byDevice._2)
+    )
   }
 
-  override def send(implicit timestamp: Long) {
+  override def send(implicit args: List[Long]) {
     byDevices foreach publish
   }
 }

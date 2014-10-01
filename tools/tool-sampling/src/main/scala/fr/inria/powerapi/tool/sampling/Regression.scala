@@ -25,7 +25,7 @@ import breeze.numerics._
 import scalax.file.Path
 import scalax.io.Resource
 
-object PolynomialRegression extends Configuration {
+/*object PolynomialRegression extends Configuration {
   /**
    * Allows to read a matrix written in a file represented by its path.
    */
@@ -123,4 +123,4 @@ object PolynomialRegression extends Configuration {
  
     lines.foreach(line => Resource.fromFile(s"$formulaePath/libpfm-formula.conf").append(line))
   }
-}
+}*/

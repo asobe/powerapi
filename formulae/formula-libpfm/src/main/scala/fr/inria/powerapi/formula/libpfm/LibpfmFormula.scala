@@ -20,50 +20,18 @@
  */
 package fr.inria.powerapi.formula.libpfm
 
-import fr.inria.powerapi.core.{ Component, Energy, Formula, FormulaMessage, Message, Tick, TickSubscription }
-import fr.inria.powerapi.sensor.libpfm.{ Counter, Event, LibpfmSensorMessage }
+import fr.inria.powerapi.core.{ Component, Energy, Formula, Message, Tick, TickSubscription }
+import fr.inria.powerapi.sensor.libpfm.LibpfmSensorMessage
 import fr.inria.powerapi.sensor.cpu.api.TimeInStates
 
-import scala.collection
 import scala.collection.JavaConversions
 import scala.collection.JavaConversions._
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.DurationInt
 
-import scalax.file.Path
 import com.typesafe.config.Config
 
 import scalax.io.Resource
-
-/**
- * Configuration part.
- */
-trait Configuration extends fr.inria.powerapi.core.Configuration {
-  lazy val formulae = load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.formulae")))
-        yield (item.asInstanceOf[Config].getLong("freq"), JavaConversions.asScalaBuffer(item.asInstanceOf[Config].getDoubleList("formula").map(_.toDouble)).toArray)).toMap[Long, Array[Double]]
-  } (Map[Long, Array[Double]]())
-
-  lazy val events = (load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.events")))
-        yield (item.asInstanceOf[Config].getString("event"))).toArray
-  } (Array[String]())).sorted
-
-  /** Thread numbers. */
-  lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
-  /** Option used to know if cpufreq is enabled or not. */
-  lazy val cpuFreq = load { _.getBoolean("powerapi.cpu.cpufreq-utils") }(false)
-  /** Path to time_in_state file. */
-  lazy val timeInStatePath = load { _.getString("powerapi.cpu.time-in-state") }("file:///sys/devices/system/cpu/cpu%?/cpufreq/stats/time_in_state")
-}
-
-/**
- * Messages.
- */
-case class LibpfmListenerMessage(tick: Tick, timeInStates: TimeInStates = TimeInStates(Map[Int, Long]()), messages: List[LibpfmSensorMessage]) extends Message
-case class LibpfmFormulaMessage(tick: Tick, energy: Energy, device: String = "cpu") extends FormulaMessage
 
 /**
  * This actor is used to delegate the processing of LibpfmSensorMessage. Indeed, one sensor message is published by event/process,
@@ -71,7 +39,7 @@ case class LibpfmFormulaMessage(tick: Tick, energy: Energy, device: String = "cp
  * A cache is used to retrieve the sensor messages and store them for a given tick. When a new timestamp is detected, the messages for
  * the process are published.
  */
-class LibpfmListener extends Component with Configuration {
+class LibpfmListener extends Component with LibpfmFormulaConfiguration {
   /**
    * Delegate class to deal with time spent within each CPU frequencies.
    */
@@ -138,7 +106,7 @@ class LibpfmListener extends Component with Configuration {
   def process(libpfmSensorMessage: LibpfmSensorMessage) = {
     // Cache is filtered, we send the messages only if we received a new tick for a process in a given monitoring.
     val filteredEntry = cache.filter(entry => {
-      entry._1.clockid == libpfmSensorMessage.tick.clockid &&
+      entry._1.subscription.clockid == libpfmSensorMessage.tick.subscription.clockid &&
       entry._1.subscription.process == libpfmSensorMessage.tick.subscription.process
     })
     
@@ -148,7 +116,7 @@ class LibpfmListener extends Component with Configuration {
       if(filteredEntry.size == 1) {
         val entry = filteredEntry.head
 
-        if(cpuFreq) {
+        if(dvfs) {
           publish(LibpfmListenerMessage(tick = entry._1, timeInStates = frequencies.process(entry._1.subscription), messages = entry._2.toList))
         }
 
@@ -169,7 +137,7 @@ class LibpfmListener extends Component with Configuration {
  * Also, it takes into account DVFS with the time_in_state file which is provided by the cpufrequtils tool.
  * Be careful, some kernel versions have bugs with it (it works fine with a kernel 3.8).
  */
-class LibpfmFormula extends Formula with Configuration {
+class LibpfmFormula extends Formula with LibpfmFormulaConfiguration {
   def messagesToListen = Array(classOf[LibpfmListenerMessage])
 
   def acquire = {
@@ -204,7 +172,7 @@ class LibpfmFormula extends Formula with Configuration {
     // We assume the order is the same (sorted).
     // Variables injection into the formula.
     // Be careful, this part is Intel specific for the moment. We have to extend it for the other architectures.
-    if(cpuFreq) {
+    if(dvfs) {
       var frequencies = scala.collection.mutable.ArrayBuffer[Long]()
       frequencies ++= libpfmListenerMessage.timeInStates.times.keys.map(_.toLong).toArray
       frequencies = frequencies.sorted

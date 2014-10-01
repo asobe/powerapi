@@ -22,10 +22,11 @@
 package fr.inria.powerapi.sensor.libpfm
 
 import scala.collection.JavaConversions
+import scala.collection.JavaConversions._
 import com.typesafe.config.Config
 
 /**
- * Libpfm sensor configuration.
+ * Libpfm counter configuration.
  */
 trait LibpfmConfiguration extends fr.inria.powerapi.core.Configuration {
   /** Read all bit fields from the configuration. */
@@ -79,10 +80,10 @@ trait LibpfmConfiguration extends fr.inria.powerapi.core.Configuration {
 * LibpfmCoreSensor configuration.
 */
 trait LibpfmCoreConfiguration extends LibpfmConfiguration {
-  /** Hyperthread identifiers */
-  lazy val htIndexes = load {
+  /** Processor topology (with HTs if the HT feature is enabled). */
+  lazy val topology = load {
     conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.hyperthread-indexes")))
-        yield (item.asInstanceOf[Config].getInt("ht-index"))).toArray
-  }(Array[Int]())
+      scala.collection.immutable.SortedMap((for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.cpu.topology")))
+        yield (item.asInstanceOf[Config].getInt("core"), JavaConversions.asScalaBuffer(item.asInstanceOf[Config].getIntList("osIndexes").map(_.toInt)).toArray)).toMap[Int, Array[Int]].toSeq: _*)
+  } (scala.collection.immutable.SortedMap.empty[Int, Array[Int]])
 }

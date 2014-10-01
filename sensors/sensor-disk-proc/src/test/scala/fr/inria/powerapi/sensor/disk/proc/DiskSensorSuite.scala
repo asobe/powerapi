@@ -58,7 +58,7 @@ class DiskSensorSuite extends JUnitSuite with Matchers {
   }
 
   implicit val system = ActorSystem("DiskSensorSuite")
-  implicit val tick = Tick(1, TickSubscription(1, Process(123), 1.second))
+  implicit val tick = Tick(TickSubscription(1, Process(123), 1.second))
   val diskSensor = TestActorRef(new DiskSensor with ConfigurationMock)
 
   @Test

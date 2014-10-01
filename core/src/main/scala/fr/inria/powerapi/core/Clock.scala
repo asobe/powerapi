@@ -245,7 +245,7 @@ class ClockWorker(clockid: Long, eventBus: EventStream, processes: Array[Process
       if (scheduler == null) {
         scheduler = context.system.scheduler.schedule(Duration.Zero, frequency)({
           val timestamp = System.currentTimeMillis
-          subscriptions.foreach(subscription => eventBus.publish(Tick(clockid, subscription, timestamp)))
+          subscriptions.foreach(subscription => eventBus.publish(Tick(subscription, timestamp)))
         })(context.system.dispatcher)
       }
     }

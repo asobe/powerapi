@@ -40,8 +40,8 @@ case class FormulaMessageMock(energy: Energy, tick: Tick, device: String = "mock
 class ProcessAggregatorMock extends ProcessAggregator {
   val sent = collection.mutable.Map[(Long, Process), AggregatedMessage]()
 
-  override def send(implicit timestamp: Long) {
-    byProcesses foreach (msg => sent += (msg.tick.clockid, msg.tick.subscription.process) -> msg)
+  override def send(implicit args: List[Long]) {
+    byProcesses foreach (msg => sent += (args(0), msg.tick.subscription.process) -> msg)
   }
 }
 
@@ -56,24 +56,22 @@ class ProcessAggregatorSpec extends FlatSpec with Matchers with AssertionsForJUn
   }
 
   "A ProcessAggregator" should "process a FormulaMessage" in {
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(1, Process(123), 1 second), 1), device = "cpu"))
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(1, TickSubscription(1, Process(123), 1 second), 1), device = "mem"))
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(1, TickSubscription(1, Process(345), 1 second), 1), device = "cpu"))
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(2, TickSubscription(2, Process(123), 1 second), 1), device = "cpu"))
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(2, TickSubscription(2, Process(123), 1 second), 1), device = "mem"))
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(2, TickSubscription(2, Process(345), 1 second), 1), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(1, Process(123), 1 second), 1), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(2), Tick(TickSubscription(1, Process(123), 1 second), 1), device = "mem"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(3), Tick(TickSubscription(1, Process(345), 1 second), 1), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(4), Tick(TickSubscription(2, Process(123), 1 second), 1), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(5), Tick(TickSubscription(2, Process(123), 1 second), 1), device = "mem"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(6), Tick(TickSubscription(2, Process(345), 1 second), 1), device = "cpu"))
 
     processAggregator.underlyingActor.sent should be('empty)
 
-    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(1, TickSubscription(1, Process(123), 1 second), 2), device = "cpu"))
+    processAggregator.underlyingActor.process(FormulaMessageMock(Energy.fromPower(1), Tick(TickSubscription(1, Process(123), 1 second), 2), device = "cpu"))
 
-    processAggregator.underlyingActor.sent should have size 4
-    processAggregator.underlyingActor.sent should (contain key (1, Process(123)) and contain key (1, Process(345)))
+    processAggregator.underlyingActor.sent should have size 2
+    processAggregator.underlyingActor.sent should (contain key (1, Process(123)) and contain key(1, Process(345)))
     processAggregator.underlyingActor.sent(1, Process(123)).energy should equal(Energy.fromPower(1 + 2))
     processAggregator.underlyingActor.sent(1, Process(345)).energy should equal(Energy.fromPower(3))
 
-    processAggregator.underlyingActor.sent should (contain key (2, Process(123)) and contain key (2, Process(345)))
-    processAggregator.underlyingActor.sent(2, Process(123)).energy should equal(Energy.fromPower(4 + 5))
-    processAggregator.underlyingActor.sent(2, Process(345)).energy should equal(Energy.fromPower(6))
+    processAggregator.underlyingActor.sent should (not contain key(2, Process(123)) and not contain key(2, Process(345)))
   }
 }

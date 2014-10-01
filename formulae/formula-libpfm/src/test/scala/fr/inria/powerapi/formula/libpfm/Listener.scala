@@ -18,34 +18,21 @@
  *
  * Contact: powerapi-user-list@googlegroups.com.
  */
+package fr.inria.powerapi.formula.libpfm
 
-package fr.inria.powerapi.sensor.libpfm
+import fr.inria.powerapi.core.FormulaMessage
 
-import fr.inria.powerapi.core.{ SensorMessage, Tick }
+class FormulaMessageListener extends akka.actor.Actor {
+  override def preStart() = {
+    context.system.eventStream.subscribe(self, classOf[FormulaMessage])
+  }
 
-/**
- * Libpfm sensor messages.
- */
-case class Core(id: Int)
-case class Counter(value: Long)
-case class Event(name: String)
+  val messages = scala.collection.mutable.Set[FormulaMessage]()
 
-case class LibpfmSensorMessage(
-  counter: Counter = Counter(0),
-  event: Event = Event("none"),
-  tick: Tick
-) extends SensorMessage
-
-
-case class LibpfmCoresSensorMessage(
-  counter: Counter = Counter(0),
-  event: Event = Event("none"),
-  tick: Tick
-) extends SensorMessage
-
-case class LibpfmCoreSensorMessage(
-  core: Core = Core(-1),
-  counter: Counter = Counter(0),
-  event: Event = Event("none"),
-  tick: Tick
-) extends SensorMessage
+  def receive() = {
+    case formulaMessage: FormulaMessage => {
+      messages += formulaMessage
+    }
+    case _ => println("ooops ...")
+  }
+}

@@ -21,7 +21,7 @@
 
 package fr.inria.powerapi.sensor.libpfm;
 
-import fr.inria.powerapi.core.{ Identifier, CID, TID }
+import fr.inria.powerapi.core.{ Identifier, CID, TCID, TID }
 import perfmon2.libpfm.{ LibpfmLibrary, perf_event_attr, pfm_perf_encode_arg_t, pfm_event_info_t, pfm_pmu_info_t, pfm_event_attr_info_t }
 import perfmon2.libpfm.LibpfmLibrary.{ pfm_os_t, pfm_pmu_t, pfm_attr_t }
 
@@ -121,12 +121,11 @@ object LibpfmUtil {
       eventAttr.read_format(perfFormatScale)
       eventAttr.bits_config(convertBitsetToLong(configuration))
 
-      var id = -1
-
       // Opens the file descriptor.
       val fd = identifier match {
-        case TID(tid) => id = tid; CUtils.perf_event_open(eventAttrPointer, tid, -1, -1, 0)
-        case CID(cid) => id = cid; CUtils.perf_event_open(eventAttrPointer, -1, cid, -1, 0)
+        case TID(tid) => CUtils.perf_event_open(eventAttrPointer, tid, -1, -1, 0)
+        case CID(cid) => CUtils.perf_event_open(eventAttrPointer, -1, cid, -1, 0)
+        case TCID(tid, cid) => CUtils.perf_event_open(eventAttrPointer, tid, cid, -1, 0)
         case _ => {
           if(logger.isEnabledFor(Level.ERROR)) logger.error("The type of the first parameter is unknown.")
           -1
@@ -138,7 +137,7 @@ object LibpfmUtil {
       }
 
       else {
-        if(logger.isEnabledFor(Level.WARN)) logger.warn(s"Libpfm is not able to open a counter for the identifier $id on the event $name.")
+        if(logger.isEnabledFor(Level.WARN)) logger.warn(s"Libpfm is not able to open a counter for the event $name.")
         None
       }
     }

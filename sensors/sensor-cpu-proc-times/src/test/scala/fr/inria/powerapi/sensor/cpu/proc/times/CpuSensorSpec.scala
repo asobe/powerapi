@@ -47,7 +47,7 @@ class CpuSensorSpec extends FlatSpec with Matchers {
   }
 
   implicit val system = ActorSystem("cpusensorsuite")
-  implicit val tick = Tick(1, TickSubscription(1, Process(123), 1.second))
+  implicit val tick = Tick(TickSubscription(1, Process(123), 1.second))
   val cpuSensor = TestActorRef(new CpuSensor with ConfigurationMock)
 
   "Frequencies' time in states" should "be correctly read from the dedicated system file" in {

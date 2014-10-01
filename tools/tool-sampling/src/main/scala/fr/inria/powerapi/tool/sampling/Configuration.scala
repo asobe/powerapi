@@ -20,13 +20,13 @@
  */
 package fr.inria.powerapi.tool.sampling
 
-trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
-  /** Thread numbers. */
-  lazy val threads = load { _.getInt("powerapi.cpu.threads") }(0)
+trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration with fr.inria.powerapi.sensor.libpfm.LibpfmCoreConfiguration {
+  /** Number of cores (#logicals or #physicals) . */
+  lazy val cores = load { _.getInt("powerapi.cpu.cores") }(0)
   /** Turbo mode ? */
   lazy val turbo = load { _.getBoolean("powerapi.cpu.turbo") }(false)
   /** Option used to know if cpufreq is enable or not. */
-  lazy val cpuFreq = load { _.getBoolean("powerapi.cpu.cpufreq-utils") }(false)
+  lazy val dvfs = load { _.getBoolean("powerapi.cpu.dvfs") }(false)
   /** Number of samples .*/
   lazy val samples = load { _.getInt("powerapi.tool.sampling.samples") }(0)
   /** Number of required messages per step. */
@@ -49,7 +49,7 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
   /** Default values for the output files. */
   lazy val outBasePathLibpfm = "output-libpfm-"
   lazy val outPathPowerspy = "output-powerspy.dat"
-  lazy val separator = "======="
+  lazy val separator = "="
   lazy val separatorSymbol = "="
   /** Default values for data processing. */
   lazy val elements = Array("cpu")
@@ -58,3 +58,4 @@ trait Configuration extends fr.inria.powerapi.core.Configuration with fr.inria.p
   /** Default value when cpufreq-utils is disable (used to create the folder hierarchy). */
   lazy val defaultFrequency = 0L
 }
+

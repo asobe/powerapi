@@ -55,43 +55,35 @@ case class AggregatedMessage(tick: Tick, device: String, messages: collection.mu
 class TimestampAggregator extends Processor {
   // Cache has to be created during the instance creation in order to limit overhead
   // and thus reduce latency when receiving formula messages.
-  val cache = collection.mutable.Map[Long, AggregatedMessage]()
+  // [clockid -> [timestamp -> messages]]
+  val cache = collection.mutable.Map[Long, collection.mutable.Map[Long, AggregatedMessage]]()
 
   def addToCache(formulaMessage: FormulaMessage) {
-    cache get formulaMessage.tick.timestamp match {
+    if(!cache.contains(formulaMessage.tick.subscription.clockid)) cache(formulaMessage.tick.subscription.clockid) = collection.mutable.Map[Long, AggregatedMessage]()
+
+    cache(formulaMessage.tick.subscription.clockid) get formulaMessage.tick.timestamp match {
       case Some(agg) => agg += RowMessage(formulaMessage.tick, formulaMessage.device, formulaMessage.energy)
       case None => {
-        val agg = AggregatedMessage(tick = Tick(formulaMessage.tick.clockid, TickSubscription(formulaMessage.tick.clockid, Process(-1), formulaMessage.tick.subscription.duration)), device = "all")
+        val agg = AggregatedMessage(tick = Tick(TickSubscription(formulaMessage.tick.subscription.clockid, Process(-1), formulaMessage.tick.subscription.duration)), device = "all")
         agg += RowMessage(formulaMessage.tick, formulaMessage.device, formulaMessage.energy)
-        cache += formulaMessage.tick.timestamp -> agg
+        cache(formulaMessage.tick.subscription.clockid) += formulaMessage.tick.timestamp -> agg
       }
     }
   }
 
-  def dropFromCache(implicit timestamp: Long) {
-    cache -= timestamp
+  // clockid, timestamp
+  def dropFromCache(implicit args: List[Long]) {
+    cache(args(0)) -= args(1)
   }
 
-  def byClocks(implicit timestamp: Long): Iterable[AggregatedMessage] = {
-    val base = cache(timestamp)
-    // Group by timestamp (which is represented by one entry in the cache) and clockid
-    val messages = for (byMonitoring <- base.messages.groupBy(_.tick.clockid)) yield (AggregatedMessage(
-      tick = Tick(byMonitoring._1, TickSubscription(byMonitoring._1, Process(-1), base.tick.subscription.duration), timestamp),
-      device = "all",
-      messages = byMonitoring._2)
-    )
-
-    messages
-  }
-
-  def send(implicit timestamp: Long) {
-    byClocks foreach publish
+  def send(implicit args: List[Long]) {
+    publish(cache(args(0))(args(1)))
   }
 
   def process(formulaMessage: FormulaMessage) {
-    if (!cache.isEmpty && !cache.contains(formulaMessage.tick.timestamp)) {
+    if (!cache.isEmpty && cache.contains(formulaMessage.tick.subscription.clockid) && !cache(formulaMessage.tick.subscription.clockid).contains(formulaMessage.tick.timestamp)) {
       // Get first timestamp to inject it in each method
-      implicit val toDisplay = cache.minBy(_._1)._1
+      implicit val args: List[Long] = List(formulaMessage.tick.subscription.clockid, cache(formulaMessage.tick.subscription.clockid).minBy(_._1)._1)
       send
       dropFromCache
     }

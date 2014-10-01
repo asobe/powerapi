@@ -57,7 +57,7 @@ class ExtendGnuplotReporter extends fr.inria.powerapi.reporter.gnuplot.GnuplotRe
   override lazy val devices = Monitor.allDevs
 }
 
-object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
+object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration with fr.inria.powerapi.sensor.libpfm.LibpfmCoreConfiguration {
   var devs = List[String]("cpu")
 
   def start(cpuSensor:String, cpuFormula:String,
@@ -67,18 +67,32 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration {
 
     val powerapi = new fr.inria.powerapi.library.PAPI
     
-    if(cpuSensor == "sensor-libpfm" || cpuFormula == "formula-libpfm") {
+    // Special cases for libpfm sensors & formulae.
+    if((cpuSensor == "sensor-libpfm" || cpuSensor == "sensor-libpfm-core-process") && (cpuFormula == "formula-libpfm" || cpuFormula == "formula-libpfm-core-cycles")) {
       fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()
 
-      // Special cases for libpfm sensor & formula.
       if(cpuSensor == "sensor-libpfm") {
         // One sensor per event.
         events.distinct.foreach(event => powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmConfigured(event, bitset)))
       }
 
+      if(cpuSensor == "sensor-libpfm-core-process") {
+        for((core, osIndexes) <- topology) {
+          for(event <- events.distinct) {
+            // One sensor per core, per event.
+            powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmCoreProcessConfigured(event, bitset, core, osIndexes))
+          }
+        }
+      }
+
       if(cpuFormula == "formula-libpfm") {
         powerapi.configure(fr.inria.powerapi.formula.libpfm.FormulaListener)
         powerapi.configure(fr.inria.powerapi.formula.libpfm.FormulaLibpfm)
+      }
+      
+      if(cpuFormula == "formula-libpfm-core-cycles") {
+        powerapi.configure(fr.inria.powerapi.formula.libpfm.FormulaLibpfmCoreCyclesComponent)
+        powerapi.configure(fr.inria.powerapi.formula.libpfm.ListenerLibpfmCoreCyclesComponent)
       }
     }
 
@@ -157,7 +171,7 @@ object Monitor extends App {
       powerspy.stop
     }
 
-    if(cpuSensor == "sensor-libpfm") {
+    if(cpuSensor == "sensor-libpfm" || cpuSensor == "sensor-libpfm-core-process") {
       fr.inria.powerapi.sensor.libpfm.LibpfmUtil.terminate()
     }
   }
@@ -171,8 +185,8 @@ object Monitor extends App {
   lazy val FileFormat       = """-filename\s+(\w+)""".r
   lazy val FreqFormat       = """-frequency\s+(\d+)""".r
   lazy val TimeFormat       = """-time\s+(\d+)""".r
-  lazy val CpuSensorFormat   = """-cpusensor\s+(cpu-proc|cpu-proc-reg|cpu-proc-virtio|sensor-libpfm)""".r
-  lazy val CpuFormulaFormat  = """-cpuformula\s+(cpu-max|cpu-maxvm|cpu-reg|formula-libpfm)""".r
+  lazy val CpuSensorFormat   = """-cpusensor\s+(cpu-proc|cpu-proc-reg|cpu-proc-virtio|sensor-libpfm|sensor-libpfm-core-process)""".r
+  lazy val CpuFormulaFormat  = """-cpuformula\s+(cpu-max|cpu-maxvm|cpu-reg|formula-libpfm|formula-libpfm-core-cycles)""".r
   lazy val MemSensorFormat   = """-memsensor\s+(mem-proc|mem-sigar)""".r
   lazy val MemFormulaFormat  = """-memformula\s+(mem-single)""".r
   lazy val DiskSensorFormat  = """-disksensor\s+(disk-proc|disk-atop)""".r

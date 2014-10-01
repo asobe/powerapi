@@ -43,8 +43,8 @@ object Launcher extends App {
   }
 
   Sampling.run()
-  Processing.run()
-  PolynomialRegression.run()
+  //Processing.run()
+  //PolynomialRegression.run()
   
   System.exit(0)
 }

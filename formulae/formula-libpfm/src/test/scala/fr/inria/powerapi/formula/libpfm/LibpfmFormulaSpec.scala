@@ -32,56 +32,41 @@ import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import scala.concurrent.duration.DurationInt
 
-class ListenerMessageListener extends akka.actor.Actor {
-  override def preStart() = {
-    context.system.eventStream.subscribe(self, classOf[LibpfmListenerMessage])
-  }
-
-  val cache = new scala.collection.mutable.HashMap[Long, scala.collection.mutable.ArrayBuffer[LibpfmListenerMessage]]
-
-  def receive() = {
-    case libpfmListenerMessage: LibpfmListenerMessage => {
-      val entry = cache.getOrElse(libpfmListenerMessage.tick.clockid, scala.collection.mutable.ArrayBuffer[LibpfmListenerMessage]())
-      entry += libpfmListenerMessage
-      cache(libpfmListenerMessage.tick.clockid) = entry
-    }
-    case _ => println("ooops ...")
-  }
-}
-
-class FormulaMessageListener extends akka.actor.Actor {
-  override def preStart() = {
-    context.system.eventStream.subscribe(self, classOf[LibpfmFormulaMessage])
-  }
-
-  val messages = scala.collection.mutable.Set[LibpfmFormulaMessage]()
-
-  def receive() = {
-    case libpfmFormulaMessage: LibpfmFormulaMessage => {
-      messages += libpfmFormulaMessage
-    }
-    case _ => println("ooops ...")
-  }
-}
-
 @RunWith(classOf[JUnitRunner])
 class LibpfmFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
   implicit val system = ActorSystem("LibpfmFormulaSpecSystem")
+  
+  class Listener extends akka.actor.Actor {
+    override def preStart() = {
+      context.system.eventStream.subscribe(self, classOf[LibpfmListenerMessage])
+    }
+
+    val cache = new scala.collection.mutable.HashMap[Long, scala.collection.mutable.ArrayBuffer[LibpfmListenerMessage]]
+
+    def receive() = {
+      case libpfmListenerMessage: LibpfmListenerMessage => {
+        val entry = cache.getOrElse(libpfmListenerMessage.tick.subscription.clockid, scala.collection.mutable.ArrayBuffer[LibpfmListenerMessage]())
+        entry += libpfmListenerMessage
+        cache(libpfmListenerMessage.tick.subscription.clockid) = entry
+      }
+      case _ => println("ooops ...")
+    }
+  }
 
   "A LibpfmListener" should "listen LibpfmSensorMessage, aggregate them and send ListenerMessage" in {
     val libpfmListener = TestActorRef(new LibpfmListener())
-    val resultListener = TestActorRef(new ListenerMessageListener())
+    val resultListener = TestActorRef(new Listener())
     val timeInStates = scala.collection.mutable.HashMap[Int, Long]()
     timeInStates += (1300000 -> (0L + 0L))
     timeInStates += (1200000 -> (0L + 0L))
 
-    val msg1T1M1 = LibpfmSensorMessage(counter = Counter(3591479118L), event = Event("cycles"), tick = Tick(1, TickSubscription(1, Process(123), 1.second), 1))
-    val msg2T1M1 = LibpfmSensorMessage(counter = Counter(6768599498L), event = Event("instructions"), tick = Tick(1, TickSubscription(1, Process(123), 1.second), 1))
-    val msg3T1M1 = LibpfmSensorMessage(counter = Counter(2591479118L), event = Event("cycles"), tick = Tick(1, TickSubscription(1, Process(124), 1.second), 1))
-    val msg4T1M1 = LibpfmSensorMessage(counter = Counter(5768599498L), event = Event("instructions"), tick = Tick(1, TickSubscription(1, Process(124), 1.second), 1))
-    val msg1T1M2 = LibpfmSensorMessage(counter = Counter(1197309162L), event = Event("cycles"), tick = Tick(2, TickSubscription(2, Process(123), 1.second), 2))
+    val msg1T1M1 = LibpfmSensorMessage(counter = Counter(3591479118L), event = Event("cycles"), tick = Tick(TickSubscription(1, Process(123), 1.second), 1))
+    val msg2T1M1 = LibpfmSensorMessage(counter = Counter(6768599498L), event = Event("instructions"), tick = Tick(TickSubscription(1, Process(123), 1.second), 1))
+    val msg3T1M1 = LibpfmSensorMessage(counter = Counter(2591479118L), event = Event("cycles"), tick = Tick(TickSubscription(1, Process(124), 1.second), 1))
+    val msg4T1M1 = LibpfmSensorMessage(counter = Counter(5768599498L), event = Event("instructions"), tick = Tick(TickSubscription(1, Process(124), 1.second), 1))
+    val msg1T1M2 = LibpfmSensorMessage(counter = Counter(1197309162L), event = Event("cycles"), tick = Tick(TickSubscription(2, Process(123), 1.second), 2))
 
-    val msg1T2M1 = LibpfmSensorMessage(counter = Counter(3591479118L), event = Event("cycles"), tick = Tick(1, TickSubscription(1, Process(123), 1.second), 2))
+    val msg1T2M1 = LibpfmSensorMessage(counter = Counter(3591479118L), event = Event("cycles"), tick = Tick(TickSubscription(1, Process(123), 1.second), 2))
     
     libpfmListener.underlyingActor.process(msg1T1M1)
     libpfmListener.underlyingActor.process(msg1T1M2)
@@ -92,10 +77,10 @@ class LibpfmFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
     
     resultListener.underlyingActor.cache.keys should (contain(1) and not contain(2))
     resultListener.underlyingActor.cache(1).size should equal(1)
-    resultListener.underlyingActor.cache(1)(0) should equal(LibpfmListenerMessage(tick = Tick(1,TickSubscription(1,Process(123),1 second),1), timeInStates = TimeInStates(timeInStates.toMap), messages = List(msg1T1M1, msg2T1M1)))
+    resultListener.underlyingActor.cache(1)(0) should equal(LibpfmListenerMessage(tick = Tick(TickSubscription(1,Process(123),1 second),1), timeInStates = TimeInStates(timeInStates.toMap), messages = List(msg1T1M1, msg2T1M1)))
     libpfmListener.underlyingActor.cache.keys should (
-      contain(Tick(1, TickSubscription(1, Process(124), 1.second), 1)) and contain(Tick(2, TickSubscription(2, Process(123), 1.second), 2)) and contain(Tick(1, TickSubscription(1, Process(123), 1.second), 2))
-      and not contain(Tick(1, TickSubscription(1, Process(123), 1.second), 1))
+      contain(Tick(TickSubscription(1, Process(124), 1.second), 1)) and contain(Tick(TickSubscription(2, Process(123), 1.second), 2)) and contain(Tick(TickSubscription(1, Process(123), 1.second), 2))
+      and not contain(Tick(TickSubscription(1, Process(123), 1.second), 1))
     )
   }
   
@@ -117,7 +102,7 @@ class LibpfmFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
   "A LibpfmFormula" should "be able to listen LibpfmSensorMessage and compute the CPU consumption" in {
     val libpfmFormula = TestActorRef(new LibpfmFormula())
     val libpfmFormulaNoCpuFreq = TestActorRef(new LibpfmFormula() {
-      override lazy val cpuFreq = false
+      override lazy val dvfs = false
     })
 
     val timeInStatesI = scala.collection.mutable.HashMap[Int, Long]()
@@ -140,15 +125,15 @@ class LibpfmFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
     val powerMinFreqFixed = (formulaF1(0) * 3591479118L + formulaF1(1) * 6768599498L) * (timeInStatesMinFreqFixed(1200000).toDouble / timeInStatesMinFreqFixed.values.sum)
 
     val listener = TestActorRef(new FormulaMessageListener())
-    val msg1T1 = LibpfmSensorMessage(counter = Counter(1591479118L), event = Event("cycles"), tick = Tick(1, TickSubscription(1, Process(123), 1.second), 1))
-    val msg2T1 = LibpfmSensorMessage(counter = Counter(1768599498L), event = Event("instructions"), tick = Tick(1, TickSubscription(1, Process(123), 1.second), 1))
+    val msg1T1 = LibpfmSensorMessage(counter = Counter(1591479118L), event = Event("cycles"), tick = Tick(TickSubscription(1, Process(123), 1.second), 1))
+    val msg2T1 = LibpfmSensorMessage(counter = Counter(1768599498L), event = Event("instructions"), tick = Tick(TickSubscription(1, Process(123), 1.second), 1))
 
-    val msg1T2 = LibpfmSensorMessage(counter = Counter(3591479118L), event = Event("cycles"), tick = Tick(1, TickSubscription(1, Process(123), 1.second), 2))
-    val msg2T2 = LibpfmSensorMessage(counter = Counter(6768599498L), event = Event("instructions"), tick = Tick(1, TickSubscription(1, Process(123), 1.second), 2))
+    val msg1T2 = LibpfmSensorMessage(counter = Counter(3591479118L), event = Event("cycles"), tick = Tick(TickSubscription(1, Process(123), 1.second), 2))
+    val msg2T2 = LibpfmSensorMessage(counter = Counter(6768599498L), event = Event("instructions"), tick = Tick(TickSubscription(1, Process(123), 1.second), 2))
 
-    val msg = LibpfmListenerMessage(tick = Tick(1, TickSubscription(1, Process(123), 1.second), 1), timeInStates = TimeInStates(timeInStatesI.toMap), messages = List(msg1T1, msg2T1))
-    val msg2 = LibpfmListenerMessage(tick = Tick(1, TickSubscription(1, Process(123), 1.second), 2), timeInStates = TimeInStates(timeInStatesAllFreqEnabled.toMap), messages = List(msg1T2, msg2T2))
-    val msg2B = LibpfmListenerMessage(tick = Tick(1, TickSubscription(1, Process(123), 1.second), 2), timeInStates = TimeInStates(timeInStatesMinFreqFixed.toMap), messages = List(msg1T2, msg2T2))
+    val msg = LibpfmListenerMessage(tick = Tick(TickSubscription(1, Process(123), 1.second), 1), timeInStates = TimeInStates(timeInStatesI.toMap), messages = List(msg1T1, msg2T1))
+    val msg2 = LibpfmListenerMessage(tick = Tick(TickSubscription(1, Process(123), 1.second), 2), timeInStates = TimeInStates(timeInStatesAllFreqEnabled.toMap), messages = List(msg1T2, msg2T2))
+    val msg2B = LibpfmListenerMessage(tick = Tick(TickSubscription(1, Process(123), 1.second), 2), timeInStates = TimeInStates(timeInStatesMinFreqFixed.toMap), messages = List(msg1T2, msg2T2))
 
     libpfmFormula.underlyingActor.process(msg)
     libpfmFormula.underlyingActor.process(msg2)
@@ -158,9 +143,9 @@ class LibpfmFormulaSpec extends FlatSpec with Matchers with AssertionsForJUnit {
 
 
     listener.underlyingActor.messages should have size 4
-    listener.underlyingActor.messages should contain(LibpfmFormulaMessage(Tick(1,TickSubscription(1,Process(123),1 second),1),Energy.fromPower(0.0),"cpu"))
-    listener.underlyingActor.messages should contain(LibpfmFormulaMessage(Tick(1,TickSubscription(1,Process(123),1 second),2),Energy.fromPower(powerAllFreqEnabled),"cpu"))
-    listener.underlyingActor.messages should contain(LibpfmFormulaMessage(Tick(1,TickSubscription(1,Process(123),1 second),2),Energy.fromPower(powerMinFreqFixed),"cpu"))
-    listener.underlyingActor.messages should contain(LibpfmFormulaMessage(Tick(1,TickSubscription(1,Process(123),1 second),2),Energy.fromPower(powerNoCpuFreq),"cpu"))
+    listener.underlyingActor.messages should contain(LibpfmFormulaMessage(Tick(TickSubscription(1,Process(123),1 second),1),Energy.fromPower(0.0),"cpu"))
+    listener.underlyingActor.messages should contain(LibpfmFormulaMessage(Tick(TickSubscription(1,Process(123),1 second),2),Energy.fromPower(powerAllFreqEnabled),"cpu"))
+    listener.underlyingActor.messages should contain(LibpfmFormulaMessage(Tick(TickSubscription(1,Process(123),1 second),2),Energy.fromPower(powerMinFreqFixed),"cpu"))
+    listener.underlyingActor.messages should contain(LibpfmFormulaMessage(Tick(TickSubscription(1,Process(123),1 second),2),Energy.fromPower(powerNoCpuFreq),"cpu"))
   }
 }

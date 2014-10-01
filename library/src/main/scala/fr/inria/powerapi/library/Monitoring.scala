@@ -110,7 +110,7 @@ class MonitoringSupervisor(clockSupervisor: ActorRef) extends Actor with ActorLo
    * @param processedMessage: AggregatedMessage sent by the processors.
    */
   def forwardProcessedMessage(processedMessage: ProcessedMessage) = {
-    val clockid = processedMessage.tick.clockid
+    val clockid = processedMessage.tick.subscription.clockid
     
     if(monitorings.contains(clockid)) {
       val monitoringRef = monitorings(clockid)
