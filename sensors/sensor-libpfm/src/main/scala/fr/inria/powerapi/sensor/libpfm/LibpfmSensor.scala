@@ -27,7 +27,7 @@ import scala.collection
 /**
  * Sensor which opens one counter per event and pid (because of the implementation of perf_event_open method).
  */
-class LibpfmSensor(val event: String, val bitset: java.util.BitSet) extends Sensor {
+class LibpfmSensor(val event: String, val bitset: java.util.BitSet, val threadsDepth: Boolean) extends Sensor {
   // pid -> threads
   lazy val processes = scala.collection.mutable.HashMap[Process, Set[Int]]()
   lazy val tickProcesses = scala.collection.mutable.Set[Process]()
@@ -97,8 +97,8 @@ class LibpfmSensor(val event: String, val bitset: java.util.BitSet) extends Sens
 
     // Get the associated threads for a given process.
     val threads = {
-      if(bitset.get(1)) {
-        tick.subscription.process.threads + tick.subscription.process.pid 
+      if(threadsDepth) {
+        tick.subscription.process.threads - tick.subscription.process.pid 
       }
       else Set[Int](tick.subscription.process.pid)
     }
@@ -199,8 +199,8 @@ trait LibpfmComponent {
  * Class used to create this given component.
  * Here, it is not a companion object because we have to configure multiple sensors.
  */
-class SensorLibpfmConfigured(val event: String, val bitset: java.util.BitSet) extends fr.inria.powerapi.core.APIComponent with LibpfmComponent {
-  override lazy val args = List(event, bitset)
+class SensorLibpfmConfigured(val event: String, val bitset: java.util.BitSet, val threadsDepth: Boolean) extends fr.inria.powerapi.core.APIComponent with LibpfmComponent {
+  override lazy val args = List(event, bitset, threadsDepth)
 }
 
 /**
@@ -210,5 +210,5 @@ trait SensorLibpfm extends LibpfmConfiguration {
   self: fr.inria.powerapi.core.API =>
 
   // One sensor per event.
-  events.distinct.foreach(event => configure(new SensorLibpfmConfigured(event, bitset)))
+  events.distinct.foreach(event => configure(new SensorLibpfmConfigured(event, bitset, threadsDepth)))
 }

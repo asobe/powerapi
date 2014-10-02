@@ -44,7 +44,7 @@ class LibpfmSensorSpec extends FlatSpec with Matchers with BeforeAndAfter {
   bitset.set(0)
   bitset.set(1)
   
-  val libpfmSensor = TestActorRef(new LibpfmSensor("instructions", bitset))
+  val libpfmSensor = TestActorRef(new LibpfmSensor("instructions", bitset, false))
   val listener = TestActorRef[Listener]
 
   before {

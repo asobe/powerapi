@@ -43,8 +43,8 @@ class LibpfmCoreProcessSensorSpec extends FlatSpec with Matchers with BeforeAndA
 
   val bitset = new java.util.BitSet()
 
-  val libpfmCore0Sensor0 = TestActorRef(new LibpfmCoreSensor("instructions", bitset, 0, Array(0)))
-  val libpfmCore0Sensor1 = TestActorRef(new LibpfmCoreSensor("cycles", bitset, 0, Array(0))) 
+  val libpfmCore0Sensor0 = TestActorRef(new LibpfmCoreProcessSensor("instructions", bitset, true, 0, Array(0)))
+  val libpfmCore0Sensor1 = TestActorRef(new LibpfmCoreProcessSensor("cycles", bitset, true, 0, Array(0))) 
   val listener = TestActorRef[Listener]
 
   before {

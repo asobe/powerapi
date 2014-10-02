@@ -73,14 +73,14 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration w
 
       if(cpuSensor == "sensor-libpfm") {
         // One sensor per event.
-        events.distinct.foreach(event => powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmConfigured(event, bitset)))
+        events.distinct.foreach(event => powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmConfigured(event, bitset, threadsDepth)))
       }
 
       if(cpuSensor == "sensor-libpfm-core-process") {
         for((core, osIndexes) <- topology) {
           for(event <- events.distinct) {
             // One sensor per core, per event.
-            powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmCoreProcessConfigured(event, bitset, core, osIndexes))
+            powerapi.configure(new fr.inria.powerapi.sensor.libpfm.SensorLibpfmCoreProcessConfigured(event, bitset, threadsDepth, core, osIndexes))
           }
         }
       }

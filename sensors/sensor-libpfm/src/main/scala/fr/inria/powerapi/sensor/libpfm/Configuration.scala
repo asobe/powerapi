@@ -68,6 +68,8 @@ trait LibpfmConfiguration extends fr.inria.powerapi.core.Configuration {
     tmp
   }
 
+  lazy val threadsDepth = load { _.getBoolean("powerapi.libpfm.configuration.threads-depth") }(false)
+
   /** Events to monitor. */
   lazy val events = load {
     conf =>

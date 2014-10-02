@@ -25,7 +25,7 @@ import fr.inria.powerapi.core.{ Sensor, Process, Tick, TCID }
 /**
  * Sensor which opens a counter per thread/event/os core.
  */
-class LibpfmCoreProcessSensor(val event: String, val bitset: java.util.BitSet, val coreId: Int, val osIndexes: Array[Int]) extends Sensor {
+class LibpfmCoreProcessSensor(val event: String, val bitset: java.util.BitSet, val threadsDepth: Boolean, val coreId: Int, val osIndexes: Array[Int]) extends Sensor {
   // pid -> threads
   lazy val processes = scala.collection.mutable.HashMap[Process, Set[Int]]()
   lazy val tickProcesses = scala.collection.mutable.Set[Process]()
@@ -112,7 +112,7 @@ class LibpfmCoreProcessSensor(val event: String, val bitset: java.util.BitSet, v
 
     // Get the associated threads for a given process.
     val threads = {
-      if(bitset.get(1)) {
+      if(threadsDepth) {
         tick.subscription.process.threads + tick.subscription.process.pid 
       }
       else Set[Int](tick.subscription.process.pid)
@@ -145,21 +145,7 @@ class LibpfmCoreProcessSensor(val event: String, val bitset: java.util.BitSet, v
           val old = cache.getOrElse(fd, now)
           refreshCache(fd, now)
 
-          val deltaScaledValTid = {
-            // This may appear when the process exists but it does not execute any instructions, so we don't want to get the previous value.
-            if(now(1) == old(1) && now(2) == old(2)) {
-              // Put the ratio to one to get the non scaled value (see the scaling method).
-              val fakeValues: Array[Long] = Array(old(0), (now(1) - 1), (now(2) - 1))
-              LibpfmUtil.scale(now, fakeValues)
-            }
-            // This may appear if libpfm was not able to read the correct value (problem with the access to the counter).
-            else if(now(2) == old(2)) {
-              deltaScaledCache.getOrElse(fd, 0l)
-            }
-
-            else LibpfmUtil.scale(now, old)
-          }
-
+          val deltaScaledValTid = LibpfmUtil.scale(now, old)
           refreshDeltaScaledCache(fd, deltaScaledValTid)
           deltaScaledVal += deltaScaledValTid
         })
@@ -188,8 +174,8 @@ trait LibpfmCoreProcessSensorComponent {
  * Class used to create this given component.
  * Here, it is not a companion object because we have to configure multiple sensors.
  */
-class SensorLibpfmCoreProcessConfigured(val event: String, val bitset: java.util.BitSet, val coreId: Int, val osIndexes: Array[Int]) extends fr.inria.powerapi.core.APIComponent with LibpfmCoreProcessSensorComponent {
-  override lazy val args = List(event, bitset, coreId, osIndexes)
+class SensorLibpfmCoreProcessConfigured(val event: String, val bitset: java.util.BitSet, val threadsDepth: Boolean, val coreId: Int, val osIndexes: Array[Int]) extends fr.inria.powerapi.core.APIComponent with LibpfmCoreProcessSensorComponent {
+  override lazy val args = List(event, bitset, threadsDepth, coreId, osIndexes)
 }
 
 /**
@@ -201,7 +187,7 @@ trait SensorLibpfmCoreProcess extends LibpfmCoreConfiguration {
   for((core, osIndexes) <- topology) {
     for(event <- events.distinct) {
       // One sensor per core, per event.
-      configure(new SensorLibpfmCoreProcessConfigured(event, bitset, core, osIndexes))
+      configure(new SensorLibpfmCoreProcessConfigured(event, bitset, threadsDepth, core, osIndexes))
     }
   }
 }

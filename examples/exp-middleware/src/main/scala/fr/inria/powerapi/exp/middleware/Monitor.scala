@@ -26,118 +26,9 @@ import scalax.file.Path
 import scalax.file.ImplicitConversions.string2path
 import scalax.io.Resource
 
-trait SpecExpConfiguration extends fr.inria.powerapi.core.Configuration {
-  lazy val specpath = load { _.getString("powerapi.spec.path") }("")
-}
-
-trait ParsecConfiguration extends fr.inria.powerapi.core.Configuration {
-  lazy val parsecpath = load { _.getString("powerapi.parsec.path") }("")
-}
-
-object Experiments extends SpecExpConfiguration with ParsecConfiguration {
-  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt
+object Experiments extends SpecConfiguration with ParsecConfiguration {
+  val currentPid = java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0).toInt  
   
-  case class LineToWrite(filename: String, str: String)
-  class Writer extends akka.actor.Actor with akka.actor.ActorLogging {
-    val resources = scala.collection.mutable.HashMap[String, java.io.FileWriter]()
-
-    override def preStart() = {
-      context.system.eventStream.subscribe(self, classOf[LineToWrite])
-    }
-
-    override def postStop() = {
-      context.system.eventStream.unsubscribe(self, classOf[LineToWrite])
-      resources.foreach {
-        case (_, writer) => writer.close()
-      }
-    }
-
-    def receive() = {
-      case line: LineToWrite => process(line)
-      case _ => None
-    }
-
-    def process(line: LineToWrite) {
-      if(!resources.contains(line.filename)) {
-        val filewriter = try {
-          new java.io.FileWriter(line.filename, true)
-        }
-        catch {
-          case e: java.io.IOException => null;
-        }
-
-        if(filewriter != null) {
-          resources += (line.filename -> filewriter)
-        }
-      }
-
-      if(resources.contains(line.filename)) {
-        resources(line.filename).write(line.str)
-        resources(line.filename).flush()
-      }
-    }
-  }
-
-  class LibpfmListener extends akka.actor.Actor {
-    var timestamp = -1l
-    val cache = scala.collection.mutable.HashMap[String, scala.collection.mutable.ListBuffer[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage]]()
-
-    override def preStart() = {
-      context.system.eventStream.subscribe(self, classOf[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage])
-    }
-
-    override def postStop() = {
-      context.system.eventStream.unsubscribe(self, classOf[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage])
-      timestamp = -1l
-      cache.clear()
-    }
-    case class Line(messages: List[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage]) {
-      val aggregated = messages.foldLeft(0l)((acc, message) => acc + message.counter.value)
-      override def toString() = s"$aggregated\n"
-    }
-
-    def addToCache(event: String, sensorMessage: fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage) = {
-      cache.get(event) match {
-        case Some(buffer) => buffer += sensorMessage
-        case None => {
-          val buffer = scala.collection.mutable.ListBuffer[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage]()
-          buffer += sensorMessage
-          cache += (event -> buffer)
-        }
-      }
-    }
-
-    def receive() = {
-      case sensorMessage: fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage => process(sensorMessage)
-    }
-
-    def process(sensorMessage: fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage) {
-      if(timestamp == -1) timestamp = sensorMessage.tick.timestamp
-
-      if(sensorMessage.tick.timestamp > timestamp) {
-        cache.par.foreach {
-          case (event, messages) => {
-            context.system.eventStream.publish(LineToWrite(s"output-libpfm-$event.dat", Line(messages.toList).toString))
-          }
-        }
-        timestamp = sensorMessage.tick.timestamp
-        cache.clear()
-      }
-
-      addToCache(sensorMessage.event.name, sensorMessage)
-    }
-  }
-
-  class PowerspyReporter extends fr.inria.powerapi.reporter.file.FileReporter {
-    override lazy val filePath = "output-powerspy.dat"
-
-    override def process(processedMessage: fr.inria.powerapi.core.ProcessedMessage) {
-      val power = processedMessage.energy.power
-      val newLine = scalax.io.Line.Terminators.NewLine.sep
-      output.append(s"$power$newLine")
-    }
-  }                                                    
-
   def specCPUAllCores = {
     implicit val codec = scalax.io.Codec.UTF8
     val separator = "="
@@ -159,13 +50,15 @@ object Experiments extends SpecExpConfiguration with ParsecConfiguration {
     
     // To be sure that the benchmarks are compiled, we launch the compilation before all the monitorings (no noise).
     /*benchmarks.foreach(benchmark => {
-      val res = Seq("bash", "./src/main/resources/compile_bench.bash", specpath, benchmark).!
+      val res = Seq("bash", "./src/main/resources/compile_spec.bash", specpath, benchmark).!
       if(res != 0) throw new RuntimeException("Umh, there is a problem with the compilation, maybe dependencies are missing.")
     })*/
    
     // One libpfm sensor per event.
-    Monitor.libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCore with fr.inria.powerapi.sensor.powerspy.SensorPowerspy with fr.inria.powerapi.formula.powerspy.FormulaPowerspy with fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
-   
+    Monitor.libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCore with fr.inria.powerapi.sensor.powerspy.SensorPowerspy with fr.inria.powerapi.formula.powerspy.FormulaPowerspy with fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp {
+      override lazy val bits = scala.collection.immutable.HashMap[Int, Int](0 -> 1)
+    }
+
     for(benchmark <- benchmarks) {
       // Cleaning phase
       (Path(".") * "*.dat").foreach(path => path.delete(force = true))
@@ -175,7 +68,7 @@ object Experiments extends SpecExpConfiguration with ParsecConfiguration {
 
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
-      Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(currentPid)).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
+      Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(currentPid)).attachReporter(classOf[Reporter]).waitFor(20.seconds)
       Resource.fromFile("output-powerspy.dat").append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
       // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
@@ -186,14 +79,14 @@ object Experiments extends SpecExpConfiguration with ParsecConfiguration {
       val buffer = Seq("bash", "./src/main/resources/start.bash", s"./src/main/resources/start_spec.bash $specpath $benchmark").lines
       val ppid = buffer(0).trim.toInt
 
-      val monitoring = Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
+      val monitoring = Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(ppid)).attachReporter(classOf[Reporter])
       Seq("kill", "-SIGCONT", ppid+"").!
 
       while(Seq("kill", "-0", ppid+"").! == 0) {
         Thread.sleep((15.seconds).toMillis)
       }
 
-      monitoring.stop()
+      monitoring.waitFor(1.milliseconds)
 
       Monitor.libpfm.system.stop(libpfmListener)
       Monitor.libpfm.system.stop(libpfmWriter)
@@ -224,7 +117,9 @@ object Experiments extends SpecExpConfiguration with ParsecConfiguration {
     val benchmarks = Array("blackscholes","bodytrack","facesim","fluidanimate","freqmine","swaptions","vips","x264")
     
     // One libpfm sensor per event.
-    Monitor.libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCore with fr.inria.powerapi.sensor.powerspy.SensorPowerspy with fr.inria.powerapi.formula.powerspy.FormulaPowerspy with fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
+    Monitor.libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCore with fr.inria.powerapi.sensor.powerspy.SensorPowerspy with fr.inria.powerapi.formula.powerspy.FormulaPowerspy with fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp {
+      override lazy val bits = scala.collection.immutable.HashMap[Int, Int](0 -> 1)
+    }
 
     for(benchmark <- benchmarks) {
       (Path(".") * "*.dat").foreach(path => path.delete(force = true))
@@ -236,33 +131,104 @@ object Experiments extends SpecExpConfiguration with ParsecConfiguration {
         case _ => None
       })
 
-      val cmd = (Seq("bash", "-c", "ps -Ao pid,command") #> Seq("bash", "-c", s"grep /$benchmark/inst/amd64-linux.gcc/bin") #> Seq("bash", "-c", "grep -v grep"))
-
       // Start a monitoring to get the idle power.
       // We add some time because of the sync. between PowerAPI & PowerSPY.
-      Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(currentPid)).attachReporter(classOf[PowerspyReporter]).waitFor(20.seconds)
+      Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(currentPid)).attachReporter(classOf[Reporter]).waitFor(20.seconds)
       Resource.fromFile("output-powerspy.dat").append(separator + scalax.io.Line.Terminators.NewLine.sep)
 
       // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
       val libpfmListener = Monitor.libpfm.system.actorOf(akka.actor.Props[LibpfmListener])
       val libpfmWriter = Monitor.libpfm.system.actorOf(akka.actor.Props[Writer])
 
-      val buffer = Seq("bash", "./src/main/resources/start.bash", s"./src/main/resources/start_parsec.bash $parsecpath $benchmark").lines
+      val buffer = Seq("bash", "./src/main/resources/start.bash", s"./src/main/resources/start_parsec_core.bash $parsecpath $benchmark").lines
       val ppid = buffer(0).trim.toInt
 
       // Start a monitoring to get the values of the counters for the workload.
-      val monitoring = Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(ppid)).attachReporter(classOf[PowerspyReporter])
+      val monitoring = Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(ppid)).attachReporter(classOf[Reporter])
       Seq("kill", "-SIGCONT", ppid+"").!
       
       while(Seq("kill", "-0", ppid+"").! == 0) {
         Thread.sleep((15.seconds).toMillis)
       }
       
-      monitoring.stop()
+      monitoring.waitFor(1.milliseconds)
       
       Monitor.libpfm.system.stop(libpfmListener)
       Monitor.libpfm.system.stop(libpfmWriter)
       
+      s"$dataP/$benchmark".createDirectory(failIfExists=false)
+      (Path(".") * "*.dat").foreach(path => {
+        val name = path.name
+        val target: Path = s"$dataP/$benchmark/$name"
+        path.moveTo(target=target, replace=true)
+      })
+    }
+
+    Monitor.libpfm.stop
+    Monitor.libpfm = null
+  }
+
+  def parsecProcess = {
+    implicit val codec = scalax.io.Codec.UTF8
+    val separator = "="
+    val PSFormat = """\s*([\d]+)\s.*""".r
+    val dataP = "parsec-process"
+
+    // Cleaning phase
+    Path.fromString(dataP).deleteRecursively(force = true)
+    (Path(".") * "*.dat").foreach(path => path.delete(force = true))
+
+    val benchmarks = Array("bodytrack","facesim","fluidanimate","freqmine","swaptions","vips","x264") 
+
+    // One libpfm sensor per event.
+    Monitor.libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCoreProcess with fr.inria.powerapi.sensor.powerspy.SensorPowerspy with fr.inria.powerapi.formula.libpfm.FormulaLibpfmCoreCycles with fr.inria.powerapi.formula.powerspy.FormulaPowerspy with AggregatorDevice {
+      override lazy val threadsDepth = true
+    }
+
+    for(benchmark <- benchmarks) {
+      val cmd = (Seq("bash", "-c", "ps -Ao pid,command") #> Seq("bash", "-c", s"grep /$benchmark/inst/amd64-linux.gcc/bin") #> Seq("bash", "-c", "grep -v grep"))
+      (Path(".") * "*.dat").foreach(path => path.delete(force = true))
+
+      // Cleaning all the old runs.
+      val oldPids = (Seq("bash", "-c", "ps -Ao pid,command") #> Seq("bash", "-c", "grep inst/amd64-linux.gcc/bin/") #> Seq("bash", "-c", "grep -v grep")).lines_!.toArray
+      oldPids.foreach(oldPid => oldPid match {
+        case PSFormat(pid) => Seq("kill", "-9", pid)
+        case _ => None
+      })
+      
+      // Start a monitoring to get the idle power.
+      // We add some time because of the sync. between PowerAPI & PowerSPY.
+      Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(currentPid)).attachReporter(classOf[Reporter]).waitFor(20.seconds)
+      (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+
+      // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
+      val libpfmListener = Monitor.libpfm.system.actorOf(akka.actor.Props[LibpfmListener])
+      val libpfmWriter = Monitor.libpfm.system.actorOf(akka.actor.Props[Writer])
+
+      Seq("bash", "./src/main/resources/start_parsec_process.bash", parsecpath, benchmark).!
+      var output = Array[String]()
+      while(output.isEmpty) {
+        output = cmd.lines_!.toArray
+        Thread.sleep((1.seconds).toMillis)
+      }
+      
+      var pid = 0
+      output(0) match {
+        case PSFormat(p) => pid = p.trim.toInt
+        case _ => println("oops")
+      }
+      
+      val monitoring = Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(pid)).attachReporter(classOf[Reporter])        
+          
+      while(Seq("kill", "-0", pid.toString).! == 0) {
+        Thread.sleep((15.seconds).toMillis)
+      }
+
+      monitoring.waitFor(1.milliseconds)
+      Monitor.libpfm.system.stop(libpfmListener)
+      Monitor.libpfm.system.stop(libpfmWriter)
+
+      // Move files to the right place, to save them for the future regression.
       s"$dataP/$benchmark".createDirectory(failIfExists=false)
       (Path(".") * "*.dat").foreach(path => {
         val name = path.name
@@ -308,10 +274,12 @@ object Monitor extends App {
   }
 
   fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()  
- 
-  Experiments.specCPUAllCores
-  Thread.sleep((10.seconds).toMillis)
+  
+  //Experiments.specCPUAllCores
+  //Thread.sleep((10.seconds).toMillis)
   Experiments.parsecAllCores
+  //Thread.sleep((10.seconds).toMillis)
+  //Experiments.parsecProcess
 
   Monitor.shutdownThread.start()
   Monitor.shutdownThread.join()
