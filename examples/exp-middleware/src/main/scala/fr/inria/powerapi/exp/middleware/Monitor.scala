@@ -167,77 +167,94 @@ object Experiments extends SpecConfiguration with ParsecConfiguration {
     Monitor.libpfm = null
   }
 
-  def parsecProcess = {
+  def parsecTwoProcessses = {
     implicit val codec = scalax.io.Codec.UTF8
     val separator = "="
     val PSFormat = """\s*([\d]+)\s.*""".r
-    val dataP = "parsec-process"
-
+    val dataP = "parsec-two-processes"
+    
     // Cleaning phase
     Path.fromString(dataP).deleteRecursively(force = true)
     (Path(".") * "*.dat").foreach(path => path.delete(force = true))
-
-    val benchmarks = Array("bodytrack","facesim","fluidanimate","freqmine","swaptions","vips","x264") 
-
+    
+    val benchmark1 = "blackscholes"
+    val benchmark2 = "bodytrack"
+    
     // One libpfm sensor per event.
     Monitor.libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCoreProcess with fr.inria.powerapi.sensor.powerspy.SensorPowerspy with fr.inria.powerapi.formula.libpfm.FormulaLibpfmCoreCycles with fr.inria.powerapi.formula.powerspy.FormulaPowerspy with AggregatorDevice {
       override lazy val threadsDepth = true
     }
 
-    for(benchmark <- benchmarks) {
-      val cmd = (Seq("bash", "-c", "ps -Ao pid,command") #> Seq("bash", "-c", s"grep /$benchmark/inst/amd64-linux.gcc/bin") #> Seq("bash", "-c", "grep -v grep"))
-      (Path(".") * "*.dat").foreach(path => path.delete(force = true))
-
-      // Cleaning all the old runs.
-      val oldPids = (Seq("bash", "-c", "ps -Ao pid,command") #> Seq("bash", "-c", "grep inst/amd64-linux.gcc/bin/") #> Seq("bash", "-c", "grep -v grep")).lines_!.toArray
-      oldPids.foreach(oldPid => oldPid match {
-        case PSFormat(pid) => Seq("kill", "-9", pid)
-        case _ => None
-      })
-      
-      // Start a monitoring to get the idle power.
-      // We add some time because of the sync. between PowerAPI & PowerSPY.
-      Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(currentPid)).attachReporter(classOf[Reporter]).waitFor(20.seconds)
-      (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
-
-      // Start the libpfm sensor message listener to intercept the LibpfmSensorMessage.
-      val libpfmListener = Monitor.libpfm.system.actorOf(akka.actor.Props[LibpfmListener])
-      val libpfmWriter = Monitor.libpfm.system.actorOf(akka.actor.Props[Writer])
-
-      Seq("bash", "./src/main/resources/start_parsec_process.bash", parsecpath, benchmark).!
-      var output = Array[String]()
-      while(output.isEmpty) {
-        output = cmd.lines_!.toArray
-        Thread.sleep((1.seconds).toMillis)
-      }
-      
-      var pid = 0
-      output(0) match {
-        case PSFormat(p) => pid = p.trim.toInt
-        case _ => println("oops")
-      }
-      
-      val monitoring = Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(pid)).attachReporter(classOf[Reporter])        
-          
-      while(Seq("kill", "-0", pid.toString).! == 0) {
-        Thread.sleep((15.seconds).toMillis)
-      }
-
-      monitoring.waitFor(1.milliseconds)
-      Monitor.libpfm.system.stop(libpfmListener)
-      Monitor.libpfm.system.stop(libpfmWriter)
-
-      // Move files to the right place, to save them for the future regression.
-      s"$dataP/$benchmark".createDirectory(failIfExists=false)
-      (Path(".") * "*.dat").foreach(path => {
-        val name = path.name
-        val target: Path = s"$dataP/$benchmark/$name"
-        path.moveTo(target=target, replace=true)
-      })
+    Monitor.libpfm2 = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCoreProcess with fr.inria.powerapi.formula.libpfm.FormulaLibpfmCoreCycles with fr.inria.powerapi.processor.aggregator.device.AggregatorDevice {
+      override lazy val threadsDepth = true
     }
 
+    // Cleaning all the old runs.
+    var oldPids = (Seq("bash", "-c", "ps -Ao pid,command") #> Seq("bash", "-c", "grep inst/amd64-linux.gcc/bin/") #> Seq("bash", "-c", "grep -v grep")).lines_!.toArray
+    oldPids.foreach(oldPid => oldPid match { 
+      case PSFormat(pid) => Seq("kill", "-9", pid)
+      case _ => None 
+    })
+
+    val cmdBenchmark1 = (Seq("bash", "-c", "ps -Ao pid,command") #> Seq("bash", "-c", s"grep /$benchmark1/inst/amd64-linux.gcc/bin") #> Seq("bash", "-c", "grep -v grep"))
+    val cmdBenchmark2 = (Seq("bash", "-c", "ps -Ao pid,command") #> Seq("bash", "-c", s"grep /$benchmark2/inst/amd64-linux.gcc/bin") #> Seq("bash", "-c", "grep -v grep"))
+
+    // Start a monitoring to get the idle power.
+    // We add some time because of the sync. between PowerAPI & PowerSPY.
+    Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(currentPid)).attachReporter(classOf[Reporter]).waitFor(20.seconds)
+    (Path(".") * "*.dat").foreach(path => path.delete(force = true))
+
+    Seq("bash", "./src/main/resources/start_parsec_process.bash", parsecpath, benchmark1).!
+    var output = Array[String]()
+    while(output.isEmpty) {
+      output = cmdBenchmark1.lines_!.toArray
+      Thread.sleep((1.seconds).toMillis)
+    } 
+      
+    var pidBench1 = 0
+    output(0) match {
+      case PSFormat(p) => pidBench1 = p.trim.toInt
+      case _ => println("oops")
+    } 
+      
+    val monitoring1 = Monitor.libpfm.start(1.seconds, fr.inria.powerapi.library.PIDS(pidBench1)).attachReporter(classOf[ConfiguredReporter], "output-powerapi-p1.dat", true)
+    Thread.sleep((60.seconds).toMillis)
+    (Path(".") * "*.dat").foreach(path => path.append(separator + scalax.io.Line.Terminators.NewLine.sep))
+
+    Seq("bash", "./src/main/resources/start_parsec_process.bash", parsecpath, benchmark2).!
+    output = Array[String]()
+    while(output.isEmpty) {   
+      output = cmdBenchmark2.lines_!.toArray
+      Thread.sleep((1.seconds).toMillis)
+    }  
+        
+    var pidBench2 = 0
+    output(0) match {
+      case PSFormat(p) => pidBench2 = p.trim.toInt
+      case _ => println("oops")
+    }
+    
+    val monitoring2 = Monitor.libpfm2.start(1.seconds, fr.inria.powerapi.library.PIDS(pidBench2)).attachReporter(classOf[ConfiguredReporter], "output-powerapi-p2.dat", false)
+    
+    Thread.sleep((60.seconds).toMillis)
+
+    monitoring1.waitFor(1.milliseconds)
+    monitoring2.waitFor(1.milliseconds)
+    
+    Seq("kill", "-9", pidBench1.toString, pidBench2.toString).lines_!
+      
+    // Move files to the right place, to save them for the future regression.
+    s"$dataP".createDirectory(failIfExists=false)
+    (Path(".") * "*.dat").foreach(path => {
+      val name = path.name
+      val target: Path = s"$dataP/$name"
+      path.moveTo(target=target, replace=true)
+    }) 
+    
     Monitor.libpfm.stop
+    Monitor.libpfm2.stop
     Monitor.libpfm = null
+    Monitor.libpfm2 = null
   }
 }
 
@@ -262,6 +279,7 @@ object Monitor extends App {
   }
   
   var libpfm: fr.inria.powerapi.library.PAPI = null
+  var libpfm2: fr.inria.powerapi.library.PAPI = null
 
   val shutdownThread = scala.sys.ShutdownHookThread {
     println("\nPowerAPI is going to shutdown ...")
@@ -270,13 +288,17 @@ object Monitor extends App {
       libpfm.stop
       fr.inria.powerapi.sensor.libpfm.LibpfmUtil.terminate()
     }
+
+     if(libpfm2 != null) {
+      libpfm.stop
+    } 
   }
 
   fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()  
   
-  Experiments.parsecAllCores
+  //Experiments.parsecAllCores
   //Thread.sleep((10.seconds).toMillis)
-  //Experiments.parsecProcess
+  Experiments.parsecTwoProcessses
 
   Monitor.shutdownThread.start()
   Monitor.shutdownThread.join()

@@ -129,25 +129,38 @@ class Reporter extends fr.inria.powerapi.reporter.file.FileReporter {
   }
 }
 
+class ConfiguredReporter(val powerapiP: String, val pspyReported: Boolean) extends fr.inria.powerapi.reporter.file.FileReporter {
+  lazy val outputPspy = scalax.io.Resource.fromFile("output-powerspy.dat")
+  lazy val outputPapi = scalax.io.Resource.fromFile(powerapiP)
+  
+  override def process(processedMessage: fr.inria.powerapi.core.ProcessedMessage) {
+    val power = processedMessage.energy.power
+    val newLine = scalax.io.Line.Terminators.NewLine.sep
+    
+    if(processedMessage.device == "cpu") {
+      outputPapi.append(s"$power$newLine")
+    }
+    
+    else if(pspyReported && processedMessage.device == "powerspy") {
+      outputPspy.append(s"$power$newLine")
+    }
+  }
+}
+
 case class RowMessage(tick: fr.inria.powerapi.core.Tick, coefficient: Double, device: String, energy: fr.inria.powerapi.core.Energy)
 case class AggregatedMessage(tick: fr.inria.powerapi.core.Tick, device: String, messages: collection.mutable.Set[RowMessage] = collection.mutable.Set[RowMessage]()) extends fr.inria.powerapi.core.ProcessedMessage with FormulaeConfiguration {
   def energy = {
-    var energy = fr.inria.powerapi.core.Energy.fromPower(0d)
-
     if(device == "cpu") {
-      var power, maxCoefficient = 0d
+      var maxCoefficient = 0d
 
       for(message <- messages) {
-        power += message.energy.power
-        maxCoefficient = if(message.coefficient > maxCoefficient) message.coefficient else maxCoefficient
+        maxCoefficient = math.max(message.coefficient, maxCoefficient)
       }
-      
-      energy = fr.inria.powerapi.core.Energy.fromPower(power + formulae(maxCoefficient)(0))
+      val idle = formulae(maxCoefficient)(0)
+      scalax.io.Resource.fromFile("output-idle-formula.dat").append(s"$idle\n")
     }
 
-    else energy = fr.inria.powerapi.core.Energy.fromPower(messages.foldLeft(0: Double) { (acc, message) => acc + message.energy.power })
-    
-    energy
+    fr.inria.powerapi.core.Energy.fromPower(messages.foldLeft(0: Double) { (acc, message) => acc + message.energy.power })
   }
 
   def add(message: RowMessage) {
