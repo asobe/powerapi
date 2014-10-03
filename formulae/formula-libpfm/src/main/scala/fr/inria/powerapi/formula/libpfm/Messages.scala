@@ -50,9 +50,14 @@ case class LibpfmAggregatedMessage(tick: Tick, messages: collection.mutable.List
         val unhaltedCycles = unhaltedCyclesL(0).counter.value / (tick.subscription.duration.toMillis / 1000)
         val refCycles = refCyclesL(0).counter.value / (tick.subscription.duration.toMillis / 1000)
         
-        var coefficient = math.ceil(unhaltedCycles / refCycles.toDouble)
+        var coefficient = math.round(unhaltedCycles / refCycles.toDouble).toDouble
         if(coefficient.isNaN || coefficient < formulae.keys.min) coefficient = formulae.keys.min
         if(coefficient > formulae.keys.max) coefficient = formulae.keys.max
+        if(!formulae.contains(coefficient)) {
+          val coefficientsBefore = formulae.keys.filter(_ < coefficient)
+          coefficient = coefficientsBefore.max
+        }
+        // For the idle used in the processor.
         if(coefficient > maxCoefficient) maxCoefficient = coefficient
 
         var formula = formulae(coefficient)

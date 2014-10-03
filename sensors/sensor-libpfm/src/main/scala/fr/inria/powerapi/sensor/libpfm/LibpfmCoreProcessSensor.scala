@@ -38,7 +38,6 @@ class LibpfmCoreProcessSensor(val event: String, val bitset: java.util.BitSet, v
    * values[2] = TIME_RUNNING
    */
   lazy val cache = scala.collection.mutable.HashMap[Int, Array[Long]]()
-  lazy val deltaScaledCache = scala.collection.mutable.HashMap[Int, Long]()
 
   override def postStop() = {
     descriptors.values.flatten.foreach(fd => {
@@ -51,15 +50,10 @@ class LibpfmCoreProcessSensor(val event: String, val bitset: java.util.BitSet, v
     descriptors.clear()
     timestamp = 0l
     cache.clear()
-    deltaScaledCache.clear()
   }
 
   def refreshCache(fd: Int, now: Array[Long]) = {
     cache += (fd -> now)
-  }
-
-  def refreshDeltaScaledCache(fd: Int, value: Long) = {
-    deltaScaledCache += (fd -> value)
   }
 
   def addDescriptors(tid: Int) = {
@@ -86,7 +80,6 @@ class LibpfmCoreProcessSensor(val event: String, val bitset: java.util.BitSet, v
         LibpfmUtil.disableCounter(fd)
         LibpfmUtil.closeCounter(fd)
         cache -= fd
-        deltaScaledCache -= fd
       })
       descriptors -= tid
     }
@@ -145,9 +138,7 @@ class LibpfmCoreProcessSensor(val event: String, val bitset: java.util.BitSet, v
           val old = cache.getOrElse(fd, now)
           refreshCache(fd, now)
 
-          val deltaScaledValTid = LibpfmUtil.scale(now, old)
-          refreshDeltaScaledCache(fd, deltaScaledValTid)
-          deltaScaledVal += deltaScaledValTid
+          deltaScaledVal += LibpfmUtil.scale(now, old)
         })
       }
     })

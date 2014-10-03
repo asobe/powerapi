@@ -117,7 +117,7 @@ object Experiments extends SpecConfiguration with ParsecConfiguration {
     val benchmarks = Array("blackscholes","bodytrack","facesim","fluidanimate","freqmine","swaptions","vips","x264")
     
     // One libpfm sensor per event.
-    Monitor.libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCore with fr.inria.powerapi.sensor.powerspy.SensorPowerspy with fr.inria.powerapi.formula.powerspy.FormulaPowerspy with fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp {
+    Monitor.libpfm = new fr.inria.powerapi.library.PAPI with fr.inria.powerapi.sensor.libpfm.SensorLibpfmCore with fr.inria.powerapi.sensor.powerspy.SensorPowerspy with fr.inria.powerapi.formula.powerspy.FormulaPowerspy with fr.inria.powerapi.processor.aggregator.device.AggregatorDevice {
       override lazy val bits = scala.collection.immutable.HashMap[Int, Int](0 -> 1)
     }
 
@@ -151,8 +151,7 @@ object Experiments extends SpecConfiguration with ParsecConfiguration {
         Thread.sleep((15.seconds).toMillis)
       }
       
-      monitoring.waitFor(1.milliseconds)
-      
+      monitoring.waitFor(1.milliseconds)      
       Monitor.libpfm.system.stop(libpfmListener)
       Monitor.libpfm.system.stop(libpfmWriter)
       
@@ -275,8 +274,6 @@ object Monitor extends App {
 
   fr.inria.powerapi.sensor.libpfm.LibpfmUtil.initialize()  
   
-  //Experiments.specCPUAllCores
-  //Thread.sleep((10.seconds).toMillis)
   Experiments.parsecAllCores
   //Thread.sleep((10.seconds).toMillis)
   //Experiments.parsecProcess
