@@ -89,7 +89,7 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration w
         powerapi.configure(fr.inria.powerapi.formula.libpfm.FormulaListener)
         powerapi.configure(fr.inria.powerapi.formula.libpfm.FormulaLibpfm)
       }
-      
+  
       if(cpuFormula == "formula-libpfm-core-cycles") {
         powerapi.configure(fr.inria.powerapi.formula.libpfm.FormulaLibpfmCoreCyclesComponent)
         powerapi.configure(fr.inria.powerapi.formula.libpfm.ListenerLibpfmCoreCyclesComponent)
@@ -140,9 +140,9 @@ object Initializer extends fr.inria.powerapi.sensor.libpfm.LibpfmConfiguration w
     }
 
     val agg = aggregator match {
-      case "timestamp" => fr.inria.powerapi.processor.aggregator.timestamp.AggregatorTimestamp
-      case "process" => fr.inria.powerapi.processor.aggregator.process.AggregatorProcess
-      case "device" => fr.inria.powerapi.processor.aggregator.device.AggregatorDevice
+      case "timestamp" => AggregatorTimestamp
+      case "process" => AggregatorProcess
+      case "device" => AggregatorDevice
     }
 
     powerapi.configure(agg)

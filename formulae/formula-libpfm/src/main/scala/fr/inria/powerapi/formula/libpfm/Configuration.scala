@@ -49,7 +49,7 @@ trait LibpfmFormulaConfiguration extends Configuration {
 }
 
 trait LibpfmCoreCyclesFormulaConfiguration extends Configuration {
-  val formulae = load {
+  lazy val formulae = load {
     conf =>
       (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.unhalted-cycles-formulae")))
         yield (item.asInstanceOf[Config].getDouble("coefficient"), JavaConversions.asScalaBuffer(item.asInstanceOf[Config].getDoubleList("formula").map(_.toDouble)).toArray)).toMap[Double, Array[Double]]

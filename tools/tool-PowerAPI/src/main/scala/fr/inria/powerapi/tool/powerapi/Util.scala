@@ -18,134 +18,7 @@
  *
  * Contact: powerapi-user-list@googlegroups.com.
  */
-package fr.inria.powerapi.exp.middleware
-
-case class LineToWrite(filename: String, str: String)
-class Writer extends akka.actor.Actor with akka.actor.ActorLogging {
-  val resources = scala.collection.mutable.HashMap[String, java.io.FileWriter]()
-
-  override def preStart() = {
-    context.system.eventStream.subscribe(self, classOf[LineToWrite])
-  }
-
-  override def postStop() = {
-    context.system.eventStream.unsubscribe(self, classOf[LineToWrite])
-    resources.foreach {
-      case (_, writer) => writer.close()
-    }
-  }
-
-  def receive() = {
-    case line: LineToWrite => process(line)
-    case _ => None
-  }
-
-  def process(line: LineToWrite) {
-    if(!resources.contains(line.filename)) {
-      val filewriter = try {
-        new java.io.FileWriter(line.filename, true)
-      }
-      catch {
-        case e: java.io.IOException => null;
-      }
-
-      if(filewriter != null) {
-        resources += (line.filename -> filewriter)
-      }
-    }
-
-    if(resources.contains(line.filename)) {
-      resources(line.filename).write(line.str)
-      resources(line.filename).flush()
-    }
-  }
-}
-
-class LibpfmListener extends akka.actor.Actor {
-  var timestamp = -1l
-  val cache = scala.collection.mutable.HashMap[String, scala.collection.mutable.ListBuffer[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage]]()
-
-  override def preStart() = {
-    context.system.eventStream.subscribe(self, classOf[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage])
-  }
-
-  override def postStop() = {
-    context.system.eventStream.unsubscribe(self, classOf[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage])
-    timestamp = -1l
-    cache.clear()
-  }
-  case class Line(messages: List[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage]) {
-    val aggregated = messages.foldLeft(0l)((acc, message) => acc + message.counter.value)
-    override def toString() = s"$aggregated\n"
-  }
-
-  def addToCache(event: String, sensorMessage: fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage) = {
-    cache.get(event) match {
-      case Some(buffer) => buffer += sensorMessage
-      case None => {
-        val buffer = scala.collection.mutable.ListBuffer[fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage]()
-        buffer += sensorMessage
-        cache += (event -> buffer)
-      }
-    }
-  }
-
-  def receive() = {
-    case sensorMessage: fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage => process(sensorMessage)
-  }
-
-  def process(sensorMessage: fr.inria.powerapi.sensor.libpfm.LibpfmCoreSensorMessage) {
-    if(timestamp == -1) timestamp = sensorMessage.tick.timestamp
-
-    if(sensorMessage.tick.timestamp > timestamp) {
-      cache.par.foreach {
-        case (event, messages) => {
-          context.system.eventStream.publish(LineToWrite(s"output-libpfm-$event.dat", Line(messages.toList).toString))
-        }
-      }
-      timestamp = sensorMessage.tick.timestamp
-      cache.clear()
-    }
-
-    addToCache(sensorMessage.event.name, sensorMessage)
-  }
-}
-
-class Reporter extends fr.inria.powerapi.reporter.file.FileReporter {
-  lazy val outputPspy = scalax.io.Resource.fromFile("output-powerspy.dat")
-  lazy val outputPapi = scalax.io.Resource.fromFile("output-powerapi.dat")
-
-  override def process(processedMessage: fr.inria.powerapi.core.ProcessedMessage) {
-    val power = processedMessage.energy.power
-    val newLine = scalax.io.Line.Terminators.NewLine.sep
-
-    if(processedMessage.device == "cpu") {
-      outputPapi.append(s"$power$newLine")
-    }
-
-    else if(processedMessage.device == "powerspy") {
-      outputPspy.append(s"$power$newLine")
-    }
-  }
-}
-
-class ConfiguredReporter(val powerapiP: String, val pspyReported: Boolean) extends fr.inria.powerapi.reporter.file.FileReporter {
-  lazy val outputPspy = scalax.io.Resource.fromFile("output-powerspy.dat")
-  lazy val outputPapi = scalax.io.Resource.fromFile(powerapiP)
-  
-  override def process(processedMessage: fr.inria.powerapi.core.ProcessedMessage) {
-    val power = processedMessage.energy.power
-    val newLine = scalax.io.Line.Terminators.NewLine.sep
-    
-    if(processedMessage.device == "cpu") {
-      outputPapi.append(s"$power$newLine")
-    }
-    
-    else if(pspyReported && processedMessage.device == "powerspy") {
-      outputPspy.append(s"$power$newLine")
-    }
-  }
-}
+package fr.inria.powerapi.tool.powerapi
 
 case class RowMessage(tick: fr.inria.powerapi.core.Tick, coefficient: Double, device: String, energy: fr.inria.powerapi.core.Energy)
 case class AggregatedMessage(tick: fr.inria.powerapi.core.Tick, device: String, messages: collection.mutable.Set[RowMessage] = collection.mutable.Set[RowMessage]()) extends fr.inria.powerapi.core.ProcessedMessage with fr.inria.powerapi.formula.libpfm.LibpfmCoreCyclesFormulaConfiguration {
@@ -182,14 +55,14 @@ class TimestampAggregator extends fr.inria.powerapi.core.Processor {
       case Some(agg) => {
         formulaMessage match {
           case msg: fr.inria.powerapi.formula.libpfm.LibpfmCoreCyclesFormulaMessage => agg += RowMessage(msg.tick, msg.maxCoefficient, msg.device, msg.energy)
-          case _ => agg += RowMessage(formulaMessage.tick, 0d, formulaMessage.device, formulaMessage.energy)
+          case _ => agg += RowMessage(formulaMessage.tick, -1d, formulaMessage.device, formulaMessage.energy)
         }
       }
       case None => {
         val agg = AggregatedMessage(tick = fr.inria.powerapi.core.Tick(fr.inria.powerapi.core.TickSubscription(formulaMessage.tick.subscription.clockid, fr.inria.powerapi.core.Process(-1), formulaMessage.tick.subscription.duration)), device = "all")
         formulaMessage match {
           case msg: fr.inria.powerapi.formula.libpfm.LibpfmCoreCyclesFormulaMessage => agg += RowMessage(msg.tick, msg.maxCoefficient, msg.device, msg.energy)
-          case _ => agg += RowMessage(formulaMessage.tick, 0d, formulaMessage.device, formulaMessage.energy)
+          case _ => agg += RowMessage(formulaMessage.tick, -1d, formulaMessage.device, formulaMessage.energy)
         }
 
         cache(formulaMessage.tick.subscription.clockid) += formulaMessage.tick.timestamp -> agg
@@ -234,6 +107,33 @@ class DeviceAggregator extends TimestampAggregator {
   }
 }
 
+class ProcessAggregator extends TimestampAggregator {
+  // clockid, timestamp
+  def byProcesses(implicit args: List[Long]): Iterable[AggregatedMessage] = {
+    val base = cache(args(0))(args(1))
+    
+    for (byProcess <- base.messages.groupBy(_.tick.subscription.process)) yield (AggregatedMessage(
+      tick = fr.inria.powerapi.core.Tick(fr.inria.powerapi.core.TickSubscription(args(0), byProcess._1, base.tick.subscription.duration), args(1)),
+      device = "cpu",
+      messages = byProcess._2)
+    )
+  }
+
+  override def send(implicit args: List[Long]) {
+    byProcesses foreach publish
+  }
+}
+
+object AggregatorTimestamp extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[TimestampAggregator]
+}
+
+trait AggregatorTimestamp {
+  self: fr.inria.powerapi.core.API =>
+  configure(AggregatorTimestamp)
+}
+
 object AggregatorDevice extends fr.inria.powerapi.core.APIComponent {
   lazy val singleton = true
   lazy val underlyingClass = classOf[DeviceAggregator]
@@ -243,3 +143,13 @@ trait AggregatorDevice {
   self: fr.inria.powerapi.core.API =>
   configure(AggregatorDevice)
 } 
+
+object AggregatorProcess extends fr.inria.powerapi.core.APIComponent {
+  lazy val singleton = true
+  lazy val underlyingClass = classOf[ProcessAggregator]
+}
+
+trait AggregatorProcess {
+  self: fr.inria.powerapi.core.API =>
+  configure(AggregatorProcess)
+}

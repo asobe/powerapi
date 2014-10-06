@@ -33,11 +33,3 @@ trait SpecConfiguration extends fr.inria.powerapi.core.Configuration {
 trait ParsecConfiguration extends fr.inria.powerapi.core.Configuration {
   lazy val parsecpath = load { _.getString("powerapi.parsec.path") }("")
 }
-
-trait FormulaeConfiguration extends fr.inria.powerapi.core.Configuration {
-  lazy val formulae = load {
-    conf =>
-      (for (item <- JavaConversions.asScalaBuffer(conf.getConfigList("powerapi.libpfm.unhalted-cycles-formulae")))
-        yield (item.asInstanceOf[Config].getDouble("coefficient"), JavaConversions.asScalaBuffer(item.asInstanceOf[Config].getDoubleList("formula").map(_.toDouble)).toArray)).toMap[Double, Array[Double]]
-  } (Map[Double, Array[Double]]())
-}
